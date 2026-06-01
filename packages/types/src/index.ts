@@ -1,3 +1,4 @@
+//packages/types/src/index.ts
 // ============ ENUMS ============
 export type OrderType = 'dine-in' | 'takeaway' | 'delivery';
 export type OrderStatus = 'pending' | 'preparing' | 'done' | 'cancelled' | 'refunded' | 'void';

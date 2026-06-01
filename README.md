@@ -59,3 +59,7 @@ mat-ai-pos/
 ## License
 
 MIT
+
+## Github
+
+https://github.com/panamera-network/mat-ai-pos
