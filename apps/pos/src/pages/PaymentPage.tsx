@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Banknote,
@@ -10,6 +10,7 @@ import {
   Split,
   MoreVertical,
 } from 'lucide-react';
+import type { Order } from '@mat-ai/types';
 
 interface PaymentMethod {
   id: string;
@@ -25,39 +26,68 @@ const paymentMethods: PaymentMethod[] = [
   { id: 'delivery', name: 'Delivery', icon: <Truck className="w-6 h-6" />, color: 'bg-orange-500' },
 ];
 
-// Demo order data
-const demoOrder = {
-  id: '001',
-  type: 'dine-in',
-  table: 'T01',
-  items: [
-    { name: 'Margherita', qty: 2, price: 25 },
-    { name: 'Pepsi', qty: 1, price: 5 },
-  ],
-  subtotal: 55,
-  tax: 4.40,
-  total: 59.40,
-};
-
 export const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const { orderId } = useParams();
+  const location = useLocation();
+  const order = location.state?.order as Order | undefined;
+
   const [selectedMethod, setSelectedMethod] = useState('cash');
   const [cashReceived, setCashReceived] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const change = cashReceived ? parseFloat(cashReceived) - demoOrder.total : 0;
-  const isValidPayment = selectedMethod !== 'cash' || (cashReceived && parseFloat(cashReceived) >= demoOrder.total);
+  // Guard: no order data
+  if (!order) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-gray-500 mb-4">No order data found</p>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const change = cashReceived ? parseFloat(cashReceived) - order.total : 0;
+  const isValidPayment =
+    selectedMethod !== 'cash' ||
+    (cashReceived && parseFloat(cashReceived) >= order.total);
 
   const handleQuickAmount = (amount: number) => {
     setCashReceived(amount.toFixed(2));
   };
 
   const handleExactAmount = () => {
-    setCashReceived(demoOrder.total.toFixed(2));
+    setCashReceived(order.total.toFixed(2));
   };
 
   const handlePayment = () => {
+    // Save receipt to history
+    const receipts = JSON.parse(localStorage.getItem('mat-pos-receipts') || '[]');
+    receipts.push({
+      id: order.id,
+      receiptNo: new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(receipts.length + 1).padStart(3, '0'),
+      tableNumber: order.tableNumber || '-',
+      orderType: order.type,
+      time: new Date().toLocaleTimeString(),
+      cashier: 'Ahmad', // TODO: ganti dengan currentStaff
+      posId: 'POS-1',
+      items: order.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
+      total: order.total,
+      paymentMethod: selectedMethod,
+    });
+    localStorage.setItem('mat-pos-receipts', JSON.stringify(receipts));
+
+    // Mark order as completed
+    const orders = JSON.parse(localStorage.getItem('mat-pos-active-orders') || '[]');
+    const updated = orders.map((o: Order) => (o.id === order.id ? { ...o, status: 'completed' } : o));
+    localStorage.setItem('mat-pos-active-orders', JSON.stringify(updated));
+
     setShowSuccess(true);
     setTimeout(() => {
       setShowSuccess(false);
@@ -72,7 +102,7 @@ export const PaymentPage: React.FC = () => {
           <Check className="w-12 h-12 text-white" />
         </div>
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Payment Received!</h2>
-        <p className="text-lg text-gray-600 mb-1">RM {demoOrder.total.toFixed(2)}</p>
+        <p className="text-lg text-gray-600 mb-1">RM {order.total.toFixed(2)}</p>
         <p className="text-sm text-gray-500">Order #{orderId}</p>
         <div className="mt-8 flex gap-4">
           <button className="px-6 py-3 bg-white border rounded-xl font-medium hover:bg-gray-50 shadow-sm">
@@ -123,19 +153,23 @@ export const PaymentPage: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                  {demoOrder.type}
+                  {order.type}
                 </span>
-                <span className="ml-2 text-sm text-gray-500">Table {demoOrder.table}</span>
+                <span className="ml-2 text-sm text-gray-500">
+                  Table {order.tableNumber || '-'}
+                </span>
               </div>
             </div>
 
             <div className="space-y-2 mb-4">
-              {demoOrder.items.map((item, index) => (
+              {order.items.map((item, index) => (
                 <div key={index} className="flex justify-between text-sm">
                   <span className="text-gray-700">
                     {item.qty}x {item.name}
                   </span>
-                  <span className="font-medium">RM{(item.qty * item.price).toFixed(2)}</span>
+                  <span className="font-medium">
+                    RM{(item.qty * item.price).toFixed(2)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -143,15 +177,15 @@ export const PaymentPage: React.FC = () => {
             <div className="border-t pt-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Subtotal</span>
-                <span className="font-medium">RM{demoOrder.subtotal.toFixed(2)}</span>
+                <span className="font-medium">RM{order.subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">SST (8%)</span>
-                <span className="font-medium">RM{demoOrder.tax.toFixed(2)}</span>
+                <span className="font-medium">RM{order.tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold pt-2 border-t">
                 <span>Total</span>
-                <span className="text-primary-600">RM{demoOrder.total.toFixed(2)}</span>
+                <span className="text-primary-600">RM{order.total.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -171,10 +205,14 @@ export const PaymentPage: React.FC = () => {
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className={`w-12 h-12 ${method.color} rounded-xl flex items-center justify-center text-white`}>
+                  <div
+                    className={`w-12 h-12 ${method.color} rounded-xl flex items-center justify-center text-white`}
+                  >
                     {method.icon}
                   </div>
-                  <span className="text-sm font-medium text-gray-700">{method.name}</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    {method.name}
+                  </span>
                 </button>
               ))}
             </div>
@@ -203,7 +241,11 @@ export const PaymentPage: React.FC = () => {
                 {cashReceived && (
                   <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
                     <span className="text-sm font-medium text-gray-700">Change</span>
-                    <span className={`text-xl font-bold ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <span
+                      className={`text-xl font-bold ${
+                        change >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}
+                    >
                       RM {change >= 0 ? change.toFixed(2) : '0.00'}
                     </span>
                   </div>
@@ -237,7 +279,9 @@ export const PaymentPage: React.FC = () => {
                   <QrCode className="w-24 h-24 text-gray-400" />
                 </div>
                 <p className="text-sm text-gray-600">Scan QR code to pay</p>
-                <p className="text-xs text-gray-400 mt-1">DuitNow / GrabPay / TouchNGo</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  DuitNow / GrabPay / TouchNGo
+                </p>
               </div>
             )}
 
@@ -246,7 +290,9 @@ export const PaymentPage: React.FC = () => {
               <div className="text-center py-8">
                 <CreditCard className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-sm text-gray-600">Insert or tap card</p>
-                <p className="text-xs text-gray-400 mt-1">Terminal will process automatically</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Terminal will process automatically
+                </p>
               </div>
             )}
 
@@ -270,7 +316,7 @@ export const PaymentPage: React.FC = () => {
                        flex items-center justify-center gap-2"
           >
             <Check className="w-6 h-6" />
-            Process Payment — RM{demoOrder.total.toFixed(2)}
+            Process Payment — RM{order.total.toFixed(2)}
           </button>
         </div>
       </div>

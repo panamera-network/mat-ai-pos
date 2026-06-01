@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, LogIn, Delete, Store } from 'lucide-react';
 import { usePOSStore } from '../stores/posStore';
+import type { Staff } from '@mat-ai/types';
 
 export const MainPage: React.FC = () => {
   const navigate = useNavigate();
@@ -17,11 +18,14 @@ export const MainPage: React.FC = () => {
     if (currentStaff) navigate('/dashboard');
   }, [currentStaff, navigate]);
 
-  const handlePinPress = useCallback((digit: string) => {
-    if (!action || pin.length >= 4) return;
-    setPin((prev) => prev + digit);
-    setError('');
-  }, [action, pin.length]);
+  const handlePinPress = useCallback(
+    (digit: string) => {
+      if (!action || pin.length >= 4) return;
+      setPin((prev) => prev + digit);
+      setError('');
+    },
+    [action, pin.length]
+  );
 
   const handleClear = useCallback(() => {
     setPin('');
@@ -49,10 +53,10 @@ export const MainPage: React.FC = () => {
     setLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    const demoStaffs = [
-      { id: '1', name: 'Ahmad', pin: '1234', role: 'cashier' as const },
-      { id: '2', name: 'Sarah', pin: '5678', role: 'admin' as const },
-      { id: '3', name: 'Ali', pin: '0000', role: 'owner' as const },
+    const demoStaffs: Staff[] = [
+      { id: '1', name: 'Ahmad', pin: '1234', role: 'cashier' },
+      { id: '2', name: 'Sarah', pin: '5678', role: 'admin' },
+      { id: '3', name: 'Ali', pin: '0000', role: 'owner' },
     ];
 
     const staff = demoStaffs.find((s) => s.pin === pin);
@@ -119,16 +123,20 @@ export const MainPage: React.FC = () => {
       </div>
 
       {/* Main Card */}
-      <div className={`w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 ${shake ? 'animate-shake' : ''}`}>
-        
+      <div
+        className={`w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 ${
+          shake ? 'animate-shake' : ''
+        }`}
+      >
         {/* Action Selection */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
             onClick={() => selectAction('pos')}
             className={`py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2
-              ${isPos 
-                ? 'bg-primary-600 text-white shadow-md ring-2 ring-primary-600 ring-offset-2' 
-                : 'bg-gray-100 text-gray-700 hover:bg-primary-50 hover:text-primary-700'
+              ${
+                isPos
+                  ? 'bg-primary-600 text-white shadow-md ring-2 ring-primary-600 ring-offset-2'
+                  : 'bg-gray-100 text-gray-700 hover:bg-primary-50 hover:text-primary-700'
               }`}
           >
             <LogIn className="w-4 h-4" /> POS
@@ -136,9 +144,10 @@ export const MainPage: React.FC = () => {
           <button
             onClick={() => selectAction('timecard')}
             className={`py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2
-              ${isTimecard 
-                ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-600 ring-offset-2' 
-                : 'bg-gray-100 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
+              ${
+                isTimecard
+                  ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-600 ring-offset-2'
+                  : 'bg-gray-100 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
               }`}
           >
             <Clock className="w-4 h-4" /> Time Card
@@ -172,9 +181,10 @@ export const MainPage: React.FC = () => {
               onClick={() => handlePinPress(digit)}
               disabled={!action || loading}
               className={`aspect-square rounded-xl text-2xl font-semibold transition-all duration-150 shadow-sm
-                ${action && !loading
-                  ? 'bg-gray-100 text-gray-800 hover:bg-primary-100 hover:text-primary-700 active:bg-primary-200 active:scale-95'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
+                ${
+                  action && !loading
+                    ? 'bg-gray-100 text-gray-800 hover:bg-primary-100 hover:text-primary-700 active:bg-primary-200 active:scale-95'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
                 }`}
             >
               {digit}
@@ -184,9 +194,10 @@ export const MainPage: React.FC = () => {
             onClick={handleClear}
             disabled={!action || loading}
             className={`aspect-square rounded-xl transition-all duration-150 shadow-sm flex items-center justify-center
-              ${action && !loading
-                ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+              ${
+                action && !loading
+                  ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
               }`}
           >
             <Delete className="w-6 h-6" />
@@ -195,9 +206,10 @@ export const MainPage: React.FC = () => {
             onClick={() => handlePinPress('0')}
             disabled={!action || loading}
             className={`aspect-square rounded-xl text-2xl font-semibold transition-all duration-150 shadow-sm
-              ${action && !loading
-                ? 'bg-gray-100 text-gray-800 hover:bg-primary-100 hover:text-primary-700 active:bg-primary-200 active:scale-95'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
+              ${
+                action && !loading
+                  ? 'bg-gray-100 text-gray-800 hover:bg-primary-100 hover:text-primary-700 active:bg-primary-200 active:scale-95'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
               }`}
           >
             0
@@ -206,9 +218,10 @@ export const MainPage: React.FC = () => {
             onClick={handleBackspace}
             disabled={!action || loading}
             className={`aspect-square rounded-xl transition-all duration-150 shadow-sm flex items-center justify-center
-              ${action && !loading
-                ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+              ${
+                action && !loading
+                  ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
               }`}
           >
             <Delete className="w-6 h-6 rotate-180" />
@@ -230,9 +243,13 @@ export const MainPage: React.FC = () => {
           ) : !action ? (
             <span>Select Option</span>
           ) : isPos ? (
-            <><LogIn className="w-5 h-5" /> Enter POS</>
+            <>
+              <LogIn className="w-5 h-5" /> Enter POS
+            </>
           ) : (
-            <><Clock className="w-5 h-5" /> Submit Time Card</>
+            <>
+              <Clock className="w-5 h-5" /> Submit Time Card
+            </>
           )}
         </button>
       </div>

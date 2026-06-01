@@ -102,6 +102,15 @@ export const createOrderUpdated = (
 ): WSMessage<OrderUpdatedPayload> =>
   createMessage('ORDER_UPDATED', { orderId, status, kitchenStatus });
 
+  export function createNewOrder(order: Order, stationName: string): WSMessage {
+  return {
+    type: 'NEW_ORDER',
+    payload: order,
+    timestamp: new Date().toISOString(),
+    stationName,
+  };
+}
+
 export const createItemDone = (
   orderId: string,
   itemIndex: number,

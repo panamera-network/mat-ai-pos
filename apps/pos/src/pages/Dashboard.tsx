@@ -19,57 +19,19 @@ import {
   Home,
 } from 'lucide-react';
 import { usePOSStore } from '../stores/posStore';
-
-// ============================================
-// TYPES
-// ============================================
-interface OrderItem {
-  id: string;
-  menuId: string;
-  name: string;
-  price: number;
-  qty: number;
-  modifiers?: string[];
-}
-
-interface CustomerInfo {
-  name: string;
-  phone: string;
-  address?: string;
-  note?: string;
-}
-
-type OrderType = 'dine-in' | 'takeaway' | 'delivery';
-
-interface Order {
-  id: string;
-  items: OrderItem[];
-  type: OrderType;
-  status: 'active' | 'completed' | 'cancelled';
-  tableNumber?: string;
-  customerInfo?: CustomerInfo;
-  subtotal: number;
-  tax: number;
-  total: number;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { Order, Table } from '@mat-ai/types';
 
 // ============================================
 // HELPERS
 // ============================================
-const getTables = () => {
+const getTables = (): Table[] => {
   try {
     const saved = localStorage.getItem('mat-pos-tables');
     if (saved) return JSON.parse(saved);
   } catch {
-    // corrupt data
+    /* corrupt data */
   }
-  return Array.from({ length: 20 }, (_, i) => ({
-    id: (i + 1).toString(),
-    number: `T${String(i + 1).padStart(2, '0')}`,
-    status: i < 5 ? 'occupied' : i < 7 ? 'reserved' : 'available',
-  }));
+  return [];
 };
 
 const getStatusColor = (status: string) => {
@@ -105,7 +67,7 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { currentStaff, logout } = usePOSStore();
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
-  const [tables, setTables] = useState<any[]>([]);
+  const [tables, setTables] = useState<Table[]>([]);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -136,14 +98,12 @@ export const Dashboard: React.FC = () => {
   };
 
   // Navigate to POS for a table (new or existing order)
-  const handleTableClick = (table: any) => {
+  const handleTableClick = (table: Table) => {
     if (table.status === 'occupied') {
-      // Find the active order for this table
       const order = activeOrders.find((o) => o.tableNumber === table.number);
       if (order) {
         handleOrderClick(order);
       } else {
-        // No order found, start new order for this table
         navigate('/pos', { state: { tableNumber: table.number, orderType: 'dine-in' } });
       }
     } else if (table.status === 'available') {
@@ -186,7 +146,9 @@ export const Dashboard: React.FC = () => {
 
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
             <Users className="w-4 h-4 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">{currentStaff?.name || 'Guest'}</span>
+            <span className="text-sm font-medium text-gray-700">
+              {currentStaff?.name || 'Guest'}
+            </span>
           </div>
 
           <button
@@ -201,10 +163,11 @@ export const Dashboard: React.FC = () => {
 
       {/* 3-Column Layout */}
       <div className="flex-1 flex gap-4 p-4 overflow-hidden">
-        
         {/* Left Sidebar - Navigation */}
         <aside className="w-44 flex flex-col gap-3 shrink-0">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">Menu</h3>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+            Menu
+          </h3>
           {navItems.map((item) => (
             <button
               key={item.label}
@@ -252,13 +215,17 @@ export const Dashboard: React.FC = () => {
           <div className="flex-1 overflow-auto space-y-4">
             {/* TABLES GRID */}
             <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Floor Plan</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                Floor Plan
+              </h3>
               <div className="grid grid-cols-4 gap-3">
                 {tables.map((table) => (
                   <button
                     key={table.id}
                     onClick={() => handleTableClick(table)}
-                    className={`relative p-4 rounded-xl border-2 transition-all hover:scale-105 active:scale-95 text-left ${getStatusColor(table.status)}`}
+                    className={`relative p-4 rounded-xl border-2 transition-all hover:scale-105 active:scale-95 text-left ${getStatusColor(
+                      table.status
+                    )}`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-bold text-lg">{table.number}</span>
@@ -269,7 +236,10 @@ export const Dashboard: React.FC = () => {
                     </p>
                     {table.status === 'occupied' && (
                       <p className="text-xs opacity-60 mt-1">
-                        RM {dineInOrders.find(o => o.tableNumber === table.number)?.total.toFixed(2) || '0.00'}
+                        RM{' '}
+                        {dineInOrders
+                          .find((o) => o.tableNumber === table.number)
+                          ?.total.toFixed(2) || '0.00'}
                       </p>
                     )}
                   </button>
@@ -329,8 +299,10 @@ export const Dashboard: React.FC = () => {
 
         {/* Right Sidebar - Stats & Actions */}
         <aside className="w-52 flex flex-col gap-3 shrink-0">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">Overview</h3>
-          
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+            Overview
+          </h3>
+
           {/* Stats Cards */}
           <div className="bg-white rounded-xl border shadow-sm p-4">
             <p className="text-xs text-gray-500 mb-1">Active Orders</p>
@@ -339,7 +311,7 @@ export const Dashboard: React.FC = () => {
               {dineInOrders.length} dine-in · {otherOrders.length} others
             </p>
           </div>
-          
+
           <div className="bg-white rounded-xl border shadow-sm p-4">
             <p className="text-xs text-gray-500 mb-1">Today's Sales</p>
             <p className="text-xl font-bold text-gray-900">
@@ -348,8 +320,10 @@ export const Dashboard: React.FC = () => {
             <p className="text-xs text-emerald-600 mt-1 font-medium">Active only</p>
           </div>
 
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 mt-1">Actions</h3>
-          
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 mt-1">
+            Actions
+          </h3>
+
           {/* Action Buttons */}
           <button
             onClick={() => navigate('/pos')}
@@ -359,7 +333,7 @@ export const Dashboard: React.FC = () => {
             <Plus className="w-5 h-5" />
             <span className="text-sm font-semibold">New Order</span>
           </button>
-          
+
           <button
             className="flex items-center gap-3 px-4 py-3 bg-purple-600 text-white rounded-xl shadow-md
                      hover:bg-purple-700 active:scale-[0.98] transition-all text-left"
@@ -367,7 +341,7 @@ export const Dashboard: React.FC = () => {
             <Calendar className="w-5 h-5" />
             <span className="text-sm font-semibold">Booking</span>
           </button>
-          
+
           <button
             className="flex items-center gap-3 px-4 py-3 bg-orange-500 text-white rounded-xl shadow-md
                      hover:bg-orange-600 active:scale-[0.98] transition-all text-left"

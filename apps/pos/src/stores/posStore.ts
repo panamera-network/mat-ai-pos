@@ -23,8 +23,14 @@ interface POSState {
   setMenuItems: (items: MenuItem[]) => void;
 
   // Notifications
-  notifications: { id: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }[];
-  addNotification: (notification: Omit<POSState['notifications'][0], 'id'>) => void;
+  notifications: {
+    id: string;
+    message: string;
+    type: 'info' | 'success' | 'warning' | 'error';
+  }[];
+  addNotification: (
+    notification: Omit<POSState['notifications'][0], 'id'>
+  ) => void;
   removeNotification: (id: string) => void;
 }
 

@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "MAT.ai POS - Smart Restaurant Point of Sale System",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "author": "MAT.ai Team",
   "license": "MIT",
   "scripts": {

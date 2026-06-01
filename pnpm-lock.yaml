@@ -87,6 +87,9 @@ importers:
       '@mat-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@mat-ai/ws':
+        specifier: workspace:*
+        version: link:../../packages/ws
       date-fns:
         specifier: ^3.3.0
         version: 3.6.0

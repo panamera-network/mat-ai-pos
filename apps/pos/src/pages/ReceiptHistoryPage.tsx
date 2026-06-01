@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Receipt,
 } from 'lucide-react';
+import type { Order } from '@mat-ai/types';
 
 interface ReceiptData {
   id: string;
@@ -24,86 +25,41 @@ interface ReceiptData {
   paymentMethod: string;
 }
 
-const demoReceipts: ReceiptData[] = [
-  {
-    id: '1',
-    receiptNo: '20260530-001',
-    tableNumber: 'T01',
-    orderType: 'dine-in',
-    time: '10:30 AM',
-    cashier: 'Ahmad',
-    posId: 'POS-1',
-    items: [
-      { name: 'Margherita', qty: 2, price: 25 },
-      { name: 'Pepsi', qty: 1, price: 5 },
-    ],
-    total: 59.40,
-    paymentMethod: 'cash',
-  },
-  {
-    id: '2',
-    receiptNo: '20260530-002',
-    tableNumber: 'T05',
-    orderType: 'takeaway',
-    time: '10:45 AM',
-    cashier: 'Sarah',
-    posId: 'POS-1',
-    items: [
-      { name: 'Carbonara', qty: 1, price: 22 },
-      { name: 'Teh Tarik', qty: 1, price: 4 },
-    ],
-    total: 28.08,
-    paymentMethod: 'qr',
-  },
-  {
-    id: '3',
-    receiptNo: '20260530-003',
-    tableNumber: 'T10',
-    orderType: 'dine-in',
-    time: '11:15 AM',
-    cashier: 'Ahmad',
-    posId: 'POS-1',
-    items: [
-      { name: 'Pepperoni', qty: 1, price: 28 },
-      { name: 'Hawaiian', qty: 1, price: 27 },
-      { name: 'Fries', qty: 2, price: 8 },
-    ],
-    total: 74.52,
-    paymentMethod: 'card',
-  },
-  {
-    id: '4',
-    receiptNo: '20260530-004',
-    tableNumber: '-',
-    orderType: 'delivery',
-    time: '11:30 AM',
-    cashier: 'Ahmad',
-    posId: 'POS-1',
-    items: [
-      { name: 'Nasi Goreng', qty: 3, price: 15 },
-      { name: 'Coke', qty: 3, price: 5 },
-    ],
-    total: 64.80,
-    paymentMethod: 'delivery',
-  },
-];
+const getReceipts = (): ReceiptData[] => {
+  try {
+    const saved = localStorage.getItem('mat-pos-receipts');
+    if (saved) return JSON.parse(saved);
+  } catch {
+    /* ignore */
+  }
+  return [];
+};
 
 const getPaymentIcon = (method: string) => {
   switch (method) {
-    case 'cash': return '💵';
-    case 'qr': return '📱';
-    case 'card': return '💳';
-    case 'delivery': return '🚚';
-    default: return '💰';
+    case 'cash':
+      return '💵';
+    case 'qr':
+      return '📱';
+    case 'card':
+      return '💳';
+    case 'delivery':
+      return '🚚';
+    default:
+      return '💰';
   }
 };
 
 const getOrderTypeColor = (type: string) => {
   switch (type) {
-    case 'dine-in': return 'bg-blue-100 text-blue-700';
-    case 'takeaway': return 'bg-orange-100 text-orange-700';
-    case 'delivery': return 'bg-purple-100 text-purple-700';
-    default: return 'bg-gray-100 text-gray-700';
+    case 'dine-in':
+      return 'bg-blue-100 text-blue-700';
+    case 'takeaway':
+      return 'bg-orange-100 text-orange-700';
+    case 'delivery':
+      return 'bg-purple-100 text-purple-700';
+    default:
+      return 'bg-gray-100 text-gray-700';
   }
 };
 
@@ -112,8 +68,13 @@ export const ReceiptHistoryPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
+  const [receipts, setReceipts] = useState<ReceiptData[]>([]);
 
-  const filteredReceipts = demoReceipts.filter(
+  useEffect(() => {
+    setReceipts(getReceipts());
+  }, []);
+
+  const filteredReceipts = receipts.filter(
     (r) =>
       r.receiptNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.tableNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -164,12 +125,18 @@ export const ReceiptHistoryPage: React.FC = () => {
           <button
             onClick={() => setShowFilter(!showFilter)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              showFilter ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              showFilter
+                ? 'bg-primary-100 text-primary-700'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
             <Filter className="w-4 h-4" />
             Filter
-            <ChevronDown className={`w-3 h-3 transition-transform ${showFilter ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              className={`w-3 h-3 transition-transform ${
+                showFilter ? 'rotate-180' : ''
+              }`}
+            />
           </button>
         </div>
       </header>
@@ -205,7 +172,7 @@ export const ReceiptHistoryPage: React.FC = () => {
             <div className="text-center py-12">
               <Receipt className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No receipts found</p>
-              <p className="text-sm text-gray-400">Try adjusting your search</p>
+              <p className="text-sm text-gray-400">Complete a payment to generate receipts</p>
             </div>
           ) : (
             filteredReceipts.map((receipt) => (
@@ -220,7 +187,11 @@ export const ReceiptHistoryPage: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                       <h3 className="font-bold text-gray-900">{receipt.receiptNo}</h3>
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${getOrderTypeColor(receipt.orderType)}`}>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-medium ${getOrderTypeColor(
+                          receipt.orderType
+                        )}`}
+                      >
                         {receipt.orderType}
                       </span>
                     </div>
@@ -244,7 +215,9 @@ export const ReceiptHistoryPage: React.FC = () => {
                         <span className="text-gray-700">
                           {item.qty}x {item.name}
                         </span>
-                        <span className="font-medium">RM{(item.qty * item.price).toFixed(2)}</span>
+                        <span className="font-medium">
+                          RM{(item.qty * item.price).toFixed(2)}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -252,7 +225,9 @@ export const ReceiptHistoryPage: React.FC = () => {
                   <div className="border-t pt-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{getPaymentIcon(receipt.paymentMethod)}</span>
-                      <span className="text-sm text-gray-500 capitalize">{receipt.paymentMethod}</span>
+                      <span className="text-sm text-gray-500 capitalize">
+                        {receipt.paymentMethod}
+                      </span>
                     </div>
                     <span className="text-xl font-bold text-primary-600">
                       RM{receipt.total.toFixed(2)}
@@ -296,12 +271,17 @@ export const ReceiptHistoryPage: React.FC = () => {
       <div className="bg-white border-t px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm">
           <span className="text-gray-500">
-            Showing <span className="font-medium text-gray-900">{filteredReceipts.length}</span> receipts
+            Showing{' '}
+            <span className="font-medium text-gray-900">{filteredReceipts.length}</span>{' '}
+            receipts
           </span>
         </div>
         <div className="flex items-center gap-4 text-sm">
           <span className="text-gray-500">
-            Total: <span className="font-bold text-gray-900">RM{filteredReceipts.reduce((s, r) => s + r.total, 0).toFixed(2)}</span>
+            Total:{' '}
+            <span className="font-bold text-gray-900">
+              RM{filteredReceipts.reduce((s, r) => s + r.total, 0).toFixed(2)}
+            </span>
           </span>
         </div>
       </div>
