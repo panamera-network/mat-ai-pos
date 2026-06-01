@@ -8,7 +8,7 @@ Smart Restaurant Point of Sale System powered by AI.
 |-----|-------------|------|
 | `@mat-ai/pos` | Cashier POS (Tablet) | 3000 |
 | `@mat-ai/kitchen` | Kitchen Display | 3001 |
-| `@mat-ai/admin` | Admin Dashboard (Phone) | 3002 |
+| `@mat-ai/admin` | Admin Dashboard (Tablet) | 3002 |
 | `@mat-ai/qr-menu` | Customer QR Menu | 3003 |
 
 ## Quick Start
