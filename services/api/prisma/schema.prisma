@@ -1,0 +1,157 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ ENUMS ============
+
+enum OrderStatus {
+  PENDING     // Order placed, waiting payment
+  PAID        // Payment confirmed
+  PREPARING   // Kitchen accepted
+  READY       // Food ready for pickup
+  SERVED      // Delivered to table
+  CANCELLED   // Cancelled
+}
+
+enum ItemStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+}
+
+enum OrderType {
+  DINE_IN
+  PICKUP
+  DELIVERY
+  RESERVATION
+}
+
+enum OrderSource {
+  QR_MENU
+  POS
+  ONLINE
+  PHONE
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  EWALLET
+  QR_PAY
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+// ============ MODELS ============
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique @default(dbgenerated("'ORD-' || substr(md5(random()::text), 1, 8)"))
+  status      OrderStatus @default(PENDING)
+  source      OrderSource @default(QR_MENU)
+  type        OrderType   @default(DINE_IN)
+
+  // Relations
+  items       OrderItem[]
+  table       Table?      @relation(fields: [tableId], references: [id])
+  tableId     String?
+
+  // Payment
+  totalAmount Decimal     @db.Decimal(10, 2)
+  paidAmount  Decimal?    @db.Decimal(10, 2)
+  paymentMethod PaymentMethod?
+
+  // Customer Info
+  customerName    String?
+  customerPhone   String?
+  customerAddress String?   // For Delivery
+  pax             Int?      // For Dine In / Reservation
+  reservationTime DateTime? // For Reservation
+
+  // Timestamps
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  completedAt DateTime?
+
+  // Metadata
+  notes       String?
+
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@index([tableId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  menuItemId String
+  name      String
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2)
+  totalPrice Decimal @db.Decimal(10, 2)
+
+  // Kitchen status
+  status    ItemStatus @default(PENDING)
+
+  // Modifiers/variants
+  options   Json?    // { "spiciness": "extra", "addons": ["cheese"] }
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@map("order_items")
+}
+
+model Table {
+  id          String    @id @default(cuid())
+  number      String    @unique
+  name        String?
+  capacity    Int       @default(4)
+  status      TableStatus @default(AVAILABLE)
+
+  orders      Order[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("tables")
+}
+
+model MenuItem {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal   @db.Decimal(10, 2)
+  category    String
+  imageUrl    String?
+  isAvailable Boolean   @default(true)
+
+  // Options/variants schema
+  options     Json?     // { "spiciness": ["mild", "medium", "extra"], "size": [...] }
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([category])
+  @@index([isAvailable])
+  @@map("menu_items")
+}

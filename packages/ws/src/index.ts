@@ -4,6 +4,7 @@ export type { WSClientOptions } from './client';
 export {
   createStationRegister,
   createNewOrder,
+  createOrderCreated,
   createOrderUpdated,
   createItemDone,
   createOrderDone,
@@ -13,4 +14,5 @@ export type {
   WSMessage,
   WSMessageType,
   StationRegisterPayload,
+  OrderCreatedPayload,
 } from './protocol';

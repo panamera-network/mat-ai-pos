@@ -1,9 +1,26 @@
 // apps/pos/src/lib/ws.ts
 import { MATaiWSClient, createWSClient } from '@mat-ai/ws';
 import type { WSMessage, WSMessageType } from '@mat-ai/ws';
-import type { POSOrder } from './types';   // ← dari local types.ts, bukan @mat-ai/types
+import type { POSOrder } from './types';
 
 let client: MATaiWSClient | null = null;
+
+function getCategories(): string[] {
+  try {
+    const cats = JSON.parse(localStorage.getItem('mat-pos-categories') || '[]');
+    return cats.map((c: any) => c.name).filter(Boolean);
+  } catch {
+    return ['Pizza', 'Pasta', 'Nasi', 'Side Order', 'Beverages', 'Extras'];
+  }
+}
+
+function getWsUrl(): string {
+  const stations = JSON.parse(localStorage.getItem('mat-pos-stations') || '[]');
+  const defaultKds = stations.find((s: any) => s.type === 'kds' && s.enabled);
+  return defaultKds
+    ? `ws://${defaultKds.ip}:${defaultKds.port}`
+    : 'ws://localhost:8080';
+}
 
 export const wsClient = {
   get connected() {
@@ -13,16 +30,10 @@ export const wsClient = {
   connect(): void {
     if (client?.isConnected()) return;
 
-    const stations = JSON.parse(localStorage.getItem('mat-pos-stations') || '[]');
-    const defaultKds = stations.find((s: any) => s.type === 'kds' && s.enabled);
-    const wsUrl = defaultKds
-      ? `ws://${defaultKds.ip}:${defaultKds.port}`
-      : 'ws://localhost:8080';
-
     client = createWSClient({
-      url: wsUrl,
+      url: getWsUrl(),
       stationName: 'POS-1',
-      categories: ['Pizza', 'Pasta', 'Nasi', 'Side Order', 'Beverages', 'Extras'],
+      categories: getCategories(),
       deviceType: 'desktop',
       onConnect: () => console.log('[POS] WS connected'),
       onDisconnect: () => console.log('[POS] WS disconnected'),
@@ -51,7 +62,7 @@ export const wsClient = {
     }
 
     return client.send({
-      type:   event === 'NEW_ORDER' ? 'NEW_ORDER' : 'ORDER_UPDATED',
+      type: event === 'NEW_ORDER' ? 'NEW_ORDER' : 'ORDER_UPDATED',
       payload: order,
       timestamp: new Date().toISOString(),
       stationName: 'POS-1',

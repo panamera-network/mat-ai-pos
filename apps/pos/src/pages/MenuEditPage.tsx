@@ -1,4 +1,3 @@
-// apps/pos/src/pages/MenuEditPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -58,6 +57,10 @@ const getDiscounts = (): Discount[] => {
   return [];
 };
 
+const saveMenuItems = (items: MenuItem[]) => {
+  localStorage.setItem('mat-pos-menu-items', JSON.stringify(items));
+};
+
 export const MenuEditPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('items');
@@ -71,7 +74,6 @@ export const MenuEditPage: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [modifiers, setModifiers] = useState<Modifier[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     setItems(getMenuItems());
@@ -91,11 +93,12 @@ export const MenuEditPage: React.FC = () => {
   };
 
   const toggleAvailability = (id: string) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, isAvailable: !item.isAvailable } : item
-      )
+    const updated = items.map((item) =>
+      item.id === id ? { ...item, isAvailable: !item.isAvailable } : item
     );
+    setItems(updated);
+    // Save to localStorage immediately
+    saveMenuItems(updated);
   };
 
   const filteredItems = items.filter(
@@ -173,15 +176,13 @@ export const MenuEditPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {activeTab === 'items' && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Add Item
-            </button>
-          )}
+          <button
+            onClick={() => {/* TODO: Add item modal */}}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Item
+          </button>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 rounded-lg">
             <Lock className="w-4 h-4 text-green-700" />
             <span className="text-sm font-medium text-green-700">Admin</span>

@@ -12,14 +12,15 @@ import type {
   StaffRole,
 } from '@mat-ai/types';
 
-// Extend/override untuk backward compatibility POS app
+// ============ POS-SPECIFIC TYPES ============
+
 export interface POSOrderItem {
-  id: string;           // cart item ID
-  menuId: string;       // menuItemId
+  id: string;
+  menuId: string;
   name: string;
   price: number;
   qty: number;
-  modifiers?: string[]; // string array untuk UI
+  modifiers?: string[];
 }
 
 export interface CustomerInfo {
@@ -31,6 +32,7 @@ export interface CustomerInfo {
 
 export interface POSOrder {
   id: string;
+  orderNumber?: string;
   items: POSOrderItem[];
   type: OrderType;
   status: 'active' | 'completed' | 'cancelled';
@@ -41,30 +43,38 @@ export interface POSOrder {
   total: number;
   createdAt: string;
   updatedAt: string;
+
+  // QR Menu fields (optional)
+  isQrOrder?: boolean;
+  qrOrderId?: string;
+  customerName?: string;
+  customerPhone?: string;
+  address?: string;
+  reservationTime?: string;
+  pax?: number;
+  orderTiming?: 'now' | 'later';
+  notes?: string;
 }
 
+// ============ BACKWARD COMPATIBILITY ============
+
 export interface OrderItem extends Omit<OrderItemBase, 'modifiers'> {
-  id: string;           // POS app guna id untuk cart item
-  menuId: string;       // POS app guna menuId
-  modifiers?: string[]; // POS app guna string[], bukan SelectedModifier[]
+  id: string;
+  menuId: string;
+  modifiers?: string[];
 }
 
 export interface Order extends Omit<OrderBase, 'orderType' | 'status' | 'items'> {
-  type: OrderType;                    // POS app guna 'type', bukan 'orderType'
-  status: 'active' | 'completed' | 'cancelled'; // POS app guna simplified status
+  type: OrderType;
+  status: 'active' | 'completed' | 'cancelled';
   items: OrderItem[];
-  customerInfo?: {
-    name: string;
-    phone: string;
-    address?: string;
-    note?: string;
-  };
+  customerInfo?: CustomerInfo;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface MenuItem extends MenuItemBase {
-  image?: string;       // POS app guna 'image', types guna icon?
+  image?: string;
   categoryId: string;
 }
 
@@ -74,7 +84,8 @@ export interface Table extends TableBase {
 
 export interface Staff extends StaffBase {}
 
-// Inventory (takde dalam @mat-ai/types, kena define sendiri)
+// ============ INVENTORY ============
+
 export interface InventoryItem {
   id: number;
   name: string;
@@ -95,6 +106,6 @@ export interface StockLog {
   timestamp: string;
 }
 
-// ============ RE-EXPORT UNTIL KONVENIEN ============
+// ============ RE-EXPORTS ============
 
 export type { OrderType, OrderStatus, PaymentMethod, StaffRole, TableStatus };
