@@ -173,7 +173,7 @@ No env variables needed. All config via Settings page:
 | Tax Rate | 8% | SST percentage |
 | Service Charge | 10% | Optional service fee |
 | Currency | MYR | Display currency |
-| WS URL | ws://localhost:8080 | KDS connection |
+| WS URL | ws://localhost:4000 | KDS connection |
 
 ---
 

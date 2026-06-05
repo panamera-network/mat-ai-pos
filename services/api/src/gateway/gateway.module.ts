@@ -1,9 +1,11 @@
-import { Module } from '@nestjs/common';
+// src/gateway/gateway.module.ts
+import { Module, forwardRef } from '@nestjs/common';
 import { OrdersGateway } from './orders.gateway';
-import { OrdersService } from '../orders/orders.service';
+import { OrdersModule } from '../orders/orders.module';
 
 @Module({
-  providers: [OrdersGateway, OrdersService],
+  imports: [forwardRef(() => OrdersModule)],
+  providers: [OrdersGateway],
   exports: [OrdersGateway],
 })
 export class GatewayModule {}

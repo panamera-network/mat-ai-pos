@@ -1,18 +1,42 @@
-//sservices/api/src/app.module.ts
-import { Module } from '@nestjs/common';
+// src/app.module.ts
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
+import { SettingsModule } from './settings/settings.module';
+import { AuthModule } from './auth/auth.module';
+import { StaffModule } from './staff/staff.module';
+import { CategoriesModule } from './categories/categories.module';
+import { MenuItemsModule } from './menu-items/menu-items.module';
+import { TablesModule } from './tables/tables.module';
 import { OrdersModule } from './orders/orders.module';
+import { ReceiptsModule } from './receipts/receipts.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { TimecardModule } from './timecard/timecard.module';
+import { LeaveModule } from './leave/leave.module';
+import { AdvanceModule } from './advance/advance.module';
+import { PayrollModule } from './payroll/payroll.module';
+import { ReportsModule } from './reports/reports.module';
 import { GatewayModule } from './gateway/gateway.module';
-import { MenuItemsController } from './menu-items/menu-items.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    SettingsModule,
+    AuthModule,
+    StaffModule,
+    CategoriesModule,
+    MenuItemsModule,
+    TablesModule,
     OrdersModule,
+    ReceiptsModule,
+    InventoryModule,
+    TimecardModule,
+    LeaveModule,
+    AdvanceModule,
+    PayrollModule,
+    ReportsModule,
     GatewayModule,
   ],
-  controllers: [MenuItemsController],
 })
 export class AppModule {}

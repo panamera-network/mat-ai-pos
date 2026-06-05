@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+// apps/qr-menu/src/pages/CartPage.tsx
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Trash2, Send, User, Phone, MapPin, Clock, Users, MessageSquare, AlertCircle } from 'lucide-react';
-import { submitOrder, initSync } from '../lib/sync';
-import type { Order, OrderItem } from '@mat-ai/types';
+import { ArrowLeft, Send, User, Phone, MapPin, Users, Clock, Table } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 interface CartItem {
   menuId: string;
@@ -12,242 +13,127 @@ interface CartItem {
   modifiers: string[];
 }
 
-const getCart = (): CartItem[] => {
-  const saved = localStorage.getItem('mat-qr-cart');
-  return saved ? JSON.parse(saved) : [];
-};
-
-const clearCart = () => localStorage.removeItem('mat-qr-cart');
-
-const getOrderType = (): string => {
-  return localStorage.getItem('mat-qr-order-type') || 'dine-in';
-};
-
-const getTableFromQR = (): string => {
-  return localStorage.getItem('mat-qr-table') || '';
-};
+interface TableData {
+  id: string;
+  number: string;
+  name: string;
+  capacity: number;
+}
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
-  const [cart, setCart] = useState<CartItem[]>(getCart);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState<{
-    success: boolean;
-    method: 'ws' | 'telegram' | 'failed';
-    message: string;
-  } | null>(null);
-
-  // Order type
-  const orderType = getOrderType();
-
-  // Form state
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const saved = localStorage.getItem('mat-qr-cart');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [orderType, setOrderType] = useState<'DINE_IN' | 'PICKUP' | 'DELIVERY' | 'RESERVATION'>('DINE_IN');
+  const [tables, setTables] = useState<TableData[]>([]);
+  const [selectedTable, setSelectedTable] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [tableNumber, setTableNumber] = useState(getTableFromQR());
-  const [pax, setPax] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [pax, setPax] = useState(1);
   const [reservationTime, setReservationTime] = useState('');
-  const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
-  const [orderTiming, setOrderTiming] = useState<'now' | 'later'>('now');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  // Validation errors
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const tax = subtotal * 0.08;
-  const total = subtotal + tax;
-
-  const updateQty = (index: number, delta: number) => {
-    setCart((prev) => {
-      const updated = prev
-        .map((item, i) => (i === index ? { ...item, qty: Math.max(0, item.qty + delta) } : item))
-        .filter((item) => item.qty > 0);
-      localStorage.setItem('mat-qr-cart', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  const removeItem = (index: number) => {
-    setCart((prev) => {
-      const updated = prev.filter((_, i) => i !== index);
-      localStorage.setItem('mat-qr-cart', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!customerName.trim()) {
-      newErrors.name = 'Name is required';
+  // Fetch tables for dine-in
+  useEffect(() => {
+    if (orderType === 'DINE_IN' || orderType === 'RESERVATION') {
+      fetch(`${API_URL}/tables`)
+        .then(res => res.json())
+        .then(data => setTables(data))
+        .catch(err => console.error('Failed to load tables:', err));
     }
-    if (!customerPhone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    }
+  }, [orderType]);
 
-    if (orderType === 'dine-in' && !tableNumber.trim()) {
-      newErrors.table = 'Table number is required';
-    }
-
-    if (orderType === 'reservation') {
-      if (!reservationTime) {
-        newErrors.time = 'Reservation time is required';
-      }
-      if (!pax.trim()) {
-        newErrors.pax = 'Number of pax is required';
-      }
-    }
-
-    if (orderType === 'delivery' && !address.trim()) {
-      newErrors.address = 'Delivery address is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   const handleSubmit = async () => {
-    if (cart.length === 0) return;
-    if (!validate()) return;
+    if (cart.length === 0) {
+      setError('Cart is empty');
+      return;
+    }
+
+    // Validation
+    if (!customerName || !customerPhone) {
+      setError('Please fill in required fields');
+      return;
+    }
+
+    if ((orderType === 'DINE_IN' || orderType === 'RESERVATION') && !selectedTable) {
+      setError('Please select a table');
+      return;
+    }
+
+    if (orderType === 'DELIVERY' && !customerAddress) {
+      setError('Please enter delivery address');
+      return;
+    }
+
+    if (orderType === 'RESERVATION' && !reservationTime) {
+      setError('Please select reservation time');
+      return;
+    }
 
     setSubmitting(true);
-    setSubmitResult(null);
+    setError('');
 
-    // Init sync (connect WS)
-    const cleanup = initSync();
-
-    // Build order items
-    const orderItems: OrderItem[] = cart.map((item) => ({
-      menuItemId: item.menuId,
-      name: item.name,
-      categoryId: '',
-      qty: item.qty,
-      price: item.price,
-      modifiers: item.modifiers.map((mod) => ({
-        modifierId: mod,
-        name: mod.replace(/\s*\+RM\d+/, ''),
-        price: parseFloat(mod.match(/\+RM(\d+(?:\.\d+)?)/)?.[1] || '0'),
+    const orderData = {
+      type: orderType,
+      totalAmount: cartTotal,
+      customerName,
+      customerPhone,
+      customerAddress: orderType === 'DELIVERY' ? customerAddress : undefined,
+      tableId: (orderType === 'DINE_IN' || orderType === 'RESERVATION') ? selectedTable : undefined,
+      pax: (orderType === 'DINE_IN' || orderType === 'RESERVATION') ? pax : undefined,
+      reservationTime: orderType === 'RESERVATION' ? new Date(reservationTime).toISOString() : undefined,
+      notes,
+      items: cart.map(item => ({
+        menuItemId: item.menuId,
+        name: item.name,
+        quantity: item.qty,
+        unitPrice: item.price,
+        totalPrice: item.price * item.qty,
+        options: item.modifiers.length > 0 ? { modifiers: item.modifiers } : undefined,
       })),
-      subtotal: item.price * item.qty,
-    }));
-
-    // Generate order number (daily reset format: A001)
-    const today = new Date().toISOString().split('T')[0];
-    const dailyKey = `mat-qr-order-count-${today}`;
-    const currentCount = parseInt(localStorage.getItem(dailyKey) || '0');
-    const newCount = currentCount + 1;
-    localStorage.setItem(dailyKey, String(newCount));
-    const orderNumber = `Q${String(newCount).padStart(3, '0')}`;
-
-    const orderId = `QR-${Date.now()}`;
-
-    const order: Order = {
-      id: orderId,
-      orderNumber,
-      items: orderItems,
-      orderType: orderType as any,
-      tableNumber: orderType === 'dine-in' || orderType === 'reservation' ? tableNumber : undefined,
-      customerName: customerName.trim(),
-      customerPhone: customerPhone.trim(),
-      address: orderType === 'delivery' ? address.trim() : undefined,
-      reservationTime: orderType === 'reservation' ? reservationTime : undefined,
-      pax: pax ? parseInt(pax) : undefined,
-      notes: notes.trim() || undefined,
-      orderTiming: orderType === 'reservation' ? orderTiming : 'now',
-      subtotal,
-      tax,
-      total,
-      finalTotal: total,
-      status: 'pending',
-      kitchenStatus: 'pending',
-      cashierId: 'qr-system',
-      cashierName: 'QR Order',
-      orderedAt: new Date().toISOString(),
-      isQrOrder: true,
-      qrOrderId: orderId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
-    // Submit
     try {
-      const result = await submitOrder(order);
-
-      if (result.success) {
-        if (result.method === 'ws') {
-          setSubmitResult({
-            success: true,
-            method: 'ws',
-            message: 'Order sent to kitchen!',
-          });
-        } else {
-          setSubmitResult({
-            success: true,
-            method: 'telegram',
-            message: 'Order sent to cashier via Telegram. Please wait for confirmation.',
-          });
-        }
-        clearCart();
-        setTimeout(() => {
-          navigate(`/status/${orderId}`);
-        }, 2000);
-      } else {
-        setSubmitResult({
-          success: false,
-          method: 'failed',
-          message: 'Failed to send order. Saved for retry.',
-        });
-      }
-    } catch (err) {
-      setSubmitResult({
-        success: false,
-        method: 'failed',
-        message: 'Network error. Please try again.',
+      const res = await fetch(`${API_URL}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
       });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      
+      // Clear cart
+      localStorage.removeItem('mat-qr-cart');
+      setCart([]);
+      
+      // Navigate to order status
+      navigate(`/order/${data.id}`);
+    } catch (err) {
+      console.error('Failed to submit order:', err);
+      setError('Failed to send order. Saved for retry.');
     } finally {
       setSubmitting(false);
-      cleanup();
     }
   };
 
-  // Form field helper
-  const Field = ({ 
-    label, 
-    icon: Icon, 
-    error, 
-    children 
-  }: { 
-    label: string; 
-    icon: any; 
-    error?: string; 
-    children: React.ReactNode 
-  }) => (
-    <div className="space-y-1">
-      <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
-        <Icon className="w-4 h-4 text-gray-400" />
-        {label}
-      </label>
-      {children}
-      {error && (
-        <p className="text-xs text-red-500 flex items-center gap-1">
-          <AlertCircle className="w-3 h-3" />
-          {error}
-        </p>
-      )}
-    </div>
-  );
-
-  if (cart.length === 0 && !submitResult) {
+  if (cart.length === 0 && !submitting) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-        <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-          <ShoppingCart className="w-10 h-10 text-gray-400" />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900">Your cart is empty</h2>
-        <p className="text-gray-500 mt-1">Add some delicious items!</p>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="text-6xl mb-4">🛒</div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
+        <p className="text-gray-500 mb-6">Add some items to get started</p>
         <button
           onClick={() => navigate('/menu')}
-          className="mt-6 px-6 py-3 bg-primary-600 text-white rounded-xl font-semibold"
+          className="px-6 py-3 bg-primary-600 text-white rounded-xl font-semibold"
         >
           Browse Menu
         </button>
@@ -258,207 +144,167 @@ export const CartPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
       {/* Header */}
-      <header className="bg-white border-b px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate('/menu')} className="p-2 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="font-bold text-lg">Your Cart</h1>
-          <p className="text-xs text-gray-500 capitalize">{orderType.replace('-', ' ')}</p>
+      <header className="sticky top-0 z-40 bg-white border-b px-4 py-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/menu')} className="p-2 -ml-2">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="font-bold text-lg">Your Order</h1>
         </div>
       </header>
 
-      {/* Submit Result */}
-      {submitResult && (
-        <div className={`mx-4 mt-4 p-4 rounded-xl ${
-          submitResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-        }`}>
-          <p className={`text-sm font-medium ${
-            submitResult.success ? 'text-green-800' : 'text-red-800'
-          }`}>
-            {submitResult.message}
-          </p>
-          {submitResult.method === 'telegram' && (
-            <p className="text-xs text-green-600 mt-1">
-              Cashier will key in your order manually.
-            </p>
-          )}
+      {/* Order Type Selection */}
+      <div className="p-4">
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {[
+            { id: 'DINE_IN', label: '🍽️ Dine In' },
+            { id: 'PICKUP', label: '🥡 Pickup' },
+            { id: 'DELIVERY', label: '🛵 Delivery' },
+            { id: 'RESERVATION', label: '📅 Reservation' },
+          ].map(type => (
+            <button
+              key={type.id}
+              onClick={() => setOrderType(type.id as any)}
+              className={`p-3 rounded-xl text-sm font-medium border-2 transition-all ${
+                orderType === type.id
+                  ? 'border-primary-600 bg-primary-50 text-primary-700'
+                  : 'border-gray-200 bg-white text-gray-700'
+              }`}
+            >
+              {type.label}
+            </button>
+          ))}
         </div>
-      )}
 
-      {/* Cart Items */}
-      <div className="p-4 space-y-3">
-        {cart.map((item, index) => (
-          <div key={index} className="bg-white rounded-xl border p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                {item.modifiers.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">{item.modifiers.join(', ')}</p>
-                )}
-                <p className="text-sm text-primary-600 font-medium mt-1">
-                  RM{item.price.toFixed(2)}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => updateQty(index, -1)}
-                  className="w-8 h-8 border rounded-lg flex items-center justify-center"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="w-6 text-center font-medium">{item.qty}</span>
-                <button
-                  onClick={() => updateQty(index, 1)}
-                  className="w-8 h-8 border rounded-lg flex items-center justify-center"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => removeItem(index)}
-                  className="w-8 h-8 text-red-500 ml-1"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+        {/* Error */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+            {error}
           </div>
-        ))}
-      </div>
-
-      {/* Customer Details Form */}
-      <div className="px-4 space-y-4">
-        <h2 className="font-semibold text-gray-900">Order Details</h2>
-
-        {/* Name - Required for all */}
-        <Field label="Name *" icon={User} error={errors.name}>
-          <input
-            type="text"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="Your full name"
-            className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-          />
-        </Field>
-
-        {/* Phone - Required for all */}
-        <Field label="Phone Number *" icon={Phone} error={errors.phone}>
-          <input
-            type="tel"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
-            placeholder="e.g. 012-3456789"
-            className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-          />
-        </Field>
-
-        {/* Dine In / Reservation: Table */}
-        {(orderType === 'dine-in' || orderType === 'reservation') && (
-          <Field label="Table Number *" icon={MapPin} error={errors.table}>
-            <input
-              type="text"
-              value={tableNumber}
-              onChange={(e) => setTableNumber(e.target.value)}
-              placeholder="e.g. T01"
-              className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            />
-          </Field>
         )}
 
-        {/* Reservation: Pax + Time */}
-        {orderType === 'reservation' && (
-          <>
-            <Field label="Number of Pax *" icon={Users} error={errors.pax}>
-              <input
-                type="number"
-                min="1"
-                value={pax}
-                onChange={(e) => setPax(e.target.value)}
-                placeholder="How many people?"
-                className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-              />
-            </Field>
+        {/* Customer Info */}
+        <div className="space-y-3 mb-4">
+          <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
+            <User className="w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Your Name *"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="flex-1 bg-transparent outline-none text-sm"
+            />
+          </div>
 
-            <Field label="Reservation Time *" icon={Clock} error={errors.time}>
+          <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
+            <Phone className="w-5 h-5 text-gray-400" />
+            <input
+              type="tel"
+              placeholder="Phone Number *"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              className="flex-1 bg-transparent outline-none text-sm"
+            />
+          </div>
+
+          {/* Table Selection for Dine In / Reservation */}
+          {(orderType === 'DINE_IN' || orderType === 'RESERVATION') && (
+            <>
+              <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
+                <Table className="w-5 h-5 text-gray-400" />
+                <select
+                  value={selectedTable}
+                  onChange={(e) => setSelectedTable(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-sm"
+                >
+                  <option value="">Select Table *</option>
+                  {tables.map(table => (
+                    <option key={table.id} value={table.id}>
+                      {table.number} - {table.name} (Capacity: {table.capacity})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
+                <Users className="w-5 h-5 text-gray-400" />
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Number of Pax"
+                  value={pax}
+                  onChange={(e) => setPax(Number(e.target.value))}
+                  className="flex-1 bg-transparent outline-none text-sm"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Reservation Time */}
+          {orderType === 'RESERVATION' && (
+            <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
+              <Clock className="w-5 h-5 text-gray-400" />
               <input
                 type="datetime-local"
                 value={reservationTime}
                 onChange={(e) => setReservationTime(e.target.value)}
-                className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                className="flex-1 bg-transparent outline-none text-sm"
               />
-            </Field>
-
-            {/* Order Now / Later */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Order Timing</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setOrderTiming('now')}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    orderTiming === 'now'
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-white border text-gray-700'
-                  }`}
-                >
-                  Order Now
-                </button>
-                <button
-                  onClick={() => setOrderTiming('later')}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    orderTiming === 'later'
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-white border text-gray-700'
-                  }`}
-                >
-                  Order @ Counter
-                </button>
-              </div>
             </div>
-          </>
-        )}
+          )}
 
-        {/* Delivery: Address */}
-        {orderType === 'delivery' && (
-          <Field label="Delivery Address *" icon={MapPin} error={errors.address}>
+          {/* Delivery Address */}
+          {orderType === 'DELIVERY' && (
+            <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
+              <MapPin className="w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Delivery Address *"
+                value={customerAddress}
+                onChange={(e) => setCustomerAddress(e.target.value)}
+                className="flex-1 bg-transparent outline-none text-sm"
+              />
+            </div>
+          )}
+
+          {/* Notes */}
+          <div className="bg-white p-3 rounded-xl border">
             <textarea
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Full delivery address"
-              rows={3}
-              className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
+              placeholder="Special instructions (optional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full bg-transparent outline-none text-sm resize-none"
+              rows={2}
             />
-          </Field>
-        )}
+          </div>
+        </div>
 
-        {/* Notes - Optional for all */}
-        <Field label="Notes (optional)" icon={MessageSquare}>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Any special requests?"
-            rows={2}
-            className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
-          />
-        </Field>
+        {/* Cart Items */}
+        <div className="bg-white rounded-2xl border overflow-hidden mb-4">
+          {cart.map((item, idx) => (
+            <div key={idx} className="p-4 border-b last:border-b-0 flex justify-between items-start">
+              <div>
+                <p className="font-medium text-sm">{item.name}</p>
+                {item.modifiers.length > 0 && (
+                  <p className="text-xs text-gray-500">{item.modifiers.join(', ')}</p>
+                )}
+                <p className="text-sm text-gray-500">x{item.qty}</p>
+              </div>
+              <p className="font-semibold text-sm">RM{(item.price * item.qty).toFixed(2)}</p>
+            </div>
+          ))}
+          <div className="p-4 bg-gray-50 flex justify-between items-center">
+            <span className="font-bold">Total</span>
+            <span className="font-bold text-lg text-primary-600">RM{cartTotal.toFixed(2)}</span>
+          </div>
+        </div>
       </div>
 
-      {/* Total & Submit */}
-      <div className="fixed bottom-0 left-0 right-0 safe-bottom bg-white border-t px-4 py-4 shadow-lg">
-        <div className="flex justify-between mb-2">
-          <span className="text-gray-600">Subtotal</span>
-          <span className="font-medium">RM{subtotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between mb-2">
-          <span className="text-gray-600">SST (8%)</span>
-          <span className="font-medium">RM{tax.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between text-lg font-bold mb-4">
-          <span>Total</span>
-          <span className="text-primary-600">RM{total.toFixed(2)}</span>
-        </div>
+      {/* Submit Button */}
+      <div className="fixed bottom-0 left-0 right-0 safe-bottom bg-white border-t px-4 py-3">
         <button
           onClick={handleSubmit}
-          disabled={submitting || cart.length === 0}
+          disabled={submitting}
           className="w-full py-3 bg-primary-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
         >
           {submitting ? (
@@ -466,7 +312,7 @@ export const CartPage: React.FC = () => {
           ) : (
             <>
               <Send className="w-5 h-5" />
-              Place Order
+              <span>Place Order</span>
             </>
           )}
         </button>

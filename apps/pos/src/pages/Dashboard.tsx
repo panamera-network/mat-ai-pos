@@ -1,24 +1,150 @@
-import React, { useState, useEffect } from 'react';
+// apps/pos/src/pages/Dashboard.tsx
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Calendar,
-  Bell,
-  Package,
-  Utensils,
-  Settings,
-  Receipt,
-  LogOut,
-  Clock,
-  Users,
-  Plus,
-  QrCode,
-  ShoppingBag,
-  Car,
-  Home,
-  Smartphone,
+  Calendar, Bell, Package, Utensils, Settings, Receipt, LogOut,
+  Clock, Users, Plus, QrCode, ShoppingBag, Car, Home, Smartphone,
 } from 'lucide-react';
 import { usePOSStore } from '../stores/posStore';
-import type { POSOrder, Table } from '../lib/types';
+import { useSocket } from '../hooks/useSocket';
+
+const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
+
+// Types
+interface Table { id: string; number: string; status: string; capacity: number; }
+interface OrderItem { menuItemId: string; name: string; qty: number; price: number; }
+interface POSOrder {
+  id: string; orderNumber: string; type: string; status: string;
+  customerName?: string; customerPhone?: string; tableNumber?: string;
+  total: number; items: OrderItem[]; isQrOrder?: boolean;
+  customerInfo?: any; reservationTime?: string;
+}
+
+export function Dashboard() {
+  const navigate = useNavigate();
+  const { currentStaff, logout } = usePOSStore();
+  const { socket, connected } = useSocket('pos');
+  
+  const [activeOrders, setActiveOrders] = useState<POSOrder[]>([]);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [wsOrders, setWsOrders] = useState<any[]>([]); // Orders from WebSocket
+  const [loading, setLoading] = useState(true);
+
+  // Fetch data from backend API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [ordersRes, tablesRes] = await Promise.all([
+          fetch(`${API_URL}/orders?status=PENDING`),
+          fetch(`${API_URL}/tables`),
+        ]);
+        
+        const ordersData = await ordersRes.json();
+        const orders = Array.isArray(ordersData) ? ordersData : [];
+        const tablesData = await tablesRes.json();
+        
+        // Transform backend orders to POS format
+        const transformedOrders = orders.map((o: any) => ({
+          id: o.id,
+          orderNumber: o.orderNumber,
+          type: o.type?.toLowerCase().replace('_', '-') || 'dine-in',
+          status: o.status === 'PENDING' ? 'active' : o.status.toLowerCase(),
+          customerName: o.customerName,
+          customerPhone: o.customerPhone,
+          tableNumber: o.table?.number,
+          total: Number(o.totalAmount),
+          items: o.items?.map((i: any) => ({
+            menuItemId: i.menuItemId,
+            name: i.name,
+            qty: i.quantity,
+            price: Number(i.unitPrice),
+          })) || [],
+          isQrOrder: o.source === 'QR_MENU',
+          reservationTime: o.reservationTime,
+        }));
+        
+        setActiveOrders(transformedOrders);
+        setTables(tablesData);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+    const interval = setInterval(fetchData, 5000); // Poll every 5s
+    return () => clearInterval(interval);
+  }, []);
+
+  // Listen for WebSocket events
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('pos:newOrder', (order) => {
+      console.log('📱 New QR order:', order);
+      setWsOrders(prev => [order, ...prev]);
+      // Play notification sound
+      new Audio('/notification.mp3').play().catch(() => {});
+    });
+
+    socket.on('pos:orderReady', (order) => {
+      console.log('✅ Order ready:', order);
+    });
+
+    socket.on('order:updated', (order) => {
+      setActiveOrders(prev => prev.map(o => o.id === order.id ? { ...o, ...order } : o));
+    });
+
+    return () => {
+      socket.off('pos:newOrder');
+      socket.off('pos:orderReady');
+      socket.off('order:updated');
+    };
+  }, [socket]);
+
+  // Combine API orders + WS orders
+  const allOrders = [...wsOrders, ...activeOrders];
+  const dineInOrders = allOrders.filter((o) => o.type === 'dine-in');
+  const takeawayOrders = allOrders.filter((o) => o.type === 'takeaway');
+  const deliveryOrders = allOrders.filter((o) => o.type === 'delivery');
+  const reservationOrders = allOrders.filter((o) => o.type === 'reservation');
+  const qrOrdersList = allOrders.filter((o) => o.isQrOrder);
+
+  const handleLogout = () => { logout(); navigate('/'); };
+
+  const handleOrderClick = (order: POSOrder) => {
+    navigate('/pos', {
+      state: {
+        editMode: true,
+        orderId: order.id,
+        orderItems: order.items,
+        orderType: order.type,
+        tableNumber: order.tableNumber,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        createdAt: order.reservationTime,
+      },
+    });
+  };
+
+  const handleTableClick = (table: Table) => {
+    if (table.status === 'occupied') {
+      const order = dineInOrders.find((o) => o.tableNumber === table.number);
+      if (order) handleOrderClick(order);
+      else navigate('/pos', { state: { tableNumber: table.number, orderType: 'dine-in' } });
+    } else {
+      navigate('/pos', { state: { tableNumber: table.number, orderType: 'dine-in' } });
+    }
+  };
+
+  const handleQROrder = () => {
+    if (qrOrdersList.length === 0) {
+      alert('No QR orders pending');
+      return;
+    }
+    document.getElementById('qr-orders-section')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
 // ============================================
 // HELPERS
@@ -102,71 +228,14 @@ const getOrderTypeColor = (type: string) => {
   }
 };
 
-// ============================================
-// COMPONENT
-// ============================================
-export const Dashboard: React.FC = () => {
-  const navigate = useNavigate();
-  const { currentStaff, logout } = usePOSStore();
-  const [activeOrders, setActiveOrders] = useState<POSOrder[]>([]);
-  const [tables, setTables] = useState<Table[]>([]);
+if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
-  // Load data on mount and refresh
-  useEffect(() => {
-    const loadData = () => {
-      setActiveOrders(getActiveOrders());
-      setTables(getTables());
-    };
-    loadData();
-
-    // Refresh every 3 seconds
-    const interval = setInterval(loadData, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
-
-  const handleOrderClick = (order: POSOrder) => {
-    navigate('/pos', {
-      state: {
-        editMode: true,
-        orderId: order.id,
-        orderItems: order.items,
-        orderType: order.type,
-        tableNumber: order.tableNumber,
-        customerInfo: order.customerInfo,
-        createdAt: order.createdAt,
-      },
-    });
-  };
-
-  const handleTableClick = (table: Table) => {
-    if (table.status === 'occupied') {
-      const order = activeOrders.find((o) => o.tableNumber === table.number);
-      if (order) {
-        handleOrderClick(order);
-      } else {
-        navigate('/pos', { state: { tableNumber: table.number, orderType: 'dine-in' } });
-      }
-    } else if (table.status === 'available') {
-      navigate('/pos', { state: { tableNumber: table.number, orderType: 'dine-in' } });
-    }
-  };
-
-  const handleQROrder = () => {
-    // Show QR orders section or navigate to QR order management
-    const qrOrders = activeOrders.filter(o => o.isQrOrder);
-    if (qrOrders.length === 0) {
-      alert('No QR orders pending');
-      return;
-    }
-    // Scroll to QR orders or show modal
-    const qrSection = document.getElementById('qr-orders-section');
-    qrSection?.scrollIntoView({ behavior: 'smooth' });
-  };
 
   const navItems = [
     { icon: Receipt, label: 'Receipt', path: '/receipts' },
@@ -175,16 +244,9 @@ export const Dashboard: React.FC = () => {
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
-  // Filter orders
-  const dineInOrders = activeOrders.filter((o) => o.type === 'dine-in');
-  const takeawayOrders = activeOrders.filter((o) => o.type === 'takeaway');
-  const deliveryOrders = activeOrders.filter((o) => o.type === 'delivery');
-  const reservationOrders = activeOrders.filter((o) => o.type === 'reservation');
-  const qrOrders = activeOrders.filter((o) => o.isQrOrder);
-
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header */}
+      {/* Header with connection status */}
       <header className="bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
@@ -192,16 +254,19 @@ export const Dashboard: React.FC = () => {
           </div>
           <div>
             <h1 className="font-bold text-gray-900">MAT.ai POS</h1>
-            <p className="text-xs text-gray-500">Dashboard</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-gray-500">Dashboard</p>
+              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+            </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <Bell className="w-5 h-5 text-gray-600" />
-            {qrOrders.length > 0 && (
+            {qrOrdersList.length > 0 && (
               <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                {qrOrders.length}
+                {qrOrdersList.length}
               </span>
             )}
           </button>
@@ -268,14 +333,14 @@ export const Dashboard: React.FC = () => {
 
           <div className="flex-1 overflow-auto space-y-4">
             {/* QR ORDERS SECTION */}
-            {qrOrders.length > 0 && (
+            {qrOrdersList.length > 0 && (
               <div id="qr-orders-section">
                 <h3 className="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2 flex items-center gap-1">
                   <Smartphone className="w-3 h-3" />
-                  QR Orders ({qrOrders.length})
+                  QR Orders ({qrOrdersList.length})
                 </h3>
                 <div className="grid grid-cols-4 gap-3">
-                  {qrOrders.map((order) => (
+                  {qrOrdersList.map((order) => (
                     <button
                       key={order.id}
                       onClick={() => handleOrderClick(order)}
@@ -293,7 +358,7 @@ export const Dashboard: React.FC = () => {
                         {order.customerName || order.customerInfo?.name || 'Guest'}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {order.items.reduce((sum, i) => sum + i.qty, 0)} items
+                        {order.items.reduce((sum: any, i: { qty: any; }) => sum + i.qty, 0)} items
                       </p>
                       <p className="text-sm font-bold text-primary-600 mt-2">
                         RM {order.total.toFixed(2)}
@@ -366,7 +431,7 @@ export const Dashboard: React.FC = () => {
                         {order.customerInfo?.name || order.customerName || 'Guest'}
                       </p>
                       <p className="text-xs opacity-70 mt-1">
-                        {order.items.reduce((sum, i) => sum + i.qty, 0)} items
+                        {order.items.reduce((sum: any, i: { qty: any; }) => sum + i.qty, 0)} items
                       </p>
                       <p className="text-sm font-bold mt-2">
                         RM {order.total.toFixed(2)}
@@ -400,7 +465,7 @@ export const Dashboard: React.FC = () => {
                         {order.customerInfo?.name || order.customerName || 'Guest'}
                       </p>
                       <p className="text-xs opacity-70 mt-1">
-                        {order.items.reduce((sum, i) => sum + i.qty, 0)} items
+                        {order.items.reduce((sum: any, i: { qty: any; }) => sum + i.qty, 0)} items
                       </p>
                       <p className="text-sm font-bold mt-2">
                         RM {order.total.toFixed(2)}
@@ -444,7 +509,7 @@ export const Dashboard: React.FC = () => {
                         </p>
                       )}
                       <p className="text-xs opacity-70 mt-1">
-                        {order.items.reduce((sum, i) => sum + i.qty, 0)} items
+                        {order.items.reduce((sum: any, i: { qty: any; }) => sum + i.qty, 0)} items
                       </p>
                       <p className="text-sm font-bold mt-2">
                         RM {order.total.toFixed(2)}
@@ -470,9 +535,9 @@ export const Dashboard: React.FC = () => {
             <p className="text-xs text-gray-500 mt-1">
               {dineInOrders.length} dine-in · {takeawayOrders.length} takeaway · {deliveryOrders.length} delivery
             </p>
-            {qrOrders.length > 0 && (
+            {qrOrdersList.length > 0 && (
               <p className="text-xs text-primary-600 mt-1 font-medium">
-                {qrOrders.length} QR orders pending
+                {qrOrdersList.length} QR orders pending
               </p>
             )}
           </div>
@@ -480,7 +545,7 @@ export const Dashboard: React.FC = () => {
           <div className="bg-white rounded-xl border shadow-sm p-4">
             <p className="text-xs text-gray-500 mb-1">Today's Sales</p>
             <p className="text-xl font-bold text-gray-900">
-              RM {activeOrders.reduce((sum, o) => sum + o.total, 0).toFixed(2)}
+              RM {activeOrders.reduce((sum: any, o: { total: any; }) => sum + o.total, 0).toFixed(2)}
             </p>
             <p className="text-xs text-emerald-600 mt-1 font-medium">Active only</p>
           </div>
@@ -512,7 +577,7 @@ export const Dashboard: React.FC = () => {
             onClick={handleQROrder}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-md
                      active:scale-[0.98] transition-all text-left ${
-                       qrOrders.length > 0
+                       qrOrdersList.length > 0
                          ? 'bg-orange-500 text-white hover:bg-orange-600 animate-pulse'
                          : 'bg-gray-200 text-gray-600'
                      }`}
@@ -520,9 +585,9 @@ export const Dashboard: React.FC = () => {
             <QrCode className="w-5 h-5" />
             <div className="flex-1">
               <span className="text-sm font-semibold">QR Orders</span>
-              {qrOrders.length > 0 && (
+              {qrOrdersList.length > 0 && (
                 <span className="ml-2 text-xs bg-white/20 px-1.5 py-0.5 rounded-full">
-                  {qrOrders.length}
+                  {qrOrdersList.length}
                 </span>
               )}
             </div>

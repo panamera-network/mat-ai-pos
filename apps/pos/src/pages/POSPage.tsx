@@ -21,7 +21,6 @@ import {
   Clock,
   Users,
 } from 'lucide-react';
-import { wsClient } from '../lib/ws';
 import type {
   POSOrder,
   POSOrderItem,
@@ -29,6 +28,8 @@ import type {
   CustomerInfo,
 } from '../lib/types';
 import type { MenuItem, Category, Table } from '@mat-ai/types';
+
+const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
 
 // ============================================
 // HELPERS — load from localStorage
@@ -115,24 +116,88 @@ export const POSPage: React.FC = () => {
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
   const [selectedModifiers, setSelectedModifiers] = useState<string[]>([]);
 
-  // Data from localStorage
-  const menuItems = useMemo(() => getMenuItems(), []);
-  const categories = useMemo(() => getCategories(), []);
-  const tables = useMemo(() => getTables(), []);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [menuLoading, setMenuLoading] = useState(true);
   const availableTables = tables.filter((t) => t.status === 'available');
   const selectedTable = tables.find((t) => t.id === selectedTableId);
 
-  // Auto-select first category
+  // Resolve tableNumber to tableId when editing an existing order
+  useEffect(() => {
+    if (existingOrder?.tableNumber && tables.length > 0 && !selectedTableId && !existingTableId) {
+      const found = tables.find(t => t.number === existingOrder.tableNumber);
+      if (found) setSelectedTableId(found.id);
+    }
+  }, [existingOrder?.tableNumber, tables, selectedTableId, existingTableId]);
+
+  // Fetch menu & tables from backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [menuRes, tablesRes] = await Promise.all([
+          fetch(`${API_URL}/menu-items`),
+          fetch(`${API_URL}/tables`),
+        ]);
+        
+        if (!menuRes.ok) throw new Error(`Menu fetch failed: ${menuRes.status}`);
+        if (!tablesRes.ok) throw new Error(`Tables fetch failed: ${tablesRes.status}`);
+        
+        const menuData = await menuRes.json();
+        const tablesData = await tablesRes.json();
+        
+        const transformedMenu: MenuItem[] = menuData.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          price: Number(item.price),
+          categoryId: item.category,
+          image: item.imageUrl || undefined,
+          imageUrl: item.imageUrl,
+          isAvailable: item.isAvailable,
+          modifiers: (() => {
+            if (!item.options) return [];
+            if (Array.isArray(item.options)) {
+              return item.options.map((o: any) => typeof o === 'string' ? o : o.name || String(o));
+            }
+            return Object.keys(item.options);
+          })(),
+          options: item.options,
+          stock: 999,
+          minStock: 0,
+        }));
+        
+        const uniqueCategories: Category[] = [...new Set<string>(menuData.map((i: any) => i.category as string))].map((cat, idx) => ({
+          id: cat,
+          name: cat,
+          icon: '🍽️',
+          sortOrder: idx,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }));
+        
+        setMenuItems(transformedMenu);
+        setCategories(uniqueCategories);
+        setTables(tablesData);
+      } catch (err) {
+        console.error('Failed to fetch POS data:', err);
+        setMenuItems(getMenuItems());
+        setCategories(getCategories());
+        setTables(getTables());
+      } finally {
+        setMenuLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
+
   useEffect(() => {
     if (!activeCategory && categories.length > 0) {
       setActiveCategory(categories[0].id);
     }
   }, [activeCategory, categories]);
 
-  // Init WS
-  useEffect(() => {
-    wsClient.connect();
-  }, []);
 
   // Show order type modal on new order
   useEffect(() => {
@@ -203,6 +268,7 @@ export const POSPage: React.FC = () => {
       setSelectedModifiers([]);
     }
   };
+  
 
   const updateQty = (id: string, delta: number) => {
     setCartItems((prev) =>
@@ -228,7 +294,7 @@ export const POSPage: React.FC = () => {
     type: orderType,
     status: 'active',
     tableNumber: (orderType === 'dine-in' || orderType === 'reservation') ? selectedTable?.number : undefined,
-    customerInfo: (orderType === 'takeaway' || orderType === 'delivery') ? customerInfo : undefined,
+    customerInfo: (orderType === 'takeaway' || orderType === 'delivery' || orderType === 'reservation') ? customerInfo : undefined,
     customerName: customerInfo.name || undefined,
     customerPhone: customerInfo.phone || undefined,
     address: orderType === 'delivery' ? customerInfo.address : undefined,
@@ -243,63 +309,104 @@ export const POSPage: React.FC = () => {
     updatedAt: new Date().toISOString(),
   });
 
-  // SAVE ORDER
-  const handleSaveOrder = () => {
-    const order = buildOrder();
-    saveOrder(order);
-
-    // WS broadcast
-    wsClient.broadcastOrder(order, isEditMode ? 'UPDATE_ORDER' : 'NEW_ORDER');
-
-    if ((orderType === 'dine-in' || orderType === 'reservation') && selectedTableId) {
-      updateTableStatus(selectedTableId, orderType === 'reservation' ? 'reserved' : 'occupied');
-    }
-    navigate('/dashboard');
-  };
-
+  // ============================================
+  // MODAL FLOW HANDLERS
+  // ============================================
+  
   const handleConfirmOrderType = () => {
+    setShowOrderTypeModal(false);
     if (orderType === 'dine-in') {
-      setShowOrderTypeModal(false);
       setShowTableModal(true);
     } else if (orderType === 'reservation') {
-      setShowOrderTypeModal(false);
       setShowReservationModal(true);
-    } else {
-      setShowOrderTypeModal(false);
+    } else if (orderType === 'takeaway' || orderType === 'delivery') {
       setShowCustomerModal(true);
     }
   };
 
   const handleFinalizeOrder = () => {
-    if ((orderType === 'dine-in' || orderType === 'reservation') && !selectedTableId) {
-      alert('Please select a table');
-      return;
+    if (orderType === 'dine-in') {
+      if (!selectedTableId) return;
+      setShowTableModal(false);
+    } else if (orderType === 'reservation') {
+      if (!selectedTableId || !customerInfo.name.trim() || !customerInfo.phone.trim() || !pax || !reservationTime) {
+        return; // Basic validation — could add toast/alert here
+      }
+      setShowReservationModal(false);
+    } else if (orderType === 'takeaway' || orderType === 'delivery') {
+      if (!customerInfo.name.trim() || !customerInfo.phone.trim()) return;
+      if (orderType === 'delivery' && !customerInfo.address?.trim()) return;
+      setShowCustomerModal(false);
     }
-    if ((orderType === 'takeaway' || orderType === 'delivery') && !customerInfo.name.trim()) {
-      alert('Please enter customer name');
-      return;
-    }
-    if (orderType === 'reservation' && !reservationTime) {
-      alert('Please select reservation time');
-      return;
-    }
+  };
 
+  // SAVE ORDER
+  const handleSaveOrder = async (andNavigateToPayment = false) => {
     const order = buildOrder();
-    saveOrder(order);
+    let savedOrderId = order.id;
 
-    // WS broadcast
-    wsClient.broadcastOrder(order, 'NEW_ORDER');
+    console.log('=== handleSaveOrder START ===');
+    console.log('andNavigateToPayment:', andNavigateToPayment);
+    console.log('Frontend order.id:', order.id);
 
-    if ((orderType === 'dine-in' || orderType === 'reservation') && selectedTableId) {
+    try {
+      const res = await fetch(`${API_URL}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: order.type.toUpperCase().replace('-', '_'),
+          totalAmount: order.total,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          customerAddress: order.address,
+          tableId: selectedTableId,
+          pax: order.pax,
+          reservationTime: order.reservationTime,
+          notes: order.notes,
+          items: order.items.map(item => ({
+            menuItemId: item.menuId,
+            name: item.name,
+            quantity: item.qty,
+            unitPrice: item.price,
+            totalPrice: item.price * item.qty,
+            modifiers: item.modifiers,
+          })),
+        }),
+      });
+
+      console.log('POST /orders status:', res.status);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('POST /orders error:', errorText);
+        throw new Error('Failed to save order');
+      }
+      
+      const result = await res.json();
+      savedOrderId = result.id;
+      console.log('✅ Backend saved, ID:', savedOrderId);
+
+    } catch (err) {
+      console.error('❌ POST /orders failed:', err);
+      saveOrder({ ...order, id: savedOrderId });
+    }
+
+    // Update table status
+    if (selectedTableId && (orderType === 'dine-in' || orderType === 'reservation')) {
       updateTableStatus(selectedTableId, orderType === 'reservation' ? 'reserved' : 'occupied');
     }
 
-    setShowOrderTypeModal(false);
-    setShowTableModal(false);
-    setShowCustomerModal(false);
-    setShowReservationModal(false);
-    navigate('/dashboard');
-  };
+    console.log('=== Navigate ===');
+    console.log('andNavigateToPayment:', andNavigateToPayment);
+    console.log('savedOrderId:', savedOrderId);
+
+    if (andNavigateToPayment) {
+      console.log('Navigating to payment with ID:', savedOrderId);
+      navigate(`/payment/${savedOrderId}`, { 
+        state: { order: { ...order, id: savedOrderId } } 
+      });
+    }
+  
 
   const toggleModifier = (mod: string) => {
     setSelectedModifiers((prev) =>
@@ -365,7 +472,12 @@ export const POSPage: React.FC = () => {
           )}
 
           <div className="flex-1 overflow-auto p-4">
-            {menuItems.length === 0 ? (
+            {menuLoading ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mb-3" />
+                <p className="text-sm">Loading menu...</p>
+              </div>
+            ) : menuItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
                 <ShoppingBag className="w-12 h-12 mb-2" />
                 <p className="text-sm">No menu items configured</p>
@@ -397,7 +509,7 @@ export const POSPage: React.FC = () => {
                 ))}
               </div>
             )}
-            {filteredItems.length === 0 && menuItems.length > 0 && (
+            {!menuLoading && filteredItems.length === 0 && menuItems.length > 0 && (
               <div className="text-center py-12 text-gray-400"><p>No items found</p></div>
             )}
           </div>
@@ -457,11 +569,15 @@ export const POSPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={handleSaveOrder} disabled={cartItems.length === 0} className="py-3 bg-gray-200 text-gray-800 rounded-xl font-semibold hover:bg-gray-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              <button 
+                onClick={() => handleSaveOrder(false)} 
+                disabled={cartItems.length === 0} 
+                className="py-3 bg-gray-200 text-gray-800 rounded-xl font-semibold hover:bg-gray-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
                 <Save className="w-5 h-5" /> Save
               </button>
               <button
-                onClick={() => navigate(`/payment/${existingOrder?.id || 'new'}`, { state: { order: buildOrder() } })}
+                onClick={() => handleSaveOrder(true)} // ✅ FIXED: Save then navigate
                 disabled={cartItems.length === 0}
                 className="py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 active:bg-primary-800 active:scale-95 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
@@ -706,4 +822,4 @@ export const POSPage: React.FC = () => {
       )}
     </div>
   );
-};
+};}

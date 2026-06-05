@@ -1,37 +1,47 @@
 // apps/kitchen/src/pages/KitchenDisplay.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, History, ChefHat, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Settings, History, ChefHat, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useKitchenStore } from '../stores/kitchenStore';
-import { useKitchenWebSocket } from '../hooks/useWebSocket';
 import { useSound } from '../hooks/useSound';
 import { useTimer } from '../hooks/useTimer';
 import { addToHistory } from '../utils/storage';
 import { getTimerState } from '../utils/timer';
-import type { KitchenTicket, KitchenTicketItem } from '../types/kitchen';
-import type { WSMessage, OrderCreatedPayload } from '@mat-ai/ws';
+import type { KitchenTicket } from '../types/kitchen';
 import { OrderCard } from '../components/OrderCard';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 
-// Set to false to connect to real POS WebSocket server
-const USE_MOCK = true;
 const CARDS_PER_PAGE = 4;
+const POLL_INTERVAL = 5000; // 5 seconds
 
 export const KitchenDisplay: React.FC = () => {
   const navigate = useNavigate();
   const { playNewOrder, playDone } = useSound();
   const previousTicketCount = useRef(0);
   const [currentPage, setCurrentPage] = useState(0);
+  const [isConnected, setIsConnected] = useState(true); // API polling = always "connected"
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
   const tickets = useKitchenStore((state) => state.tickets);
-  const addTicket = useKitchenStore((state) => state.addTicket);
+  const isLoading = useKitchenStore((state) => state.isLoading);
+  const fetchTickets = useKitchenStore((state) => state.fetchTickets);
   const toggleItemDone = useKitchenStore((state) => state.toggleItemDone);
   const removeTicket = useKitchenStore((state) => state.removeTicket);
 
   // Start timer updates
   useTimer(30000);
+
+  // Polling effect
+  useEffect(() => {
+    fetchTickets(); // Initial fetch
+    
+    const interval = setInterval(() => {
+      fetchTickets();
+    }, POLL_INTERVAL);
+    
+    return () => clearInterval(interval);
+  }, [fetchTickets]);
 
   // Calculate pagination
   const totalPages = Math.max(1, Math.ceil(tickets.length / CARDS_PER_PAGE));
@@ -47,42 +57,6 @@ export const KitchenDisplay: React.FC = () => {
     }
   }, [tickets.length, currentPage, totalPages]);
 
-  // Handle new order from WS
-  const handleOrderCreated = useCallback((msg: WSMessage) => {
-    const payload = msg.payload as OrderCreatedPayload;
-    const order = payload.order;
-
-    const ticketItems: KitchenTicketItem[] = order.items.map((item) => ({
-      ...item,
-      done: false,
-    }));
-
-    const ticket: KitchenTicket = {
-      orderId: order.id,
-      tableNumber: order.tableNumber,
-      orderType: order.orderType,
-      customerName: order.customerName,
-      orderedAt: order.orderedAt,
-      items: ticketItems,
-      elapsedMinutes: 0,
-      allDone: false,
-    };
-
-    addTicket(ticket);
-  }, [addTicket]);
-
-  const handleItemDone = useCallback(() => {}, []);
-  const handleOrderDone = useCallback(() => {}, []);
-  const handleOrderUpdated = useCallback(() => {}, []);
-
-  const { isConnected } = useKitchenWebSocket(
-    handleOrderCreated,
-    handleOrderUpdated,
-    handleItemDone,
-    handleOrderDone,
-    USE_MOCK
-  );
-
   // Play sound when new orders arrive
   useEffect(() => {
     if (tickets.length > previousTicketCount.current) {
@@ -91,8 +65,8 @@ export const KitchenDisplay: React.FC = () => {
     previousTicketCount.current = tickets.length;
   }, [tickets.length, playNewOrder]);
 
-  const handleToggleItem = useCallback((orderId: string, itemIndex: number) => {
-    toggleItemDone(orderId, itemIndex);
+  const handleToggleItem = useCallback((orderId: string, itemId: string) => {
+    toggleItemDone(orderId, itemId);
   }, [toggleItemDone]);
 
   const handleDone = useCallback((orderId: string) => {
@@ -158,6 +132,14 @@ export const KitchenDisplay: React.FC = () => {
         <div className="flex items-center gap-3">
           <ConnectionStatus isConnected={isConnected} stationName="Main Kitchen" />
           <button
+            onClick={() => fetchTickets()}
+            disabled={isLoading}
+            className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors text-gray-600 disabled:opacity-50"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
             onClick={() => navigate('/history')}
             className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors text-gray-600"
             title="Order History"
@@ -174,7 +156,7 @@ export const KitchenDisplay: React.FC = () => {
         </div>
       </header>
 
-      {/* Cards Container - Flex row, nowrap, 4 cards max */}
+      {/* Cards Container */}
       <main
         className="flex-1 p-4 min-h-0 overflow-hidden"
         onTouchStart={handleTouchStart}
@@ -198,7 +180,6 @@ export const KitchenDisplay: React.FC = () => {
                 />
               </div>
             ))}
-            {/* Fill empty slots */}
             {Array.from({ length: CARDS_PER_PAGE - currentTickets.length }).map((_, i) => (
               <div key={`empty-${i}`} className="flex-1 min-w-0 h-full rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50" style={{ maxWidth: 'calc(25% - 12px)' }} />
             ))}

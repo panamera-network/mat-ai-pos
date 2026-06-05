@@ -1,4 +1,5 @@
-// prisma/schema.prisma
+//services/api/prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,15 +9,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============ ENUMS ============
+// ==================== ENUMS ====================
+
+enum Role {
+  ADMIN
+  MANAGER
+  CASHIER
+  KITCHEN
+}
+
+enum EmploymentType {
+  HOURLY_PART_TIME
+  MONTHLY_SALARIED
+}
 
 enum OrderStatus {
-  PENDING     // Order placed, waiting payment
-  PAID        // Payment confirmed
-  PREPARING   // Kitchen accepted
-  READY       // Food ready for pickup
-  SERVED      // Delivered to table
-  CANCELLED   // Cancelled
+  PENDING
+  PAID
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
 }
 
 enum ItemStatus {
@@ -26,18 +39,18 @@ enum ItemStatus {
   SERVED
 }
 
-enum OrderType {
-  DINE_IN
-  PICKUP
-  DELIVERY
-  RESERVATION
-}
-
 enum OrderSource {
   QR_MENU
   POS
   ONLINE
   PHONE
+}
+
+enum OrderType {
+  DINE_IN
+  PICKUP
+  DELIVERY
+  RESERVATION
 }
 
 enum PaymentMethod {
@@ -54,104 +67,283 @@ enum TableStatus {
   CLEANING
 }
 
-// ============ MODELS ============
-
-model Order {
-  id          String      @id @default(cuid())
-  orderNumber String      @unique @default(dbgenerated("'ORD-' || substr(md5(random()::text), 1, 8)"))
-  status      OrderStatus @default(PENDING)
-  source      OrderSource @default(QR_MENU)
-  type        OrderType   @default(DINE_IN)
-
-  // Relations
-  items       OrderItem[]
-  table       Table?      @relation(fields: [tableId], references: [id])
-  tableId     String?
-
-  // Payment
-  totalAmount Decimal     @db.Decimal(10, 2)
-  paidAmount  Decimal?    @db.Decimal(10, 2)
-  paymentMethod PaymentMethod?
-
-  // Customer Info
-  customerName    String?
-  customerPhone   String?
-  customerAddress String?   // For Delivery
-  pax             Int?      // For Dine In / Reservation
-  reservationTime DateTime? // For Reservation
-
-  // Timestamps
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  completedAt DateTime?
-
-  // Metadata
-  notes       String?
-
-  @@index([status])
-  @@index([type])
-  @@index([createdAt])
-  @@index([tableId])
-  @@map("orders")
+enum StockType {
+  AUTO_DEDUCT
+  MANUAL_IN
+  ADJUSTMENT
 }
 
-model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  menuItemId String
-  name      String
-  quantity  Int
-  unitPrice Decimal  @db.Decimal(10, 2)
-  totalPrice Decimal @db.Decimal(10, 2)
-
-  // Kitchen status
-  status    ItemStatus @default(PENDING)
-
-  // Modifiers/variants
-  options   Json?    // { "spiciness": "extra", "addons": ["cheese"] }
-  notes     String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([orderId])
-  @@index([status])
-  @@map("order_items")
+enum LeaveType {
+  ANNUAL
+  SICK
+  UNPAID
+  EMERGENCY
 }
 
-model Table {
-  id          String    @id @default(cuid())
-  number      String    @unique
-  name        String?
-  capacity    Int       @default(4)
-  status      TableStatus @default(AVAILABLE)
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 
-  orders      Order[]
+enum PayrollPeriod {
+  WEEKLY
+  MONTHLY
+}
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+enum PayrollStatus {
+  DRAFT
+  APPROVED
+  PAID
+}
 
-  @@map("tables")
+// ==================== CORE ====================
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  icon      String?
+  sortOrder Int        @default(0)
+  isActive  Boolean    @default(true)
+  items     MenuItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
 model MenuItem {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  price       Decimal   @db.Decimal(10, 2)
-  category    String
+  id          String     @id @default(cuid())
+  name        String     @unique
+  price       Decimal
+  categoryId  String
+  category    Category   @relation(fields: [categoryId], references: [id])
   imageUrl    String?
-  isAvailable Boolean   @default(true)
+  isAvailable Boolean    @default(true)
+  stock       Int        @default(0)
+  minStock    Int        @default(0)
+  options     Json?
+  stockLogs   StockLog[]
+  orderItems  OrderItem[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
 
-  // Options/variants schema
-  options     Json?     // { "spiciness": ["mild", "medium", "extra"], "size": [...] }
+model Table {
+  id        String      @id @default(cuid())
+  number    String      @unique
+  capacity  Int         @default(4)
+  status    TableStatus @default(AVAILABLE)
+  orders    Order[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+// ==================== ORDERS ====================
 
-  @@index([category])
-  @@index([isAvailable])
-  @@map("menu_items")
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  status          OrderStatus @default(PENDING)
+  source          OrderSource @default(POS)
+  type            OrderType   @default(DINE_IN)
+  totalAmount     Decimal
+  paidAmount      Decimal?
+  taxAmount       Decimal?
+  paymentMethod   PaymentMethod?
+  customerName    String?
+  customerPhone   String?
+  customerAddress String?
+  tableId         String?
+  table           Table?      @relation(fields: [tableId], references: [id])
+  pax             Int?
+  reservationTime DateTime?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  completedAt     DateTime?
+  items           OrderItem[]
+  receipt         Receipt?
+}
+
+model OrderItem {
+  id          String     @id @default(cuid())
+  orderId     String
+  order       Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId  String
+  menuItem    MenuItem   @relation(fields: [menuItemId], references: [id])
+  name        String
+  quantity    Int
+  unitPrice   Decimal
+  totalPrice  Decimal
+  options     Json?
+  notes       String?
+  status      ItemStatus @default(PENDING)
+  createdAt   DateTime   @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==================== STAFF ====================
+
+model Staff {
+  id              String         @id @default(cuid())
+  name            String         @unique
+  pin             String
+  role            Role           @default(CASHIER)
+  isActive        Boolean        @default(true)
+  employmentType  EmploymentType @default(HOURLY_PART_TIME)
+  hourlyRate      Decimal?
+  monthlySalary   Decimal?
+  joinDate        DateTime       @default(now())
+  customEpfRate   Decimal?
+  customSocsoRate Decimal?
+  timecards       Timecard[]
+  receipts        Receipt[]
+  stockLogs       StockLog[]
+  payrolls        Payroll[]
+  leaveRequests   LeaveRequest[]
+  advances        StaffAdvance[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model Timecard {
+  id            String    @id @default(cuid())
+  staffId       String
+  staff         Staff     @relation(fields: [staffId], references: [id])
+  clockIn       DateTime
+  clockOut      DateTime?
+  breakMinutes  Int       @default(0)
+  totalMinutes  Int?
+  totalHours    Decimal?
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+// ==================== LEAVE ====================
+
+model LeaveRequest {
+  id               String      @id @default(cuid())
+  staffId          String
+  staff            Staff       @relation(fields: [staffId], references: [id])
+  type             LeaveType
+  startDate        DateTime
+  endDate          DateTime
+  days             Int
+  reason           String?
+  status           LeaveStatus @default(PENDING)
+  approvedBy       String?
+  approvedAt       DateTime?
+  payrollDeduction Decimal?
+  createdAt        DateTime    @default(now())
+}
+
+// ==================== ADVANCE ====================
+
+model StaffAdvance {
+  id                String             @id @default(cuid())
+  staffId           String
+  staff             Staff              @relation(fields: [staffId], references: [id])
+  amount            Decimal
+  reason            String?
+  takenAt           DateTime           @default(now())
+  totalInstallments Int                @default(1)
+  paidInstallments  Int                @default(0)
+  installmentAmount Decimal
+  isFullyPaid       Boolean            @default(false)
+  paidOffAt         DateTime?
+  deductions        AdvanceDeduction[]
+  createdAt         DateTime           @default(now())
+}
+
+model AdvanceDeduction {
+  id        String       @id @default(cuid())
+  advanceId String
+  advance   StaffAdvance @relation(fields: [advanceId], references: [id])
+  payrollId String
+  payroll   Payroll      @relation(fields: [payrollId], references: [id])
+  amount    Decimal
+  createdAt DateTime     @default(now())
+}
+
+// ==================== PAYROLL ====================
+
+model Payroll {
+  id                String             @id @default(cuid())
+  staffId           String
+  staff             Staff              @relation(fields: [staffId], references: [id])
+  periodStart       DateTime
+  periodEnd         DateTime
+  periodType        PayrollPeriod
+  basicPay          Decimal
+  overtimeHours     Decimal            @default(0)
+  overtimePay       Decimal            @default(0)
+  totalEarnings     Decimal
+  leaveDeduction    Decimal            @default(0)
+  epfEmployee       Decimal            @default(0)
+  epfEmployer       Decimal            @default(0)
+  socsoEmployee     Decimal            @default(0)
+  socsoEmployer     Decimal            @default(0)
+  advanceDeduction  Decimal            @default(0)
+  otherDeductions   Decimal            @default(0)
+  totalDeductions   Decimal
+  nettPay           Decimal
+  status            PayrollStatus      @default(DRAFT)
+  paidAt            DateTime?
+  paidBy            String?
+  pdfUrl            String?
+  advanceDeductions AdvanceDeduction[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+// ==================== RECEIPTS ====================
+
+model Receipt {
+  id             String   @id @default(cuid())
+  receiptNo      String   @unique
+  orderId        String   @unique
+  order          Order    @relation(fields: [orderId], references: [id])
+  totalAmount    Decimal
+  paidAmount     Decimal
+  change         Decimal?
+  paymentMethod  String
+  taxAmount      Decimal?
+  cashierId      String
+  cashier        Staff    @relation(fields: [cashierId], references: [id])
+  posId          String
+  itemsSnapshot  Json
+  customerInfo   Json?
+  printCount     Int      @default(0)
+  lastPrintedAt  DateTime?
+  pdfGeneratedAt DateTime?
+  pdfUrl         String?
+  emailedTo      String?
+  emailSentAt    DateTime?
+  createdAt      DateTime @default(now())
+}
+
+// ==================== INVENTORY ====================
+
+model StockLog {
+  id         String    @id @default(cuid())
+  menuItemId String
+  menuItem   MenuItem  @relation(fields: [menuItemId], references: [id])
+  type       StockType
+  quantity   Int
+  orderId    String?
+  reason     String?
+  staffId    String
+  staff      Staff     @relation(fields: [staffId], references: [id])
+  createdAt  DateTime  @default(now())
+}
+
+// ==================== SETTINGS ====================
+
+model Setting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
 }

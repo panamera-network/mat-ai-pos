@@ -3,6 +3,8 @@
 
 import type { OrderItem } from '@mat-ai/types';
 
+export type KitchenOrderType = 'dine-in' | 'takeaway' | 'delivery' | 'reservation';
+
 export interface KitchenTicketItem extends OrderItem {
   done: boolean;
   doneAt?: string;

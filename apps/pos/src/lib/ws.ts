@@ -19,7 +19,7 @@ function getWsUrl(): string {
   const defaultKds = stations.find((s: any) => s.type === 'kds' && s.enabled);
   return defaultKds
     ? `ws://${defaultKds.ip}:${defaultKds.port}`
-    : 'ws://localhost:8080';
+    : 'ws://localhost:4000';
 }
 
 export const wsClient = {

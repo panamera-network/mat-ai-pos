@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// app/src/pages/PaymentPage.tsx
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -9,30 +10,57 @@ import {
   Split,
   MoreVertical,
 } from 'lucide-react';
-import type { Order } from '@mat-ai/types';
 
-interface PaymentMethod {
+const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
+
+interface PaymentMethodOption {
   id: string;
   name: string;
   icon: React.ReactNode;
   color: string;
+  backendValue: string; // Backend enum value
 }
 
-const paymentMethods: PaymentMethod[] = [
-  { id: 'cash', name: 'Cash', icon: <Banknote className="w-6 h-6" />, color: 'bg-green-500' },
-  { id: 'qr', name: 'QR Pay', icon: <QrCode className="w-6 h-6" />, color: 'bg-blue-500' },
-  { id: 'card', name: 'Card', icon: <CreditCard className="w-6 h-6" />, color: 'bg-purple-500' },
+const paymentMethods: PaymentMethodOption[] = [
+  { id: 'cash', name: 'Cash', icon: <Banknote className="w-6 h-6" />, color: 'bg-green-500', backendValue: 'CASH' },
+  { id: 'qr', name: 'QR Pay', icon: <QrCode className="w-6 h-6" />, color: 'bg-blue-500', backendValue: 'QR_PAY' },
+  { id: 'card', name: 'Card', icon: <CreditCard className="w-6 h-6" />, color: 'bg-purple-500', backendValue: 'CARD' },
 ];
 
 export const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const { orderId } = useParams();
   const location = useLocation();
-  const order = location.state?.order as Order | undefined;
-
+  
+  const [order, setOrder] = useState<any>(location.state?.order);
+  const [isLoading, setIsLoading] = useState(!location.state?.order);
   const [selectedMethod, setSelectedMethod] = useState('cash');
   const [cashReceived, setCashReceived] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Fetch order if not in state (page refresh)
+  useEffect(() => {
+    if (!order && orderId) {
+      fetch(`${API_URL}/orders/${orderId}`)
+        .then(res => res.json())
+        .then(data => {
+          setOrder(data);
+          setIsLoading(false);
+        })
+        .catch(err => {
+          console.error('Failed to fetch order:', err);
+          setIsLoading(false);
+        });
+    }
+  }, [order, orderId]);
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600" />
+      </div>
+    );
+  }
 
   if (!order) {
     return (
@@ -63,32 +91,65 @@ export const PaymentPage: React.FC = () => {
     setCashReceived(order.total.toFixed(2));
   };
 
-  const handlePayment = () => {
-    const receipts = JSON.parse(localStorage.getItem('mat-pos-receipts') || '[]');
-    receipts.push({
-      id: order.id,
-      receiptNo: new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(receipts.length + 1).padStart(3, '0'),
-      tableNumber: order.tableNumber || '-',
-      orderType: order.type,
-      time: new Date().toLocaleTimeString(),
-      cashier: 'Ahmad',
-      posId: 'POS-1',
-      items: order.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
-      total: order.total,
-      paymentMethod: selectedMethod,
+  const handlePayment = async () => {
+    const selectedMethodData = paymentMethods.find(m => m.id === selectedMethod);
+    if (!selectedMethodData) return;
+
+    // Use backend order ID
+    const effectiveOrderId = order.id || orderId;
+    
+    console.log('=== PAYMENT DEBUG ===');
+    console.log('Order ID:', effectiveOrderId);
+    console.log('Payload:', {
+      status: 'PAID',
+      paidAmount: order.total,
+      paymentMethod: selectedMethodData.backendValue,
     });
-    localStorage.setItem('mat-pos-receipts', JSON.stringify(receipts));
 
-    const orders = JSON.parse(localStorage.getItem('mat-pos-active-orders') || '[]');
-    const updated = orders.map((o: Order) => (o.id === order.id ? { ...o, status: 'completed' } : o));
-    localStorage.setItem('mat-pos-active-orders', JSON.stringify(updated));
+    try {
+      const res = await fetch(`${API_URL}/orders/${effectiveOrderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'PAID',
+          paidAmount: order.total,
+          paymentMethod: selectedMethodData.backendValue,
+        }),
+      });
 
-    if (order.type === 'dine-in' && order.tableNumber) {
-      const tables = JSON.parse(localStorage.getItem('mat-pos-tables') || '[]');
-      const updatedTables = tables.map((t: any) => 
-        t.number === order.tableNumber ? { ...t, status: 'available' } : t
-      );
-      localStorage.setItem('mat-pos-tables', JSON.stringify(updatedTables));
+      const responseText = await res.text();
+      console.log('Response:', res.status, responseText);
+
+      if (!res.ok) {
+        throw new Error(`Failed: ${res.status} - ${responseText}`);
+      }
+
+      console.log('✅ Order marked as PAID');
+
+      // Save receipt local (fallback)
+      const receipts = JSON.parse(localStorage.getItem('mat-pos-receipts') || '[]');
+      receipts.push({
+        id: effectiveOrderId,
+        receiptNo: new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(receipts.length + 1).padStart(3, '0'),
+        tableNumber: order.tableNumber || '-',
+        orderType: order.type,
+        time: new Date().toLocaleTimeString(),
+        cashier: 'Ahmad',
+        posId: 'POS-1',
+        items: order.items.map((i: any) => ({ 
+          name: i.name, 
+          qty: i.qty || i.quantity, 
+          price: i.price 
+        })),
+        total: order.total,
+        paymentMethod: selectedMethodData.backendValue,
+      });
+      localStorage.setItem('mat-pos-receipts', JSON.stringify(receipts));
+
+    } catch (err) {
+      console.error('❌ Payment failed:', err);
+      alert('Payment failed. Please try again.');
+      return;
     }
 
     setShowSuccess(true);
@@ -146,12 +207,15 @@ export const PaymentPage: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2 mb-4">
-              {order.items.map((item, index) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span className="text-gray-700">{item.qty}x {item.name}</span>
-                  <span className="font-medium">RM{(item.qty * item.price).toFixed(2)}</span>
-                </div>
-              ))}
+              {order.items.map((item: { qty?: number | string | null; name: string; price: number }, index: React.Key | null | undefined) => {
+                const qty = Number(item.qty) || 0;
+                return (
+                  <div key={index} className="flex justify-between text-sm">
+                    <span className="text-gray-700">{qty}x {item.name}</span>
+                    <span className="font-medium">RM{(qty * item.price).toFixed(2)}</span>
+                  </div>
+                );
+              })}
             </div>
             <div className="border-t pt-4 space-y-2">
               <div className="flex justify-between text-sm">
@@ -160,7 +224,7 @@ export const PaymentPage: React.FC = () => {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">SST (8%)</span>
-                <span className="font-medium">RM{order.tax.toFixed(2)}</span>
+                <span className="font-medium">RM{(order.tax || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold pt-2 border-t">
                 <span>Total</span>

@@ -5,6 +5,7 @@ NestJS backend for MAT.ai POS system.
 ## Stack
 - **NestJS** — Framework
 - **PostgreSQL** — Database
+https://console.neon.tech/app/projects/restless-sky-08726925?database=neondb
 - **Prisma** — ORM
 - **Socket.IO** — Real-time sync
 - **Redis** — Pub/sub (future scaling)
@@ -27,9 +28,6 @@ pnpm dlx prisma migrate dev --name init
 pnpm dlx prisma generate
 pnpm run db:seed
 ```
-
-
-
 
 ### 4. Run
 ```bash

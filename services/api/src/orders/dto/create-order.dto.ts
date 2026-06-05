@@ -1,7 +1,7 @@
 // src/orders/dto/create-order.dto.ts
 import { IsString, IsNumber, IsOptional, IsEnum, IsArray, ValidateNested, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { OrderSource, OrderType } from '../../common/enums';  // ← guna ni
+import { OrderSource, OrderType } from '../../common/enums';
 
 class OrderItemDto {
   @IsString()
@@ -27,9 +27,6 @@ class OrderItemDto {
 }
 
 export class CreateOrderDto {
-  @IsNumber()
-  totalAmount: number;
-
   @IsOptional()
   @IsEnum(OrderSource)
   source?: OrderSource;
@@ -37,6 +34,9 @@ export class CreateOrderDto {
   @IsOptional()
   @IsEnum(OrderType)
   type?: OrderType;
+
+  @IsNumber()
+  totalAmount: number;
 
   @IsOptional()
   @IsString()

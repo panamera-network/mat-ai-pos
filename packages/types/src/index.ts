@@ -103,6 +103,7 @@ export interface Station extends BaseEntity {
 
 // ============ ORDER ============
 export interface OrderItem {
+  id: string;
   menuItemId: string;
   name: string;
   categoryId: string;

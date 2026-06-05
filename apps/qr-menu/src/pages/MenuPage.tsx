@@ -1,27 +1,10 @@
+// apps/qr-menu/src/pages/MenuPage.tsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Search, Plus, ChefHat, AlertCircle } from 'lucide-react';
-import type { MenuItem, Category } from '@mat-ai/types';
-import { fetchMenuAvailability, startAvailabilityPolling } from '../lib/sync';
+import { ShoppingCart, Search, Plus, ChefHat, AlertCircle, Loader2 } from 'lucide-react';
+import type { MenuItem } from '@mat-ai/types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-
-// Load from localStorage (shared with POS) - fallback to static
-const getMenuItems = (): MenuItem[] => {
-  try {
-    const saved = localStorage.getItem('mat-pos-menu-items');
-    if (saved) return JSON.parse(saved);
-  } catch { /* ignore */ }
-  return [];
-};
-
-const getCategories = (): Category[] => {
-  try {
-    const saved = localStorage.getItem('mat-pos-categories');
-    if (saved) return JSON.parse(saved);
-  } catch { /* ignore */ }
-  return [];
-};
 
 interface CartItem {
   menuId: string;
@@ -31,6 +14,12 @@ interface CartItem {
   modifiers: string[];
 }
 
+const DEFAULT_CATEGORIES = [
+  { id: 'Makanan', name: 'Makanan' },
+  { id: 'Minuman', name: 'Minuman' },
+  { id: 'Roti', name: 'Roti' },
+];
+
 export const MenuPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<string>('');
@@ -39,23 +28,31 @@ export const MenuPage: React.FC = () => {
     const saved = localStorage.getItem('mat-qr-cart');
     return saved ? JSON.parse(saved) : [];
   });
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories] = useState(DEFAULT_CATEGORIES);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModifierModal, setShowModifierModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [selectedModifiers, setSelectedModifiers] = useState<string[]>([]);
-  const [availability, setAvailability] = useState<Record<string, boolean>>({});
-  const [availabilityUpdated, setAvailabilityUpdated] = useState<string>('');
 
-  const [menuItems, setMenuItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const categories = useMemo(() => getCategories(), []);
-
-  // Start availability polling
+  // Fetch menu from backend API
   useEffect(() => {
-    const cleanup = startAvailabilityPolling((avail) => {
-      setAvailability(avail);
-      setAvailabilityUpdated(new Date().toLocaleTimeString());
-    });
-    return cleanup;
+    setLoading(true);
+    fetch(`${API_URL}/menu-items`)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data: MenuItem[]) => {
+        setMenuItems(data);
+        setError(null);
+      })
+      .catch(err => {
+        console.error('Failed to load menu:', err);
+        setError('Unable to load menu. Please try again.');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   // Auto-select first category
@@ -64,22 +61,6 @@ export const MenuPage: React.FC = () => {
       setActiveCategory(categories[0].id);
     }
   }, [activeCategory, categories]);
-
-  useEffect(() => {
-  fetch(`${API_URL}/menu-items`)
-    .then(res => {
-      if (!res.ok) throw new Error('Failed to fetch menu');
-      return res.json();
-    })
-    .then(data => {
-      setMenuItems(data);
-      setLoading(false);
-    })
-    .catch(err => {
-      console.error('Failed to load menu:', err);
-      setLoading(false);
-    });
-}, []);
 
   // Save cart to localStorage
   useEffect(() => {
@@ -93,7 +74,7 @@ export const MenuPage: React.FC = () => {
         item.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     } else if (activeCategory) {
-      items = items.filter((item) => item.categoryId === activeCategory);
+      items = items.filter((item) => item.category === activeCategory);
     }
     return items;
   }, [menuItems, activeCategory, searchQuery]);
@@ -102,14 +83,10 @@ export const MenuPage: React.FC = () => {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   const isAvailable = (itemId: string): boolean => {
-    // If no availability data, assume available (fail open)
-    if (Object.keys(availability).length === 0) return true;
-    return availability[itemId] !== false;
+    return true; // Simplified for now
   };
 
   const addToCart = (item: MenuItem, mods: string[] = []) => {
-    if (!isAvailable(item.id)) return;
-
     setCart((prev) => {
       const existing = prev.find(
         (i) => i.menuId === item.id && JSON.stringify(i.modifiers) === JSON.stringify(mods)
@@ -124,7 +101,7 @@ export const MenuPage: React.FC = () => {
       return [...prev, {
         menuId: item.id,
         name: item.name,
-        price: item.price,
+        price: Number(item.price),
         qty: 1,
         modifiers: mods,
       }];
@@ -132,9 +109,12 @@ export const MenuPage: React.FC = () => {
   };
 
   const handleItemClick = (item: MenuItem) => {
-    if (!isAvailable(item.id)) return;
-
-    if (item.modifiers?.length) {
+    console.log('Clicked:', item.name);
+    
+    // Check if item has options (from backend)
+    const hasOptions = item.options && Object.keys(item.options).length > 0;
+    
+    if (hasOptions) {
       setSelectedItem(item);
       setSelectedModifiers([]);
       setShowModifierModal(true);
@@ -156,6 +136,18 @@ export const MenuPage: React.FC = () => {
     setSelectedModifiers((prev) =>
       prev.includes(mod) ? prev.filter((m) => m !== mod) : [...prev, mod]
     );
+  };
+
+  // Helper to flatten options for display
+  const getOptionValues = (item: MenuItem | null): string[] => {
+    if (!item?.options) return [];
+    const values: string[] = [];
+    Object.entries(item.options).forEach(([key, val]) => {
+      if (Array.isArray(val)) {
+        val.forEach((v) => values.push(`${key}: ${v}`));
+      }
+    });
+    return values;
   };
 
   return (
@@ -198,19 +190,31 @@ export const MenuPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Availability notice */}
-      {availabilityUpdated && (
-        <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-blue-600" />
-          <span className="text-xs text-blue-700">
-            Menu updated at {availabilityUpdated}
-          </span>
+      {/* Loading State */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-10 h-10 text-primary-600 animate-spin mb-4" />
+          <p className="text-gray-500">Loading menu...</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {!loading && error && (
+        <div className="flex flex-col items-center justify-center py-20 px-4">
+          <AlertCircle className="w-12 w-12 text-red-500 mb-3" />
+          <p className="text-red-600 font-medium">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-xl text-sm"
+          >
+            Retry
+          </button>
         </div>
       )}
 
       {/* Category Tabs */}
-      {!searchQuery && categories.length > 0 && (
-        <div className="sticky top-[110px] z-30 bg-gray-50 px-4 py-2 overflow-x-auto">
+      {!loading && !error && categories.length > 0 && (
+        <div className="sticky top-[73px] z-30 bg-gray-50 px-4 py-2 overflow-x-auto">
           <div className="flex gap-2">
             {categories.map((cat) => (
               <button
@@ -230,53 +234,64 @@ export const MenuPage: React.FC = () => {
       )}
 
       {/* Menu Grid */}
-      <div className="p-4">
-        {menuItems.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <ChefHat className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <p className="text-lg font-medium">No Menu Available</p>
-            <p className="text-sm mt-1">Please ask staff to set up the menu</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {filteredItems.map((item) => {
-              const available = isAvailable(item.id);
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleItemClick(item)}
-                  disabled={!available}
-                  className={`bg-white rounded-2xl border p-3 text-left transition-all relative ${
-                    available 
-                      ? 'active:scale-95' 
-                      : 'opacity-60 cursor-not-allowed'
-                  }`}
-                >
-                  {!available && (
-                    <div className="absolute inset-0 bg-gray-100/80 rounded-2xl flex items-center justify-center z-10">
-                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                        SOLD OUT
-                      </span>
+      {!loading && !error && (
+        <div className="p-4">
+          {menuItems.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <ChefHat className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+              <p className="text-lg font-medium">No Menu Available</p>
+              <p className="text-sm mt-1">Please ask staff to set up the menu</p>
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p>No items found</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {filteredItems.map((item) => {
+                const available = isAvailable(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleItemClick(item)}
+                    disabled={!available}
+                    className={`bg-white rounded-2xl border p-3 text-left transition-all relative ${
+                      available 
+                        ? 'active:scale-95' 
+                        : 'opacity-60 cursor-not-allowed'
+                    }`}
+                  >
+                    {!available && (
+                      <div className="absolute inset-0 bg-gray-100/80 rounded-2xl flex items-center justify-center z-10">
+                        <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                          SOLD OUT
+                        </span>
+                      </div>
+                    )}
+                    <div className="aspect-square bg-gray-100 rounded-xl mb-3 flex items-center justify-center text-4xl">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover rounded-xl" />
+                      ) : (
+                        '🍽️'
+                      )}
                     </div>
-                  )}
-                  <div className="aspect-square bg-gray-100 rounded-xl mb-3 flex items-center justify-center text-4xl">
-                    {item.image || '🍽️'}
-                  </div>
-                  <h3 className="font-semibold text-gray-900 text-sm line-clamp-2">
-                    {item.name}
-                  </h3>
-                  <p className="text-lg font-bold text-primary-600 mt-1">
-                    RM{item.price.toFixed(2)}
-                  </p>
-                  {item.modifiers?.length > 0 && available && (
-                    <span className="text-xs text-gray-400">+ Customizable</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                    <h3 className="font-semibold text-gray-900 text-sm line-clamp-2">
+                      {item.name}
+                    </h3>
+                    <p className="text-lg font-bold text-primary-600 mt-1">
+                      RM{Number(item.price).toFixed(2)}
+                    </p>
+                    {item.options && Object.keys(item.options).length > 0 && (
+                      <span className="text-xs text-gray-400">+ Customizable</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Floating Cart Bar */}
       {cartCount > 0 && (
@@ -297,14 +312,14 @@ export const MenuPage: React.FC = () => {
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowModifierModal(false)} />
           <div className="relative bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 max-h-[80vh] overflow-auto">
             <div className="text-center mb-6">
-              <div className="text-5xl mb-3">{selectedItem.image || '🍽️'}</div>
+              <div className="text-5xl mb-3">🍽️</div>
               <h2 className="text-xl font-bold">{selectedItem.name}</h2>
-              <p className="text-lg font-bold text-primary-600">RM{selectedItem.price.toFixed(2)}</p>
+              <p className="text-lg font-bold text-primary-600">RM{Number(selectedItem.price).toFixed(2)}</p>
             </div>
 
             <div className="space-y-3 mb-6">
               <p className="text-sm font-medium text-gray-700">Select Options:</p>
-              {selectedItem.modifiers?.map((mod) => (
+              {getOptionValues(selectedItem).map((mod) => (
                 <label
                   key={mod}
                   onClick={() => toggleModifier(mod)}

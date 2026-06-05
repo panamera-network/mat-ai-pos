@@ -1,6 +1,6 @@
 // apps/kitchen/src/components/OrderCard.tsx
 import React from 'react';
-import { CheckCircle, UtensilsCrossed, Package, Bike } from 'lucide-react';
+import { CheckCircle, UtensilsCrossed, Package, Bike, Calendar } from 'lucide-react';
 import type { KitchenTicket } from '../types/kitchen';
 import { getTimerState, TIMER_COLORS } from '../utils/timer';
 import { TimerBadge } from './TimerBadge';
@@ -8,20 +8,22 @@ import { OrderItemComponent } from './OrderItem';
 
 interface OrderCardProps {
   ticket: KitchenTicket;
-  onToggleItem: (orderId: string, itemIndex: number) => void;
+  onToggleItem: (orderId: string, itemId: string) => void; // Was itemIndex: number
   onDone: (orderId: string) => void;
 }
 
-const ORDER_TYPE_ICONS = {
+const ORDER_TYPE_ICONS: Record<string, React.ReactNode> = {
   'dine-in': <UtensilsCrossed className="w-3 h-3" />,
   'takeaway': <Package className="w-3 h-3" />,
   'delivery': <Bike className="w-3 h-3" />,
+  'reservation': <Calendar className="w-3 h-3" />, // Tambah kalau ada
 };
 
 const ORDER_TYPE_LABELS: Record<string, string> = {
   'dine-in': 'Dine In',
   'takeaway': 'Takeaway',
   'delivery': 'Delivery',
+  'reservation': 'Reservation', // Tambah kalau ada
 };
 
 export const OrderCard: React.FC<OrderCardProps> = ({ ticket, onToggleItem, onDone }) => {
@@ -77,12 +79,11 @@ export const OrderCard: React.FC<OrderCardProps> = ({ ticket, onToggleItem, onDo
 
       {/* Items - flex-1 to fill remaining space */}
       <div className="flex-1 p-2 space-y-1 overflow-y-auto min-h-0">
-        {ticket.items.map((item, idx) => (
+        {ticket.items.map((item) => (
           <OrderItemComponent
-            key={`${ticket.orderId}-${idx}`}
+            key={item.id} // Use item.id instead of index
             item={item}
-            index={idx}
-            onToggle={(i) => onToggleItem(ticket.orderId, i)}
+            onToggle={() => onToggleItem(ticket.orderId, item.id)} // Pass item.id          
           />
         ))}
       </div>
