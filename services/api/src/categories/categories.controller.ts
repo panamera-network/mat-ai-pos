@@ -1,6 +1,8 @@
 // src/categories/categories.controller.ts
 import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Controller('categories')
 export class CategoriesController {
@@ -17,12 +19,12 @@ export class CategoriesController {
   }
 
   @Post()
-  create(@Body() dto: { name: string; icon?: string; sortOrder?: number }) {
+  create(@Body() dto: CreateCategoryDto) {
     return this.categoriesService.create(dto);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: Partial<{ name: string; icon: string; sortOrder: number; isActive: boolean }>) {
+  update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     return this.categoriesService.update(id, dto);
   }
 

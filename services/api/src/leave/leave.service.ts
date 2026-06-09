@@ -1,7 +1,7 @@
 // src/leave/leave.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { LeaveStatus } from '@prisma/client';
+import { LeaveStatus, LeaveType } from '@prisma/client';
 
 @Injectable()
 export class LeaveService {
@@ -9,7 +9,7 @@ export class LeaveService {
 
   async create(data: {
     staffId: string;
-    type: string;
+    type: LeaveType;
     startDate: string;
     endDate: string;
     reason?: string;
@@ -21,7 +21,7 @@ export class LeaveService {
     return this.prisma.leaveRequest.create({
       data: {
         staffId: data.staffId,
-        type: data.type,
+        type: data.type,  // ← FIXED: now LeaveType, not string
         startDate: start,
         endDate: end,
         days,

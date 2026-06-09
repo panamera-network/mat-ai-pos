@@ -1,24 +1,39 @@
-// app/src/pages/PaymentPage.tsx
+// apps/pos/src/pages/PaymentPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
-  ArrowLeft,
-  Banknote,
-  QrCode,
-  CreditCard,
-  Check,
-  Split,
-  MoreVertical,
+  ArrowLeft, Banknote, QrCode, CreditCard, Check, Split, MoreVertical,
 } from 'lucide-react';
+import type { POSOrder } from '../lib/types';
 
 const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
+
+// Local helpers (or import from types.ts)
+function toFrontendOrderType(type: string): string {
+  const map: Record<string, string> = {
+    'DINE_IN': 'dine-in',
+    'PICKUP': 'takeaway',
+    'DELIVERY': 'delivery',
+    'RESERVATION': 'reservation',
+  };
+  return map[type] || 'dine-in';
+}
+
+function toFrontendStatus(status: string): string {
+  switch (status) {
+    case 'PENDING': return 'active';
+    case 'PAID': return 'completed';
+    case 'CANCELLED': return 'cancelled';
+    default: return 'active';
+  }
+}
 
 interface PaymentMethodOption {
   id: string;
   name: string;
   icon: React.ReactNode;
   color: string;
-  backendValue: string; // Backend enum value
+  backendValue: string;
 }
 
 const paymentMethods: PaymentMethodOption[] = [
@@ -27,13 +42,49 @@ const paymentMethods: PaymentMethodOption[] = [
   { id: 'card', name: 'Card', icon: <CreditCard className="w-6 h-6" />, color: 'bg-purple-500', backendValue: 'CARD' },
 ];
 
+// Transform backend response → frontend format
+const normalizeOrder = (data: any): POSOrder | null => {
+  if (!data) return null;
+  
+  return {
+    id: data.id,
+    orderNumber: data.orderNumber || data.id?.slice(-4) || '',
+    items: (data.items || []).map((i: any) => ({
+      id: i.id || i.menuItemId || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
+      menuId: i.menuItemId || i.id || '',
+      name: i.name || 'Unknown',
+      price: Number(i.unitPrice) || Number(i.price) || 0,
+      qty: Number(i.quantity) || Number(i.qty) || 0,
+      modifiers: i.options || i.modifiers || [],
+    })),
+    type: toFrontendOrderType(data.type) as any,
+    status: toFrontendStatus(data.status) as any,
+    tableNumber: data.table?.number || data.tableNumber,
+    customerName: data.customerName,
+    customerPhone: data.customerPhone,
+    customerInfo: data.customerName ? {
+      name: data.customerName,
+      phone: data.customerPhone || '',
+    } : undefined,
+    subtotal: Number(data.subtotal) || (Number(data.totalAmount) / 1.08) || 0,
+    tax: Number(data.taxAmount) || Number(data.tax) || 0,
+    total: Number(data.totalAmount) || Number(data.total) || 0,
+    createdAt: data.createdAt || new Date().toISOString(),
+    updatedAt: data.updatedAt || new Date().toISOString(),
+  };
+};
+
+// ... rest of component (same as before)
+
 export const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const { orderId } = useParams();
   const location = useLocation();
-  
-  const [order, setOrder] = useState<any>(location.state?.order);
-  const [isLoading, setIsLoading] = useState(!location.state?.order);
+
+  const [order, setOrder] = useState<any>(
+    location.state?.order ? normalizeOrder(location.state.order) : null
+  );
+  const [isLoading, setIsLoading] = useState(!location.state?.order && !!orderId);
   const [selectedMethod, setSelectedMethod] = useState('cash');
   const [cashReceived, setCashReceived] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
@@ -42,17 +93,26 @@ export const PaymentPage: React.FC = () => {
   useEffect(() => {
     if (!order && orderId) {
       fetch(`${API_URL}/orders/${orderId}`)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error(`Order not found: ${res.status}`);
+          return res.json();
+        })
         .then(data => {
-          setOrder(data);
+          setOrder(normalizeOrder(data));
           setIsLoading(false);
         })
         .catch(err => {
           console.error('Failed to fetch order:', err);
+          const localOrders = JSON.parse(localStorage.getItem('mat-pos-active-orders') || '[]');
+          const localOrder = localOrders.find((o: any) => o.id === orderId);
+          if (localOrder) {
+            console.log('🔥 Found local order:', localOrder);
+            setOrder(normalizeOrder(localOrder));
+          }
           setIsLoading(false);
         });
     }
-  }, [order, orderId]);
+  }, [orderId]);
 
   if (isLoading) {
     return (
@@ -78,33 +138,32 @@ export const PaymentPage: React.FC = () => {
     );
   }
 
-  const change = cashReceived ? parseFloat(cashReceived) - order.total : 0;
+  const total = Number(order.total) || 0;
+  const subtotal = Number(order.subtotal) || 0;
+  const tax = Number(order.tax) || 0;
+  const change = cashReceived ? parseFloat(cashReceived) - total : 0;
   const isValidPayment =
     selectedMethod !== 'cash' ||
-    (cashReceived && parseFloat(cashReceived) >= order.total);
+    (cashReceived && parseFloat(cashReceived) >= total);
 
   const handleQuickAmount = (amount: number) => {
     setCashReceived(amount.toFixed(2));
   };
 
   const handleExactAmount = () => {
-    setCashReceived(order.total.toFixed(2));
+    setCashReceived(total.toFixed(2));
   };
 
   const handlePayment = async () => {
     const selectedMethodData = paymentMethods.find(m => m.id === selectedMethod);
     if (!selectedMethodData) return;
 
-    // Use backend order ID
     const effectiveOrderId = order.id || orderId;
-    
-    console.log('=== PAYMENT DEBUG ===');
-    console.log('Order ID:', effectiveOrderId);
-    console.log('Payload:', {
-      status: 'PAID',
-      paidAmount: order.total,
-      paymentMethod: selectedMethodData.backendValue,
-    });
+
+    if (!effectiveOrderId) {
+      alert('No order ID found');
+      return;
+    }
 
     try {
       const res = await fetch(`${API_URL}/orders/${effectiveOrderId}`, {
@@ -112,21 +171,26 @@ export const PaymentPage: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: 'PAID',
-          paidAmount: order.total,
+          paidAmount: total,
           paymentMethod: selectedMethodData.backendValue,
         }),
       });
 
-      const responseText = await res.text();
-      console.log('Response:', res.status, responseText);
-
       if (!res.ok) {
+        const responseText = await res.text();
         throw new Error(`Failed: ${res.status} - ${responseText}`);
       }
 
-      console.log('✅ Order marked as PAID');
+      // Update table status to available
+      if (order.tableNumber) {
+        await fetch(`${API_URL}/tables/${order.tableNumber}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'available' }),
+        }).catch(err => console.error('Failed to update table status:', err));
+      }
 
-      // Save receipt local (fallback)
+      // Save receipt
       const receipts = JSON.parse(localStorage.getItem('mat-pos-receipts') || '[]');
       receipts.push({
         id: effectiveOrderId,
@@ -136,15 +200,20 @@ export const PaymentPage: React.FC = () => {
         time: new Date().toLocaleTimeString(),
         cashier: 'Ahmad',
         posId: 'POS-1',
-        items: order.items.map((i: any) => ({ 
-          name: i.name, 
-          qty: i.qty || i.quantity, 
-          price: i.price 
+        items: (order.items || []).map((i: any) => ({ 
+          name: i.name || 'Unknown', 
+          qty: i.qty || 0, 
+          price: i.price || 0 
         })),
-        total: order.total,
+        total: total,
         paymentMethod: selectedMethodData.backendValue,
       });
       localStorage.setItem('mat-pos-receipts', JSON.stringify(receipts));
+
+      // Remove from active orders
+      const activeOrders = JSON.parse(localStorage.getItem('mat-pos-active-orders') || '[]');
+      const updatedActive = activeOrders.filter((o: any) => o.id !== effectiveOrderId);
+      localStorage.setItem('mat-pos-active-orders', JSON.stringify(updatedActive));
 
     } catch (err) {
       console.error('❌ Payment failed:', err);
@@ -166,7 +235,7 @@ export const PaymentPage: React.FC = () => {
           <Check className="w-12 h-12 text-white" />
         </div>
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Payment Received!</h2>
-        <p className="text-lg text-gray-600 mb-1">RM {order.total.toFixed(2)}</p>
+        <p className="text-lg text-gray-600 mb-1">RM {total.toFixed(2)}</p>
         <p className="text-sm text-gray-500">Order #{orderId}</p>
         <p className="mt-6 text-xs text-gray-400">Redirecting to dashboard...</p>
       </div>
@@ -199,7 +268,7 @@ export const PaymentPage: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded-full capitalize">
-                  {order.type?.replace('-', ' ')}
+                  {order.type?.replace('-', ' ') || 'Unknown'}
                 </span>
                 <span className="ml-2 text-sm text-gray-500">
                   Table {order.tableNumber || '-'}
@@ -207,28 +276,32 @@ export const PaymentPage: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2 mb-4">
-              {order.items.map((item: { qty?: number | string | null; name: string; price: number }, index: React.Key | null | undefined) => {
+              {(order.items || []).map((item: any) => {
                 const qty = Number(item.qty) || 0;
+                const price = Number(item.price) || 0;
                 return (
-                  <div key={index} className="flex justify-between text-sm">
-                    <span className="text-gray-700">{qty}x {item.name}</span>
-                    <span className="font-medium">RM{(qty * item.price).toFixed(2)}</span>
+                  <div key={item.id || Math.random().toString(36).slice(2)} className="flex justify-between text-sm">
+                    <span className="text-gray-700">{qty}x {item.name || 'Unknown'}</span>
+                    <span className="font-medium">RM{(qty * price).toFixed(2)}</span>
                   </div>
                 );
               })}
+              {(!order.items || order.items.length === 0) && (
+                <p className="text-sm text-gray-400 italic">No items</p>
+              )}
             </div>
             <div className="border-t pt-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Subtotal</span>
-                <span className="font-medium">RM{order.subtotal.toFixed(2)}</span>
+                <span className="font-medium">RM{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">SST (8%)</span>
-                <span className="font-medium">RM{(order.tax || 0).toFixed(2)}</span>
+                <span className="font-medium">RM{tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold pt-2 border-t">
                 <span>Total</span>
-                <span className="text-primary-600">RM{order.total.toFixed(2)}</span>
+                <span className="text-primary-600">RM{total.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -303,7 +376,7 @@ export const PaymentPage: React.FC = () => {
 
           <button onClick={handlePayment} disabled={!isValidPayment} className="w-full py-4 bg-primary-600 text-white rounded-xl font-bold text-lg hover:bg-primary-700 active:bg-primary-800 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             <Check className="w-6 h-6" />
-            Process Payment — RM{order.total.toFixed(2)}
+            Process Payment — RM{total.toFixed(2)}
           </button>
         </div>
       </div>

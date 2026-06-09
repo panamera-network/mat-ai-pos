@@ -1,44 +1,38 @@
-// src/common/enums.ts
-export enum OrderStatus {
-  PENDING = 'PENDING',
-  PAID = 'PAID',
-  PREPARING = 'PREPARING',
-  READY = 'READY',
-  SERVED = 'SERVED',
-  CANCELLED = 'CANCELLED',
+// services/api/src/common/enums.ts
+
+// Re-export all Prisma enums — single source of truth
+export {
+  Role,
+  EmploymentType,
+  OrderStatus,
+  ItemStatus,
+  OrderSource,
+  OrderType,
+  PaymentMethod,
+  TableStatus,
+  StockType,
+  LeaveType,
+  LeaveStatus,
+  PayrollPeriod,
+  PayrollStatus,
+} from '@prisma/client';
+
+// Custom enums (not in Prisma schema)
+export enum KitchenStatus {
+  PENDING = 'pending',
+  SENT = 'sent',
+  PREPARING = 'preparing',
+  DONE = 'done',
 }
 
-export enum ItemStatus {
-  PENDING = 'PENDING',
-  PREPARING = 'PREPARING',
-  READY = 'READY',
-  SERVED = 'SERVED',
+export enum DiscountType {
+  PERCENTAGE = 'percentage',
+  FIXED = 'fixed',
 }
 
-export enum OrderSource {
-  QR_MENU = 'QR_MENU',
-  POS = 'POS',
-  ONLINE = 'ONLINE',
-  PHONE = 'PHONE',
-}
-
-export enum OrderType {
-  DINE_IN = 'DINE_IN',
-  PICKUP = 'PICKUP',
-  DELIVERY = 'DELIVERY',
-  RESERVATION = 'RESERVATION',
-}
-
-export enum PaymentMethod {
-  CASH = 'CASH',
-  CARD = 'CARD',
-  EWALLET = 'EWALLET',
-  QR_PAY = 'QR_PAY',
-}
-
-export enum TableStatus {
-  AVAILABLE = 'AVAILABLE',
-  OCCUPIED = 'OCCUPIED',
-  RESERVED = 'RESERVED',
-  CLEANING = 'CLEANING',
+export enum ReservationStatus {
+  CONFIRMED = 'confirmed',
+  ARRIVED = 'arrived',
+  CANCELLED = 'cancelled',
+  NO_SHOW = 'no-show',
 }

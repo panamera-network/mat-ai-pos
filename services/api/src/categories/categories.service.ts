@@ -10,14 +10,52 @@ export class CategoriesService {
     return this.prisma.category.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
-      include: { items: true },
+      include: { 
+        items: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            imageUrl: true,
+            isAvailable: true,
+            stock: true,
+            minStock: true,
+            options: true,
+            // ❌ Exclude: ingredients, stockLogs, orderItems
+          },
+        },
+      },
     });
   }
 
   findOne(id: string) {
     return this.prisma.category.findUnique({
       where: { id },
-      include: { items: true },
+      include: { 
+        items: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            imageUrl: true,
+            isAvailable: true,
+            stock: true,
+            minStock: true,
+            options: true,
+            ingredients: {
+              include: {
+                inventoryItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    unit: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
   }
 

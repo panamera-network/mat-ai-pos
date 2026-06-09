@@ -1,6 +1,7 @@
 // src/leave/leave.controller.ts
 import { Controller, Post, Get, Body, Param } from '@nestjs/common';
 import { LeaveService } from './leave.service';
+import { LeaveType } from '@prisma/client';
 
 @Controller('leave')
 export class LeaveController {
@@ -9,7 +10,7 @@ export class LeaveController {
   @Post()
   create(@Body() dto: {
     staffId: string;
-    type: string;
+    type: LeaveType;
     startDate: string;
     endDate: string;
     reason?: string;

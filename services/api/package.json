@@ -15,7 +15,9 @@
     "db:migrate": "prisma@6.6.0 migrate dev",
     "db:push": "prisma@6.6.0 db push",
     "db:studio": "prisma@6.6.0 studio",
+    "db:reset": "prisma migrate reset --force",
     "db:seed": "ts-node prisma/seed.ts",
+    "db:fresh": "prisma migrate reset --force && ts-node prisma/seed.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json"

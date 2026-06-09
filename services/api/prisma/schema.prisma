@@ -1,4 +1,4 @@
-//services/api/prisma/schema.prisma
+// services/api/prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
@@ -7,6 +7,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // directUrl = env("DIRECT_URL") // optional
 }
 
 // ==================== ENUMS ====================
@@ -111,20 +112,21 @@ model Category {
 }
 
 model MenuItem {
-  id          String     @id @default(cuid())
-  name        String     @unique
+  id          String               @id @default(cuid())
+  name        String               @unique
   price       Decimal
   categoryId  String
-  category    Category   @relation(fields: [categoryId], references: [id])
+  category    Category             @relation(fields: [categoryId], references: [id])
   imageUrl    String?
-  isAvailable Boolean    @default(true)
-  stock       Int        @default(0)
-  minStock    Int        @default(0)
-  options     Json?
+  isAvailable Boolean              @default(true)
+  stock       Int                  @default(0)
+  minStock    Int                  @default(0)
+  options     Json?                // MenuItemOptions[]
+  ingredients MenuItemIngredient[]
   stockLogs   StockLog[]
   orderItems  OrderItem[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
 }
 
 model Table {
@@ -140,11 +142,11 @@ model Table {
 // ==================== ORDERS ====================
 
 model Order {
-  id              String      @id @default(cuid())
-  orderNumber     String      @unique
-  status          OrderStatus @default(PENDING)
-  source          OrderSource @default(POS)
-  type            OrderType   @default(DINE_IN)
+  id              String         @id @default(cuid())
+  orderNumber     String         @unique
+  status          OrderStatus    @default(PENDING)
+  source          OrderSource    @default(POS)
+  type            OrderType      @default(DINE_IN)
   totalAmount     Decimal
   paidAmount      Decimal?
   taxAmount       Decimal?
@@ -153,32 +155,32 @@ model Order {
   customerPhone   String?
   customerAddress String?
   tableId         String?
-  table           Table?      @relation(fields: [tableId], references: [id])
+  table           Table?         @relation(fields: [tableId], references: [id])
   pax             Int?
   reservationTime DateTime?
   notes           String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   completedAt     DateTime?
   items           OrderItem[]
   receipt         Receipt?
 }
 
 model OrderItem {
-  id          String     @id @default(cuid())
-  orderId     String
-  order       Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItemId  String
-  menuItem    MenuItem   @relation(fields: [menuItemId], references: [id])
-  name        String
-  quantity    Int
-  unitPrice   Decimal
-  totalPrice  Decimal
-  options     Json?
-  notes       String?
-  status      ItemStatus @default(PENDING)
-  createdAt   DateTime   @default(now())
-  updatedAt DateTime @updatedAt
+  id         String     @id @default(cuid())
+  orderId    String
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem   @relation(fields: [menuItemId], references: [id])
+  name       String
+  quantity   Int
+  unitPrice  Decimal
+  totalPrice Decimal
+  options    Json?      // MenuItemOptions[]
+  notes      String?
+  status     ItemStatus @default(PENDING)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 }
 
 // ==================== STAFF ====================
@@ -206,17 +208,17 @@ model Staff {
 }
 
 model Timecard {
-  id            String    @id @default(cuid())
-  staffId       String
-  staff         Staff     @relation(fields: [staffId], references: [id])
-  clockIn       DateTime
-  clockOut      DateTime?
-  breakMinutes  Int       @default(0)
-  totalMinutes  Int?
-  totalHours    Decimal?
-  verifiedBy    String?
-  verifiedAt    DateTime?
-  createdAt     DateTime  @default(now())
+  id           String   @id @default(cuid())
+  staffId      String
+  staff        Staff    @relation(fields: [staffId], references: [id])
+  clockIn      DateTime
+  clockOut     DateTime?
+  breakMinutes Int      @default(0)
+  totalMinutes Int?
+  totalHours   Decimal?
+  verifiedBy   String?
+  verifiedAt   DateTime?
+  createdAt    DateTime @default(now())
 }
 
 // ==================== LEAVE ====================
@@ -299,42 +301,73 @@ model Payroll {
 // ==================== RECEIPTS ====================
 
 model Receipt {
-  id             String   @id @default(cuid())
-  receiptNo      String   @unique
-  orderId        String   @unique
-  order          Order    @relation(fields: [orderId], references: [id])
+  id             String        @id @default(cuid())
+  receiptNo      String        @unique
+  orderId        String        @unique
+  order          Order         @relation(fields: [orderId], references: [id])
   totalAmount    Decimal
   paidAmount     Decimal
   change         Decimal?
-  paymentMethod  String
+  paymentMethod  PaymentMethod // <-- FIXED: was String, now enum
   taxAmount      Decimal?
   cashierId      String
-  cashier        Staff    @relation(fields: [cashierId], references: [id])
+  cashier        Staff         @relation(fields: [cashierId], references: [id])
   posId          String
-  itemsSnapshot  Json
-  customerInfo   Json?
-  printCount     Int      @default(0)
+  itemsSnapshot  Json          // ReceiptItemsSnapshot (OrderItem[])
+  customerInfo   Json?         // ReceiptCustomerInfo
+  printCount     Int           @default(0)
   lastPrintedAt  DateTime?
   pdfGeneratedAt DateTime?
   pdfUrl         String?
   emailedTo      String?
   emailSentAt    DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime      @default(now())
 }
 
 // ==================== INVENTORY ====================
 
 model StockLog {
-  id         String    @id @default(cuid())
-  menuItemId String
-  menuItem   MenuItem  @relation(fields: [menuItemId], references: [id])
-  type       StockType
-  quantity   Int
-  orderId    String?
-  reason     String?
-  staffId    String
-  staff      Staff     @relation(fields: [staffId], references: [id])
-  createdAt  DateTime  @default(now())
+  id              String          @id @default(cuid())
+  type            StockType
+  menuItemId      String?
+  menuItem        MenuItem?       @relation(fields: [menuItemId], references: [id])
+  inventoryItemId String?
+  inventoryItem   InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+  quantity        Int
+  orderId         String?
+  reason          String?
+  staffId         String?
+  staff           Staff?          @relation(fields: [staffId], references: [id])
+  createdAt       DateTime        @default(now())
+}
+
+// ==================== INVENTORY (Raw Material) ====================
+
+model InventoryItem {
+  id            String             @id @default(cuid())
+  name          String             @unique
+  category      String
+  unit          String             @default("g")
+  weight        Float?
+  currentStock  Float              @default(0)
+  minStock      Float              @default(0)
+  costPerUnit   Float?
+  supplier      String?
+  isActive      Boolean            @default(true)
+  ingredients   MenuItemIngredient[]
+  stockLogs     StockLog[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model MenuItemIngredient {
+  id              String        @id @default(cuid())
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  menuItemId      String
+  menuItem        MenuItem      @relation(fields: [menuItemId], references: [id])
+  quantityUsed    Float
+  createdAt       DateTime      @default(now())
 }
 
 // ==================== SETTINGS ====================

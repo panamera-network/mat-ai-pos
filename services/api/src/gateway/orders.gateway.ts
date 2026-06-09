@@ -14,6 +14,8 @@ import { OrdersService } from '../orders/orders.service';
 import { CreateOrderDto } from '../orders/dto/create-order.dto';
 import { UpdateOrderDto } from '../orders/dto/update-order.dto';
 import { ItemStatus } from '../common/enums';
+import { Order, OrderStatus } from '@prisma/client';
+
 
 const ROOMS = {
   POS: 'pos',
@@ -53,7 +55,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleJoinRoom(client: Socket, room: string) {
     client.join(room);
     if (!this.rooms.has(room)) this.rooms.set(room, new Set());
-    this.rooms.get(room).add(client.id);
+    this.rooms.get(room)!.add(client.id);
     console.log(`👤 Client ${client.id} joined room: ${room}`);
   }
 
@@ -64,20 +66,36 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`👤 Client ${client.id} left room: ${room}`);
   }
 
+  @SubscribeMessage('order:update')
+  async handleUpdateOrder(@MessageBody() payload: { id: string; updates: UpdateOrderDto }) {
+    const order = await this.ordersService.update(payload.id, payload.updates);
+    this.server.to(ROOMS.ALL).emit('order:updated', order);
+
+    if (payload.updates.status === OrderStatus.PAID) {
+      this.server.to(ROOMS.KDS).emit('kds:orderPaid', order);
+    }
+    if (payload.updates.status === OrderStatus.READY) {
+      this.server.to(ROOMS.POS).emit('pos:orderReady', order);
+      this.server.to(ROOMS.QR).emit('qr:orderReady', order);
+    }
+
+    return { success: true, order };
+  }
+
   // Broadcast methods
-  broadcastNewOrder(order: any) {
+  broadcastNewOrder(order: Order) {
     this.server.to(ROOMS.POS).emit('pos:newOrder', order);
     this.server.to(ROOMS.KDS).emit('kds:newOrder', order);
     console.log(`📢 Broadcasted new order: ${order.orderNumber}`);
   }
 
-  broadcastOrderReady(order: any) {
+  broadcastOrderReady(order: Order) {
     this.server.to(ROOMS.POS).emit('pos:orderReady', order);
     this.server.to(ROOMS.QR).emit('qr:orderReady', order);
     console.log(`📢 Broadcasted order ready: ${order.orderNumber}`);
   }
 
-  broadcastOrderUpdated(order: any) {
+  broadcastOrderUpdated(order: Order) {
     this.server.to(ROOMS.ALL).emit('order:updated', order);
   }
 
@@ -89,20 +107,6 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(ROOMS.POS).emit('pos:newOrder', order);
     if (['PAID', 'PREPARING'].includes(order.status)) {
       this.server.to(ROOMS.KDS).emit('kds:newOrder', order);
-    }
-    return { success: true, order };
-  }
-
-  @SubscribeMessage('order:update')
-  async handleUpdateOrder(@MessageBody() payload: { id: string; updates: UpdateOrderDto }) {
-    const order = await this.ordersService.update(payload.id, payload.updates);
-    this.server.to(ROOMS.ALL).emit('order:updated', order);
-    if (payload.updates.status === 'PAID') {
-      this.server.to(ROOMS.KDS).emit('kds:orderPaid', order);
-    }
-    if (payload.updates.status === 'READY') {
-      this.server.to(ROOMS.POS).emit('pos:orderReady', order);
-      this.server.to(ROOMS.QR).emit('qr:orderReady', order);
     }
     return { success: true, order };
   }

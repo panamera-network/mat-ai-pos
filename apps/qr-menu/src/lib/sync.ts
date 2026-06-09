@@ -3,7 +3,7 @@
 // Handles: POS online check, WS submit, Telegram fallback
 
 import { createWSClient, MATaiWSClient } from '@mat-ai/ws';
-import type { Order } from '@mat-ai/types';
+import type { OrderView } from '@mat-ai/types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4000';
@@ -64,7 +64,7 @@ export async function isPosOnline(): Promise<boolean> {
 /**
  * Submit order via WebSocket to POS
  */
-export async function submitOrderViaWS(order: Order): Promise<boolean> {
+export async function submitOrderViaWS(order: OrderView): Promise<boolean> {
   if (!wsClient || !wsClient.isConnected()) {
     // Try reconnect
     initSync();
@@ -85,28 +85,33 @@ export async function submitOrderViaWS(order: Order): Promise<boolean> {
 /**
  * Submit order via Telegram (fallback when POS offline)
  */
-export async function submitOrderViaTelegram(order: Order): Promise<boolean> {
+export async function submitOrderViaTelegram(order: OrderView): Promise<boolean> {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.error('[Sync] Telegram not configured');
     return false;
   }
 
-  const itemsText = order.items.map(i => `  ${i.qty}x ${i.name} (RM${(i.qty * i.price).toFixed(2)})`).join('\n');
+  // FIXED: Use Prisma-aligned field names
+  const itemsText = order.items.map(i => 
+    `  ${i.quantity}x ${i.name} (RM${(i.quantity * i.unitPrice).toFixed(2)})`
+  ).join('\n');
+
+  const total = order.finalTotal ?? order.totalAmount ?? 0;
 
   const text = `🆕 <b>NEW QR ORDER</b>
 
 📋 <b>Order:</b> ${order.orderNumber || order.id}
 👤 <b>Name:</b> ${order.customerName || 'N/A'}
 📞 <b>Phone:</b> ${order.customerPhone || 'N/A'}
-🍽️ <b>Type:</b> ${order.orderType?.toUpperCase()}
+🍽️ <b>Type:</b> ${order.type?.replace('_', ' ')}
 ${order.tableNumber ? `🪑 <b>Table:</b> ${order.tableNumber}\n` : ''}
 ${order.reservationTime ? `⏰ <b>Time:</b> ${new Date(order.reservationTime).toLocaleString()}\n` : ''}
-${order.address ? `📍 <b>Address:</b> ${order.address}\n` : ''}
+${order.customerAddress ? `📍 <b>Address:</b> ${order.customerAddress}\n` : ''}
 ${order.notes ? `📝 <b>Notes:</b> ${order.notes}\n` : ''}
 <b>Items:</b>
 ${itemsText}
 
-💰 <b>Total:</b> RM${order.total?.toFixed(2) || '0.00'}
+💰 <b>Total:</b> RM${total.toFixed(2)}
 ⏱️ <b>Time:</b> ${new Date().toLocaleString()}
 
 ⚠️ POS is OFFLINE - Please key in manually`;
@@ -134,7 +139,7 @@ ${itemsText}
 /**
  * Main submit function - tries WS first, falls back to Telegram
  */
-export async function submitOrder(order: Order): Promise<{
+export async function submitOrder(order: OrderView): Promise<{
   success: boolean;
   method: 'ws' | 'telegram' | 'failed';
 }> {
@@ -158,7 +163,7 @@ export async function submitOrder(order: Order): Promise<{
 /**
  * Save order to local queue for retry
  */
-function saveToLocalQueue(order: Order): void {
+function saveToLocalQueue(order: OrderView): void {
   const queue = JSON.parse(localStorage.getItem('mat-qr-pending-orders') || '[]');
   queue.push({ ...order, _queuedAt: new Date().toISOString() });
   localStorage.setItem('mat-qr-pending-orders', JSON.stringify(queue));

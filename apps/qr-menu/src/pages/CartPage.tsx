@@ -1,7 +1,8 @@
 // apps/qr-menu/src/pages/CartPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, User, Phone, MapPin, Users, Clock, Table } from 'lucide-react';
+import { ArrowLeft, Send } from 'lucide-react';
+import type { OrderType, OrderItemInput, OrderView } from '@mat-ai/types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -16,7 +17,7 @@ interface CartItem {
 interface TableData {
   id: string;
   number: string;
-  name: string;
+  name?: string;
   capacity: number;
 }
 
@@ -26,27 +27,31 @@ export const CartPage: React.FC = () => {
     const saved = localStorage.getItem('mat-qr-cart');
     return saved ? JSON.parse(saved) : [];
   });
-  const [orderType, setOrderType] = useState<'DINE_IN' | 'PICKUP' | 'DELIVERY' | 'RESERVATION'>('DINE_IN');
+
+  // Load from localStorage (set by OrderTypePage popup)
+  const [orderType] = useState<OrderType>(() => {
+    return (localStorage.getItem('mat-qr-order-type') as OrderType) || 'DINE_IN';
+  });
+  const [customerName] = useState(() => localStorage.getItem('mat-qr-customer-name') || '');
+  const [customerPhone] = useState(() => localStorage.getItem('mat-qr-customer-phone') || '');
+  const [customerAddress] = useState(() => localStorage.getItem('mat-qr-customer-address') || '');
+  const [tableId] = useState(() => localStorage.getItem('mat-qr-table-id') || '');
+  const [pax] = useState(() => Number(localStorage.getItem('mat-qr-pax') || 1));
+  const [reservationTime] = useState(() => localStorage.getItem('mat-qr-reservation-time') || '');
+
   const [tables, setTables] = useState<TableData[]>([]);
-  const [selectedTable, setSelectedTable] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
-  const [pax, setPax] = useState(1);
-  const [reservationTime, setReservationTime] = useState('');
-  const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch tables for dine-in
+  // Fetch table name for display
   useEffect(() => {
-    if (orderType === 'DINE_IN' || orderType === 'RESERVATION') {
+    if (tableId) {
       fetch(`${API_URL}/tables`)
         .then(res => res.json())
         .then(data => setTables(data))
         .catch(err => console.error('Failed to load tables:', err));
     }
-  }, [orderType]);
+  }, [tableId]);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
@@ -56,48 +61,32 @@ export const CartPage: React.FC = () => {
       return;
     }
 
-    // Validation
-    if (!customerName || !customerPhone) {
-      setError('Please fill in required fields');
-      return;
-    }
-
-    if ((orderType === 'DINE_IN' || orderType === 'RESERVATION') && !selectedTable) {
-      setError('Please select a table');
-      return;
-    }
-
-    if (orderType === 'DELIVERY' && !customerAddress) {
-      setError('Please enter delivery address');
-      return;
-    }
-
-    if (orderType === 'RESERVATION' && !reservationTime) {
-      setError('Please select reservation time');
-      return;
-    }
-
     setSubmitting(true);
     setError('');
 
+    const items: OrderItemInput[] = cart.map(item => ({
+      menuItemId: item.menuId,
+      name: item.name,
+      quantity: item.qty,
+      unitPrice: item.price,
+      totalPrice: item.price * item.qty,
+      options: item.modifiers.length > 0 ? { modifiers: item.modifiers } : undefined,
+    }));
+
     const orderData = {
       type: orderType,
+      source: 'QR_MENU' as const,
       totalAmount: cartTotal,
       customerName,
       customerPhone,
       customerAddress: orderType === 'DELIVERY' ? customerAddress : undefined,
-      tableId: (orderType === 'DINE_IN' || orderType === 'RESERVATION') ? selectedTable : undefined,
+      tableId: (orderType === 'DINE_IN' || orderType === 'RESERVATION') ? tableId : undefined,
       pax: (orderType === 'DINE_IN' || orderType === 'RESERVATION') ? pax : undefined,
-      reservationTime: orderType === 'RESERVATION' ? new Date(reservationTime).toISOString() : undefined,
-      notes,
-      items: cart.map(item => ({
-        menuItemId: item.menuId,
-        name: item.name,
-        quantity: item.qty,
-        unitPrice: item.price,
-        totalPrice: item.price * item.qty,
-        options: item.modifiers.length > 0 ? { modifiers: item.modifiers } : undefined,
-      })),
+      reservationTime: orderType === 'RESERVATION' && reservationTime 
+        ? new Date(reservationTime).toISOString() 
+        : undefined,
+      notes: undefined,
+      items,
     };
 
     try {
@@ -110,16 +99,47 @@ export const CartPage: React.FC = () => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();
-      
-      // Clear cart
+
+      // FIXED: Convert all Decimal strings to numbers
+      const totalAmount = Number(data.totalAmount ?? 0);
+      const taxAmount = Number(data.taxAmount ?? 0);
+
+      const orderView: OrderView = {
+        ...data,
+        totalAmount,
+        paidAmount: data.paidAmount ? Number(data.paidAmount) : undefined,
+        taxAmount,
+        subtotal: totalAmount,
+        tax: taxAmount,
+        finalTotal: totalAmount + taxAmount,
+        tableNumber: tables.find(t => t.id === tableId)?.number,
+        items: (data.items || []).map((item: any) => ({
+          ...item,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
+          totalPrice: Number(item.totalPrice),
+        })),
+      };
+
+      const existingOrders = JSON.parse(localStorage.getItem('mat-pos-active-orders') || '[]');
+      existingOrders.push(orderView);
+      localStorage.setItem('mat-pos-active-orders', JSON.stringify(existingOrders));
+
+      // Clear cart + form data
       localStorage.removeItem('mat-qr-cart');
+      localStorage.removeItem('mat-qr-order-type');
+      localStorage.removeItem('mat-qr-customer-name');
+      localStorage.removeItem('mat-qr-customer-phone');
+      localStorage.removeItem('mat-qr-customer-address');
+      localStorage.removeItem('mat-qr-table-id');
+      localStorage.removeItem('mat-qr-pax');
+      localStorage.removeItem('mat-qr-reservation-time');
       setCart([]);
-      
-      // Navigate to order status
-      navigate(`/order/${data.id}`);
+
+      navigate(`/status/${data.id}`);
     } catch (err) {
       console.error('Failed to submit order:', err);
-      setError('Failed to send order. Saved for retry.');
+      setError('Failed to send order. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -141,6 +161,8 @@ export const CartPage: React.FC = () => {
     );
   }
 
+  const tableName = tables.find(t => t.id === tableId)?.number;
+
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
       {/* Header */}
@@ -153,27 +175,18 @@ export const CartPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Order Type Selection */}
       <div className="p-4">
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          {[
-            { id: 'DINE_IN', label: '🍽️ Dine In' },
-            { id: 'PICKUP', label: '🥡 Pickup' },
-            { id: 'DELIVERY', label: '🛵 Delivery' },
-            { id: 'RESERVATION', label: '📅 Reservation' },
-          ].map(type => (
-            <button
-              key={type.id}
-              onClick={() => setOrderType(type.id as any)}
-              className={`p-3 rounded-xl text-sm font-medium border-2 transition-all ${
-                orderType === type.id
-                  ? 'border-primary-600 bg-primary-50 text-primary-700'
-                  : 'border-gray-200 bg-white text-gray-700'
-              }`}
-            >
-              {type.label}
-            </button>
-          ))}
+        {/* Order Info Summary */}
+        <div className="bg-primary-50 border border-primary-200 rounded-xl p-3 mb-4 text-sm">
+          <p className="font-medium text-primary-800">
+            {orderType === 'DINE_IN' && '🍽️ Dine In'}
+            {orderType === 'PICKUP' && '🥡 Pickup'}
+            {orderType === 'DELIVERY' && '🛵 Delivery'}
+            {orderType === 'RESERVATION' && '📅 Reservation'}
+          </p>
+          <p className="text-primary-600">{customerName} • {customerPhone}</p>
+          {tableName && <p className="text-primary-600">Table: {tableName} ({pax} pax)</p>}
+          {customerAddress && <p className="text-primary-600">📍 {customerAddress}</p>}
         </div>
 
         {/* Error */}
@@ -182,102 +195,6 @@ export const CartPage: React.FC = () => {
             {error}
           </div>
         )}
-
-        {/* Customer Info */}
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
-            <User className="w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Your Name *"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-sm"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
-            <Phone className="w-5 h-5 text-gray-400" />
-            <input
-              type="tel"
-              placeholder="Phone Number *"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-sm"
-            />
-          </div>
-
-          {/* Table Selection for Dine In / Reservation */}
-          {(orderType === 'DINE_IN' || orderType === 'RESERVATION') && (
-            <>
-              <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
-                <Table className="w-5 h-5 text-gray-400" />
-                <select
-                  value={selectedTable}
-                  onChange={(e) => setSelectedTable(e.target.value)}
-                  className="flex-1 bg-transparent outline-none text-sm"
-                >
-                  <option value="">Select Table *</option>
-                  {tables.map(table => (
-                    <option key={table.id} value={table.id}>
-                      {table.number} - {table.name} (Capacity: {table.capacity})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
-                <Users className="w-5 h-5 text-gray-400" />
-                <input
-                  type="number"
-                  min={1}
-                  placeholder="Number of Pax"
-                  value={pax}
-                  onChange={(e) => setPax(Number(e.target.value))}
-                  className="flex-1 bg-transparent outline-none text-sm"
-                />
-              </div>
-            </>
-          )}
-
-          {/* Reservation Time */}
-          {orderType === 'RESERVATION' && (
-            <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
-              <Clock className="w-5 h-5 text-gray-400" />
-              <input
-                type="datetime-local"
-                value={reservationTime}
-                onChange={(e) => setReservationTime(e.target.value)}
-                className="flex-1 bg-transparent outline-none text-sm"
-              />
-            </div>
-          )}
-
-          {/* Delivery Address */}
-          {orderType === 'DELIVERY' && (
-            <div className="flex items-center gap-3 bg-white p-3 rounded-xl border">
-              <MapPin className="w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Delivery Address *"
-                value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
-                className="flex-1 bg-transparent outline-none text-sm"
-              />
-            </div>
-          )}
-
-          {/* Notes */}
-          <div className="bg-white p-3 rounded-xl border">
-            <textarea
-              placeholder="Special instructions (optional)"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-transparent outline-none text-sm resize-none"
-              rows={2}
-            />
-          </div>
-        </div>
 
         {/* Cart Items */}
         <div className="bg-white rounded-2xl border overflow-hidden mb-4">

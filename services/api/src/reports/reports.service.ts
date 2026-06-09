@@ -2,11 +2,58 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+export interface SalesSummary {
+  period: { from: Date; to: Date };
+  summary: {
+    totalSales: number;
+    totalTax: number;
+    orderCount: number;
+    averageOrder: number;
+  };
+  orders: Awaited<ReturnType<PrismaService['order']['findMany']>>;
+}
+
+export interface ItemSales {
+  name: string;
+  quantity: number;
+  revenue: number;
+}
+
+export interface CategorySales {
+  category: string;
+  quantity: number;
+  revenue: number;
+}
+
+export interface PaymentSales {
+  method: string;
+  count: number;
+  total: number;
+}
+
+export interface CashierSales {
+  cashier: string;
+  count: number;
+  total: number;
+}
+
+export interface OrderTypeSales {
+  type: string;
+  count: number;
+  total: number;
+}
+
+export interface HourlyBreakdown {
+  hour: number;
+  count: number;
+  total: number;
+}
+
 @Injectable()
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
-  async salesSummary(from: Date, to: Date) {
+  async salesSummary(from: Date, to: Date): Promise<SalesSummary> {
     const orders = await this.prisma.order.findMany({
       where: {
         createdAt: { gte: from, lte: to },
@@ -27,7 +74,7 @@ export class ReportsService {
     };
   }
 
-  async salesByItem(from: Date, to: Date) {
+  async salesByItem(from: Date, to: Date): Promise<ItemSales[]> {
     const items = await this.prisma.orderItem.findMany({
       where: {
         order: { createdAt: { gte: from, lte: to }, status: { in: ['PAID', 'SERVED'] } },
@@ -35,18 +82,18 @@ export class ReportsService {
       include: { menuItem: true },
     });
 
-    const grouped = items.reduce((acc, item) => {
+    const grouped: { [key: string]: ItemSales } = {};
+    for (const item of items) {
       const name = item.name;
-      if (!acc[name]) acc[name] = { name, quantity: 0, revenue: 0 };
-      acc[name].quantity += item.quantity;
-      acc[name].revenue += Number(item.totalPrice);
-      return acc;
-    }, {} as Record<string, any>);
+      if (!grouped[name]) grouped[name] = { name, quantity: 0, revenue: 0 };
+      grouped[name].quantity += item.quantity;
+      grouped[name].revenue += Number(item.totalPrice);
+    }
 
-    return Object.values(grouped).sort((a: any, b: any) => b.revenue - a.revenue);
+    return Object.values(grouped).sort((a, b) => b.revenue - a.revenue);
   }
 
-  async salesByCategory(from: Date, to: Date) {
+  async salesByCategory(from: Date, to: Date): Promise<CategorySales[]> {
     const items = await this.prisma.orderItem.findMany({
       where: {
         order: { createdAt: { gte: from, lte: to }, status: { in: ['PAID', 'SERVED'] } },
@@ -54,51 +101,51 @@ export class ReportsService {
       include: { menuItem: { include: { category: true } } },
     });
 
-    const grouped = items.reduce((acc, item) => {
+    const grouped: { [key: string]: CategorySales } = {};
+    for (const item of items) {
       const catName = item.menuItem?.category?.name || 'Uncategorized';
-      if (!acc[catName]) acc[catName] = { category: catName, quantity: 0, revenue: 0 };
-      acc[catName].quantity += item.quantity;
-      acc[catName].revenue += Number(item.totalPrice);
-      return acc;
-    }, {} as Record<string, any>);
+      if (!grouped[catName]) grouped[catName] = { category: catName, quantity: 0, revenue: 0 };
+      grouped[catName].quantity += item.quantity;
+      grouped[catName].revenue += Number(item.totalPrice);
+    }
 
-    return Object.values(grouped).sort((a: any, b: any) => b.revenue - a.revenue);
+    return Object.values(grouped).sort((a, b) => b.revenue - a.revenue);
   }
 
-  async salesByPayment(from: Date, to: Date) {
+  async salesByPayment(from: Date, to: Date): Promise<PaymentSales[]> {
     const receipts = await this.prisma.receipt.findMany({
       where: { createdAt: { gte: from, lte: to } },
     });
 
-    const grouped = receipts.reduce((acc, r) => {
+    const grouped: { [key: string]: PaymentSales } = {};
+    for (const r of receipts) {
       const method = r.paymentMethod;
-      if (!acc[method]) acc[method] = { method, count: 0, total: 0 };
-      acc[method].count += 1;
-      acc[method].total += Number(r.totalAmount);
-      return acc;
-    }, {} as Record<string, any>);
+      if (!grouped[method]) grouped[method] = { method, count: 0, total: 0 };
+      grouped[method].count += 1;
+      grouped[method].total += Number(r.totalAmount);
+    }
 
-    return Object.values(grouped).sort((a: any, b: any) => b.total - a.total);
+    return Object.values(grouped).sort((a, b) => b.total - a.total);
   }
 
-  async salesByCashier(from: Date, to: Date) {
+  async salesByCashier(from: Date, to: Date): Promise<CashierSales[]> {
     const receipts = await this.prisma.receipt.findMany({
       where: { createdAt: { gte: from, lte: to } },
       include: { cashier: { select: { name: true } } },
     });
 
-    const grouped = receipts.reduce((acc, r) => {
+    const grouped: { [key: string]: CashierSales } = {};
+    for (const r of receipts) {
       const name = r.cashier?.name || 'Unknown';
-      if (!acc[name]) acc[name] = { cashier: name, count: 0, total: 0 };
-      acc[name].count += 1;
-      acc[name].total += Number(r.totalAmount);
-      return acc;
-    }, {} as Record<string, any>);
+      if (!grouped[name]) grouped[name] = { cashier: name, count: 0, total: 0 };
+      grouped[name].count += 1;
+      grouped[name].total += Number(r.totalAmount);
+    }
 
-    return Object.values(grouped).sort((a: any, b: any) => b.total - a.total);
+    return Object.values(grouped).sort((a, b) => b.total - a.total);
   }
 
-  async salesByOrderType(from: Date, to: Date) {
+  async salesByOrderType(from: Date, to: Date): Promise<OrderTypeSales[]> {
     const orders = await this.prisma.order.findMany({
       where: {
         createdAt: { gte: from, lte: to },
@@ -106,15 +153,15 @@ export class ReportsService {
       },
     });
 
-    const grouped = orders.reduce((acc, o) => {
+    const grouped: { [key: string]: OrderTypeSales } = {};
+    for (const o of orders) {
       const type = o.type;
-      if (!acc[type]) acc[type] = { type, count: 0, total: 0 };
-      acc[type].count += 1;
-      acc[type].total += Number(o.totalAmount);
-      return acc;
-    }, {} as Record<string, any>);
+      if (!grouped[type]) grouped[type] = { type, count: 0, total: 0 };
+      grouped[type].count += 1;
+      grouped[type].total += Number(o.totalAmount);
+    }
 
-    return Object.values(grouped).sort((a: any, b: any) => b.total - a.total);
+    return Object.values(grouped).sort((a, b) => b.total - a.total);
   }
 
   async popularItems(from: Date, to: Date, limit: number = 10) {
@@ -135,7 +182,7 @@ export class ReportsService {
     }));
   }
 
-  async dailyReport(date: Date) {
+  async dailyReport(date: Date): Promise<SalesSummary> {
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
     const end = new Date(date);
@@ -144,7 +191,7 @@ export class ReportsService {
     return this.salesSummary(start, end);
   }
 
-  async hourlyBreakdown(from: Date, to: Date) {
+  async hourlyBreakdown(from: Date, to: Date): Promise<HourlyBreakdown[]> {
     const orders = await this.prisma.order.findMany({
       where: {
         createdAt: { gte: from, lte: to },
@@ -152,7 +199,7 @@ export class ReportsService {
       },
     });
 
-    const hourly = Array.from({ length: 24 }, (_, i) => ({
+    const hourly: HourlyBreakdown[] = Array.from({ length: 24 }, (_, i) => ({
       hour: i,
       count: 0,
       total: 0,

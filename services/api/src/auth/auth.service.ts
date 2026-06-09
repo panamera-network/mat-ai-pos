@@ -1,4 +1,4 @@
-// src/auth/auth.service.ts
+// auth.service.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { StaffService } from '../staff/staff.service';
@@ -10,11 +10,11 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async login(name: string, pin: string) {
+  async login(pin: string) {
     const staff = await this.staffService.findByPin(pin);
     
-    if (!staff || staff.name.toLowerCase() !== name.toLowerCase()) {
-      throw new UnauthorizedException('Invalid credentials');
+    if (!staff) {
+      throw new UnauthorizedException('Invalid PIN');
     }
 
     const payload = { sub: staff.id, name: staff.name, role: staff.role };

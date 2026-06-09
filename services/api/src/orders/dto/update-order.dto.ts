@@ -1,8 +1,8 @@
-//services/api/src/orders/dto/update-order.dto.ts
-import { IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
-import { OrderStatus, PaymentMethod } from '../../common/enums';
+// src/orders/dto/update-order.dto.ts
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateOrderDto } from './create-order.dto';
+import { IsOptional, IsEnum, IsNumber, IsString } from 'class-validator';
+import { OrderStatus, PaymentMethod } from '@prisma/client';
 
 export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @IsOptional()

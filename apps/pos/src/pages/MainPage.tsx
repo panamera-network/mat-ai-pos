@@ -53,10 +53,11 @@ export const MainPage: React.FC = () => {
     setLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 300));
 
+    const now = new Date().toISOString();
     const demoStaffs: Staff[] = [
-      { id: '1', name: 'Ahmad', pin: '1234', role: 'cashier' },
-      { id: '2', name: 'Sarah', pin: '5678', role: 'admin' },
-      { id: '3', name: 'Ali', pin: '0000', role: 'owner' },
+      { id: '1', name: 'Ahmad', pin: '1234', role: 'CASHIER', isActive: true, employmentType: 'HOURLY_PART_TIME', joinDate: now, createdAt: now, updatedAt: now },
+      { id: '2', name: 'Sarah', pin: '5678', role: 'ADMIN', isActive: true, employmentType: 'MONTHLY_SALARIED', joinDate: now, createdAt: now, updatedAt: now },
+      { id: '3', name: 'Ali', pin: '0000', role: 'ADMIN', isActive: true, employmentType: 'MONTHLY_SALARIED', joinDate: now, createdAt: now, updatedAt: now },
     ];
 
     const staff = demoStaffs.find((s) => s.pin === pin);
@@ -108,7 +109,6 @@ export const MainPage: React.FC = () => {
   const isTimecard = action === 'timecard';
   const activeColor = isPos ? 'bg-primary-600' : 'bg-emerald-600';
   const activeHover = isPos ? 'hover:bg-primary-700' : 'hover:bg-emerald-700';
-  const activeRing = isPos ? 'ring-primary-600' : 'ring-emerald-600';
   const dotColor = isPos ? 'bg-primary-600' : 'bg-emerald-600';
 
   return (

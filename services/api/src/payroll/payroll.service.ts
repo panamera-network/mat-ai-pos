@@ -2,7 +2,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
-import { PayrollPeriod, PayrollStatus } from '@prisma/client';
+import { PayrollPeriod, PayrollStatus, LeaveStatus } from '@prisma/client';
 
 @Injectable()
 export class PayrollService {
@@ -19,11 +19,10 @@ export class PayrollService {
     if (!staff) throw new NotFoundException(`Staff ${staffId} not found`);
 
     // Get settings
-    const epfRate = staff.customEpfRate || await this.settingsService.getNumericValue('epf_employee_rate', 11);
-    const socsoRate = staff.customSocsoRate || await this.settingsService.getNumericValue('socso_employee_rate', 0.5);
-    const epfEmployerRate = await this.settingsService.getNumericValue('epf_employer_rate', 13);
-    const socsoEmployerRate = await this.settingsService.getNumericValue('socso_employer_rate', 1.75);
-    const otMultiplier = await this.settingsService.getNumericValue('overtime_multiplier', 1.5);
+    const epfRate = Number(staff.customEpfRate || await this.settingsService.getNumericValue('epf_employee_rate', 11));
+    const socsoRate = Number(staff.customSocsoRate || await this.settingsService.getNumericValue('socso_employee_rate', 0.5));
+    const epfEmployerRate = Number(await this.settingsService.getNumericValue('epf_employer_rate', 13));
+    const socsoEmployerRate = Number(await this.settingsService.getNumericValue('socso_employer_rate', 1.75));
 
     // Calculate earnings
     let basicPay = 0;
@@ -36,7 +35,7 @@ export class PayrollService {
         t.clockIn <= periodEnd && 
         t.clockOut !== null
       );
-      const regularHours = timecards.reduce((sum, t) => sum + (t.totalHours || 0), 0);
+      const regularHours = timecards.reduce((sum, t) => sum + Number(t.totalHours || 0), 0);  // ← FIXED: Number()
       basicPay = regularHours * Number(staff.hourlyRate || 0);
     } else {
       basicPay = Number(staff.monthlySalary || 0);
@@ -44,8 +43,8 @@ export class PayrollService {
 
     // Calculate deductions
     const leaveDeduction = staff.leaveRequests
-      .filter(l => l.status === 'APPROVED' && l.type === 'UNPAID')
-      .reduce((sum, l) => sum + (l.payrollDeduction || 0), 0);
+      .filter(l => l.status === LeaveStatus.APPROVED && l.type === 'UNPAID')
+      .reduce((sum, l) => sum + Number(l.payrollDeduction || 0), 0);  // ← FIXED: Number()
 
     const epfEmployee = (basicPay * epfRate) / 100;
     const socsoEmployee = (basicPay * socsoRate) / 100;
@@ -81,12 +80,12 @@ export class PayrollService {
   }
 
   async findAll(options?: { staffId?: string; from?: Date; to?: Date }) {
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (options?.staffId) where.staffId = options.staffId;
     if (options?.from || options?.to) {
       where.periodStart = {};
-      if (options.from) where.periodStart.gte = options.from;
-      if (options.to) where.periodStart.lte = options.to;
+      if (options.from) (where.periodStart as Record<string, Date>).gte = options.from;
+      if (options.to) (where.periodStart as Record<string, Date>).lte = options.to;
     }
 
     return this.prisma.payroll.findMany({

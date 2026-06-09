@@ -1,4 +1,4 @@
-// src/auth/auth.controller.ts
+// auth.controller.ts
 import { Controller, Post, Body } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
@@ -7,7 +7,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  login(@Body() dto: { name: string; pin: string }) {
-    return this.authService.login(dto.name, dto.pin);
+  login(@Body() dto: { pin: string }) {
+    return this.authService.login(dto.pin);
   }
 }

@@ -20,7 +20,7 @@ import {
   Settings2,
   LayoutGrid,
 } from 'lucide-react';
-import type { Station, Table } from '@mat-ai/types';
+import type { Table, Station } from '@mat-ai/types';
 
 // ============================================
 // TYPES (UI-only, not in @mat-ai/types)
@@ -45,7 +45,7 @@ interface SettingsState {
 const defaultSettings: SettingsState = {
   posName: 'MAT.ai POS',
   receiptHeader: 'Thank you for dining with us!',
-  receiptFooter: 'Please come again!\nFollow us @mataipos',
+  receiptFooter: 'Please come again!Follow us @mataipos',
   taxEnabled: true,
   taxRate: 8,
   serviceChargeEnabled: false,
@@ -60,22 +60,24 @@ const defaultStations: Station[] = [
   {
     id: '1',
     name: 'Main Kitchen',
-    type: 'kds',
-    ip: '192.168.1.100',
-    port: 8080,
-    enabled: true,
-    categories: ['Pizza', 'Pasta', 'Nasi', 'Side Order', 'Beverages', 'Extras'],
-    isDefault: true,
+    ipAddress: '192.168.1.100',
+    categoryIds: ['Pizza', 'Pasta', 'Nasi', 'Side Order', 'Beverages', 'Extras'],
+    isActive: true,
+    deviceType: 'tablet',
+    soundEnabled: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: '2',
     name: 'Cashier Receipt',
-    type: 'receipt',
-    ip: '192.168.1.200',
-    port: 9100,
-    enabled: true,
-    categories: ['Pizza', 'Pasta', 'Nasi', 'Side Order', 'Beverages', 'Extras'],
-    isDefault: false,
+    ipAddress: '192.168.1.200',
+    categoryIds: ['Pizza', 'Pasta', 'Nasi', 'Side Order', 'Beverages', 'Extras'],
+    isActive: true,
+    deviceType: 'tablet',
+    soundEnabled: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
 ];
 
@@ -88,38 +90,23 @@ const availableCategories = [
   'Extras',
 ];
 
-const getDefaultPort = (type: Station['type']): number => {
+const getDeviceTypeLabel = (type: Station['deviceType']): string => {
   switch (type) {
-    case 'kds':
-      return 8080;
-    case 'receipt':
-      return 9100;
-    case 'backup-printer':
-      return 9100;
-    default:
-      return 8080;
+    case 'tablet':
+      return 'Tablet';
+    case 'ipad':
+      return 'iPad';
+    case 'android':
+      return 'Android';
   }
 };
 
-const getTypeLabel = (type: Station['type']): string => {
+const getDeviceTypeIcon = (type: Station['deviceType']) => {
   switch (type) {
-    case 'kds':
-      return 'KDS';
-    case 'receipt':
-      return 'Receipt';
-    case 'backup-printer':
-      return 'Backup Printer';
-  }
-};
-
-const getTypeIcon = (type: Station['type']) => {
-  switch (type) {
-    case 'kds':
+    case 'tablet':
+    case 'ipad':
+    case 'android':
       return <Monitor className="w-4 h-4" />;
-    case 'receipt':
-      return <Printer className="w-4 h-4" />;
-    case 'backup-printer':
-      return <Printer className="w-4 h-4" />;
   }
 };
 
@@ -139,15 +126,13 @@ export const SettingsPage: React.FC = () => {
   const [showStationModal, setShowStationModal] = useState(false);
   const [editingStation, setEditingStation] = useState<Station | null>(null);
   const [formName, setFormName] = useState('');
-  const [formType, setFormType] = useState<Station['type']>('kds');
-  const [formIp, setFormIp] = useState('');
-  const [formPort, setFormPort] = useState('');
-  const [formEnabled, setFormEnabled] = useState(true);
-  const [formCategories, setFormCategories] = useState<string[]>([]);
-  const [formIsDefault, setFormIsDefault] = useState(false);
+  const [formIpAddress, setFormIpAddress] = useState('');
+  const [formIsActive, setFormIsActive] = useState(true);
+  const [formCategoryIds, setFormCategoryIds] = useState<string[]>([]);
+  const [formDeviceType, setFormDeviceType] = useState<Station['deviceType']>('tablet');
+  const [formSoundEnabled, setFormSoundEnabled] = useState(true);
   const [testingId, setTestingId] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{
-  } | null>(null);
+  const [testResult, setTestResult] = useState<{ id: string; success: boolean; msg: string } | null>(null);
 
   // Table states
   const [tables, setTables] = useState<Table[]>(() => {
@@ -157,12 +142,16 @@ export const SettingsPage: React.FC = () => {
       : Array.from({ length: 20 }, (_, i) => ({
           id: (i + 1).toString(),
           number: `T${String(i + 1).padStart(2, '0')}`,
-          status: 'available' as const,
+          capacity: 4,
+          status: 'AVAILABLE' as const,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         }));
   });
   const [showTableModal, setShowTableModal] = useState(false);
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const [formTableNumber, setFormTableNumber] = useState('');
+  const [formTableCapacity, setFormTableCapacity] = useState('4');
 
   // Save tables to localStorage
   useEffect(() => {
@@ -197,24 +186,22 @@ export const SettingsPage: React.FC = () => {
   const openAddModal = () => {
     setEditingStation(null);
     setFormName('');
-    setFormType('kds');
-    setFormIp('');
-    setFormPort(getDefaultPort('kds').toString());
-    setFormEnabled(true);
-    setFormCategories([]);
-    setFormIsDefault(false);
+    setFormIpAddress('');
+    setFormIsActive(true);
+    setFormCategoryIds([]);
+    setFormDeviceType('tablet');
+    setFormSoundEnabled(true);
     setShowStationModal(true);
   };
 
   const openEditModal = (station: Station) => {
     setEditingStation(station);
     setFormName(station.name);
-    setFormType(station.type);
-    setFormIp(station.ip);
-    setFormPort(station.port.toString());
-    setFormEnabled(station.enabled);
-    setFormCategories([...station.categories]);
-    setFormIsDefault(station.isDefault);
+    setFormIpAddress(station.ipAddress);
+    setFormIsActive(station.isActive);
+    setFormCategoryIds([...station.categoryIds]);
+    setFormDeviceType(station.deviceType);
+    setFormSoundEnabled(station.soundEnabled);
     setShowStationModal(true);
   };
 
@@ -223,15 +210,13 @@ export const SettingsPage: React.FC = () => {
       alert('Sila masukkan nama station');
       return;
     }
-    if (!formIp.trim()) {
+    if (!formIpAddress.trim()) {
       alert('Sila masukkan IP address');
       return;
     }
 
-    const port = parseInt(formPort) || getDefaultPort(formType);
+    const now = new Date().toISOString();
     let updatedStations = [...stations];
-    if (formIsDefault)
-      updatedStations = updatedStations.map((s) => ({ ...s, isDefault: false }));
 
     if (editingStation) {
       updatedStations = updatedStations.map((s) =>
@@ -239,12 +224,12 @@ export const SettingsPage: React.FC = () => {
           ? {
               ...s,
               name: formName,
-              type: formType,
-              ip: formIp,
-              port,
-              enabled: formEnabled,
-              categories: formCategories,
-              isDefault: formIsDefault,
+              ipAddress: formIpAddress,
+              isActive: formIsActive,
+              categoryIds: formCategoryIds,
+              deviceType: formDeviceType,
+              soundEnabled: formSoundEnabled,
+              updatedAt: now,
             }
           : s
       );
@@ -254,12 +239,13 @@ export const SettingsPage: React.FC = () => {
       updatedStations.push({
         id: newId.toString(),
         name: formName,
-        type: formType,
-        ip: formIp,
-        port,
-        enabled: formEnabled,
-        categories: formCategories,
-        isDefault: formIsDefault,
+        ipAddress: formIpAddress,
+        categoryIds: formCategoryIds,
+        isActive: formIsActive,
+        deviceType: formDeviceType,
+        soundEnabled: formSoundEnabled,
+        createdAt: now,
+        updatedAt: now,
       });
     }
     setStations(updatedStations);
@@ -292,7 +278,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   const toggleCategory = (cat: string) => {
-    setFormCategories((prev) =>
+    setFormCategoryIds((prev) =>
       prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
     );
   };
@@ -301,12 +287,14 @@ export const SettingsPage: React.FC = () => {
   const openAddTable = () => {
     setEditingTable(null);
     setFormTableNumber('');
+    setFormTableCapacity('4');
     setShowTableModal(true);
   };
 
   const openEditTable = (table: Table) => {
     setEditingTable(table);
     setFormTableNumber(table.number);
+    setFormTableCapacity(table.capacity.toString());
     setShowTableModal(true);
   };
 
@@ -325,17 +313,27 @@ export const SettingsPage: React.FC = () => {
       return;
     }
 
+    const now = new Date().toISOString();
     if (editingTable) {
       setTables((prev) =>
         prev.map((t) =>
-          t.id === editingTable.id ? { ...t, number: formTableNumber } : t
+          t.id === editingTable.id
+            ? { ...t, number: formTableNumber, capacity: parseInt(formTableCapacity) || 4, updatedAt: now }
+            : t
         )
       );
     } else {
       const newId = Math.max(...tables.map((t) => parseInt(t.id)), 0) + 1;
       setTables((prev) => [
         ...prev,
-        { id: newId.toString(), number: formTableNumber, status: 'available' },
+        {
+          id: newId.toString(),
+          number: formTableNumber,
+          capacity: parseInt(formTableCapacity) || 4,
+          status: 'AVAILABLE',
+          createdAt: now,
+          updatedAt: now,
+        },
       ]);
     }
     setShowTableModal(false);
@@ -351,7 +349,10 @@ export const SettingsPage: React.FC = () => {
 
   const resetTables = () => {
     if (confirm('Reset all tables to available?')) {
-      setTables((prev) => prev.map((t) => ({ ...t, status: 'available' })));
+      const now = new Date().toISOString();
+      setTables((prev) =>
+        prev.map((t) => ({ ...t, status: 'AVAILABLE' as const, updatedAt: now }))
+      );
       setSaved(false);
     }
   };
@@ -532,9 +533,9 @@ export const SettingsPage: React.FC = () => {
                 <div
                   key={table.id}
                   className={`relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center ${
-                    table.status === 'available'
+                    table.status === 'AVAILABLE'
                       ? 'border-emerald-200 bg-emerald-50'
-                      : table.status === 'occupied'
+                      : table.status === 'OCCUPIED'
                       ? 'border-red-200 bg-red-50'
                       : 'border-amber-200 bg-amber-50'
                   }`}
@@ -544,14 +545,14 @@ export const SettingsPage: React.FC = () => {
                   </span>
                   <span
                     className={`text-xs ${
-                      table.status === 'available'
+                      table.status === 'AVAILABLE'
                         ? 'text-emerald-600'
-                        : table.status === 'occupied'
+                        : table.status === 'OCCUPIED'
                         ? 'text-red-600'
                         : 'text-amber-600'
                     }`}
                   >
-                    {table.status}
+                    {table.status.toLowerCase()}
                   </span>
                   <div className="absolute top-1 right-1 flex gap-0.5">
                     <button
@@ -628,41 +629,36 @@ export const SettingsPage: React.FC = () => {
                 <div
                   key={station.id}
                   className={`border rounded-xl p-4 ${
-                    station.enabled ? 'bg-white' : 'bg-gray-50 opacity-60'
+                    station.isActive ? 'bg-white' : 'bg-gray-50 opacity-60'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                          station.type === 'kds'
+                          station.deviceType === 'tablet'
                             ? 'bg-blue-100 text-blue-600'
                             : 'bg-orange-100 text-orange-600'
                         }`}
                       >
-                        {getTypeIcon(station.type)}
+                        {getDeviceTypeIcon(station.deviceType)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-gray-900">
                             {station.name}
                           </h3>
-                          {station.isDefault && (
-                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
-                              Default
-                            </span>
-                          )}
-                          {!station.enabled && (
+                          {!station.isActive && (
                             <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-full">
                               Offline
                             </span>
                           )}
                         </div>
                         <p className="text-sm text-gray-500">
-                          {station.ip}:{station.port} • {getTypeLabel(station.type)}
+                          {station.ipAddress} • {getDeviceTypeLabel(station.deviceType)}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          Categories: {station.categories.join(', ') || 'None'}
+                          Categories: {station.categoryIds.join(', ') || 'None'}
                         </p>
                       </div>
                     </div>
@@ -805,67 +801,48 @@ export const SettingsPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Type
+                  IP Address
+                </label>
+                <input
+                  type="text"
+                  value={formIpAddress}
+                  onChange={(e) => setFormIpAddress(e.target.value)}
+                  placeholder="192.168.1.100"
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Device Type
                 </label>
                 <select
-                  value={formType}
-                  onChange={(e) => {
-                    const type = e.target.value as Station['type'];
-                    setFormType(type);
-                    setFormPort(getDefaultPort(type).toString());
-                  }}
+                  value={formDeviceType}
+                  onChange={(e) => setFormDeviceType(e.target.value as Station['deviceType'])}
                   className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 >
-                  <option value="kds">KDS (Kitchen Display)</option>
-                  <option value="receipt">Receipt Printer</option>
-                  <option value="backup-printer">Backup Printer</option>
+                  <option value="tablet">Tablet</option>
+                  <option value="ipad">iPad</option>
+                  <option value="android">Android</option>
                 </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    IP Address
-                  </label>
-                  <input
-                    type="text"
-                    value={formIp}
-                    onChange={(e) => setFormIp(e.target.value)}
-                    placeholder="192.168.1.100"
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Port (Auto)
-                  </label>
-                  <input
-                    type="number"
-                    value={formPort}
-                    onChange={(e) => setFormPort(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 bg-gray-50"
-                  />
-                </div>
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={formEnabled}
-                    onChange={(e) => setFormEnabled(e.target.checked)}
+                    checked={formIsActive}
+                    onChange={(e) => setFormIsActive(e.target.checked)}
                     className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
-                  <span className="text-sm font-medium text-gray-700">Enabled</span>
+                  <span className="text-sm font-medium text-gray-700">Active</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={formIsDefault}
-                    onChange={(e) => setFormIsDefault(e.target.checked)}
+                    checked={formSoundEnabled}
+                    onChange={(e) => setFormSoundEnabled(e.target.checked)}
                     className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
-                  <span className="text-sm font-medium text-gray-700">
-                    Default Fallback
-                  </span>
+                  <span className="text-sm font-medium text-gray-700">Sound Enabled</span>
                 </label>
               </div>
               <div>
@@ -880,7 +857,7 @@ export const SettingsPage: React.FC = () => {
                     >
                       <input
                         type="checkbox"
-                        checked={formCategories.includes(cat)}
+                        checked={formCategoryIds.includes(cat)}
                         onChange={() => toggleCategory(cat)}
                         className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                       />
@@ -920,18 +897,32 @@ export const SettingsPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {editingTable ? 'Edit Table' : 'Add Table'}
             </h3>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Table Number
-              </label>
-              <input
-                type="text"
-                value={formTableNumber}
-                onChange={(e) => setFormTableNumber(e.target.value)}
-                placeholder="e.g. T21 or VIP01"
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                autoFocus
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Table Number
+                </label>
+                <input
+                  type="text"
+                  value={formTableNumber}
+                  onChange={(e) => setFormTableNumber(e.target.value)}
+                  placeholder="e.g. T21 or VIP01"
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Capacity
+                </label>
+                <input
+                  type="number"
+                  value={formTableCapacity}
+                  onChange={(e) => setFormTableCapacity(e.target.value)}
+                  placeholder="4"
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <button

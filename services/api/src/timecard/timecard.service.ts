@@ -1,7 +1,8 @@
 // src/timecard/timecard.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class TimecardService {
@@ -17,7 +18,7 @@ export class TimecardService {
     });
 
     if (active) {
-      throw new Error('Already clocked in. Please clock out first.');
+      throw new ConflictException('Already clocked in. Please clock out first.');
     }
 
     return this.prisma.timecard.create({
@@ -32,7 +33,7 @@ export class TimecardService {
     });
 
     if (!timecard) {
-      throw new Error('No active clock-in found.');
+      throw new NotFoundException('No active clock-in found.');
     }
 
     const clockOut = new Date();
@@ -46,7 +47,7 @@ export class TimecardService {
   }
 
   async findByStaff(staffId: string, options?: { from?: Date; to?: Date }) {
-    const where: any = { staffId };
+    const where: Prisma.TimecardWhereInput = { staffId };
     if (options?.from || options?.to) {
       where.clockIn = {};
       if (options.from) where.clockIn.gte = options.from;
@@ -78,6 +79,6 @@ export class TimecardService {
       },
     });
 
-    return timecards.reduce((sum, t) => sum + (t.totalHours || 0), 0);
+    return timecards.reduce((sum, t) => sum + Number(t.totalHours || 0), 0);  // ← FIXED: Number()
   }
 }

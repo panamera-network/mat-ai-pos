@@ -1,20 +1,21 @@
 // src/receipts/receipts.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaymentMethod, Prisma } from '@prisma/client';
 
 @Injectable()
 export class ReceiptsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(options?: { from?: Date; to?: Date; cashierId?: string }) {
-    const where: any = {};
-    
+    const where: Record<string, unknown> = {};
+
     if (options?.from || options?.to) {
       where.createdAt = {};
-      if (options.from) where.createdAt.gte = options.from;
-      if (options.to) where.createdAt.lte = options.to;
+      if (options.from) (where.createdAt as Record<string, Date>).gte = options.from;
+      if (options.to) (where.createdAt as Record<string, Date>).lte = options.to;
     }
-    
+
     if (options?.cashierId) where.cashierId = options.cashierId;
 
     return this.prisma.receipt.findMany({
@@ -38,20 +39,32 @@ export class ReceiptsService {
     totalAmount: number;
     paidAmount: number;
     change?: number;
-    paymentMethod: string;
+    paymentMethod: PaymentMethod;
     taxAmount?: number;
     cashierId: string;
     posId: string;
-    itemsSnapshot: any;
-    customerInfo?: any;
+    itemsSnapshot: unknown;
+    customerInfo?: unknown;
   }) {
     const receiptNo = new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    
+
+    // Use unchecked create — flat fields, no relation objects
+    const createData: Prisma.ReceiptUncheckedCreateInput = {
+      receiptNo,
+      orderId: data.orderId,
+      totalAmount: data.totalAmount,
+      paidAmount: data.paidAmount,
+      change: data.change,
+      paymentMethod: data.paymentMethod,
+      taxAmount: data.taxAmount,
+      cashierId: data.cashierId,
+      posId: data.posId,
+      itemsSnapshot: data.itemsSnapshot as Prisma.InputJsonValue,
+      customerInfo: data.customerInfo as Prisma.InputJsonValue | undefined,
+    };
+
     return this.prisma.receipt.create({
-      data: {
-        receiptNo,
-        ...data,
-      },
+      data: createData,
     });
   }
 

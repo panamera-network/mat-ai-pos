@@ -21,6 +21,82 @@ importers:
         specifier: ^5.4.0
         version: 5.9.3
 
+  apps/admin:
+    dependencies:
+      '@mat-ai/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@mat-ai/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@mat-ai/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@mat-ai/ws':
+        specifier: workspace:*
+        version: link:../../packages/ws
+      date-fns:
+        specifier: ^3.3.0
+        version: 3.6.0
+      lucide-react:
+        specifier: ^0.344.0
+        version: 0.344.0(react@18.3.1)
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+      react-router-dom:
+        specifier: ^6.22.0
+        version: 6.30.4(react-dom@18.3.1)(react@18.3.1)
+      socket.io-client:
+        specifier: ^4.8.3
+        version: 4.8.3
+      zustand:
+        specifier: ^4.5.0
+        version: 4.5.7(@types/react@18.3.30)(react@18.3.1)
+    devDependencies:
+      '@mat-ai/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config
+      '@mat-ai/tailwind-config':
+        specifier: workspace:*
+        version: link:../../tooling/tailwind-config
+      '@mat-ai/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      '@types/react':
+        specifier: ^18.2.0
+        version: 18.3.30
+      '@types/react-dom':
+        specifier: ^18.2.0
+        version: 18.3.7(@types/react@18.3.30)
+      '@types/socket.io-client':
+        specifier: ^3.0.0
+        version: 3.0.0
+      '@vitejs/plugin-react':
+        specifier: ^4.2.0
+        version: 4.7.0(vite@5.4.21)
+      autoprefixer:
+        specifier: ^10.4.0
+        version: 10.5.0(postcss@8.5.15)
+      postcss:
+        specifier: ^8.4.0
+        version: 8.5.15
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.1.0
+        version: 5.4.21(@types/node@20.19.41)
+      vite-plugin-pwa:
+        specifier: ^0.19.0
+        version: 0.19.8(vite@5.4.21)(workbox-build@7.4.1)(workbox-window@7.4.1)
+
   apps/kitchen:
     dependencies:
       '@mat-ai/types':
@@ -3676,7 +3752,7 @@ packages:
     resolution: {integrity: sha512-AwNusCCam51q703dW82x95tOqQp6oC9HNUl724KxJJOfnKscI8dOloXFgyez7LbTTKWuRBA37FScqVbJEoq8Yw==}
     dependencies:
       '@types/validator': 13.15.10
-      libphonenumber-js: 1.13.5
+      libphonenumber-js: 1.13.6
       validator: 13.15.35
 
   /cli-cursor@3.1.0:
@@ -4231,8 +4307,8 @@ packages:
       - supports-color
       - utf-8-validate
 
-  /enhanced-resolve@5.22.2:
-    resolution: {integrity: sha512-0rxICaFZ7NQho/sHely2bvOPRP0Eu2B0NZ9zM54YvRvWMn7jfz3DmnOZDR9LlXDdDcqntAVc6Hfy4gr/tdH/Ag==}
+  /enhanced-resolve@5.23.0:
+    resolution: {integrity: sha512-yJN/BOOLxcOW2aQgeif9mSnaUB8KtvmMMp56oA1kx1CRfBKbhZm2pJ+NBY+3eOboHxix8lfjWpHE0Ei5U8RbSA==}
     engines: {node: '>=10.13.0'}
     dependencies:
       graceful-fs: 4.2.11
@@ -5646,8 +5722,8 @@ packages:
       type-check: 0.4.0
     dev: true
 
-  /libphonenumber-js@1.13.5:
-    resolution: {integrity: sha512-7/kRezHmQlMfO6pmvt34orO/g3j1C47k8FCBXFgj/mklTLwQdBca1LkhDK6RM8UyM6JqHFAIikMdkKkyfQy39A==}
+  /libphonenumber-js@1.13.6:
+    resolution: {integrity: sha512-NdB6O6QvlGMCoG003m0YIKG2+Xw7DjmCZhmc1RH+K6HncADUbRf8TZeLegxBBN1VFyPHcNpPTKpIhYLXzJVy1Q==}
 
   /lilconfig@3.1.3:
     resolution: {integrity: sha512-/vlFKAoH5Cgt3Ie+JLhRbwOsCQePABiU3tJ1egGvyQ+33R/vcwM2Zl2QR/LzjsBeItPt3oSVXapn+m4nQDvpzw==}
@@ -7519,7 +7595,7 @@ packages:
     engines: {node: '>=10.13.0'}
     dependencies:
       chalk: 4.1.2
-      enhanced-resolve: 5.22.2
+      enhanced-resolve: 5.23.0
       tapable: 2.3.3
       tsconfig-paths: 4.2.0
     dev: true
@@ -7936,7 +8012,7 @@ packages:
       acorn: 8.16.0
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.22.2
+      enhanced-resolve: 5.23.0
       es-module-lexer: 1.7.0
       eslint-scope: 5.1.1
       events: 3.3.0

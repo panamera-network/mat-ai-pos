@@ -13,7 +13,23 @@ import {
   Puzzle,
   Percent,
 } from 'lucide-react';
-import type { MenuItem, Category, Modifier, Discount } from '@mat-ai/types';
+import type { MenuItem, Category } from '@mat-ai/types';
+
+// Local types for POS-only features (not in @mat-ai/types)
+interface Modifier {
+  id: string;
+  name: string;
+  price: number;
+  isActive?: boolean;
+}
+
+interface Discount {
+  id: string;
+  name: string;
+  type: 'percentage' | 'fixed';
+  value: number;
+  isActive: boolean;
+}
 
 type TabType = 'items' | 'categories' | 'modifiers' | 'discounts';
 
@@ -97,7 +113,6 @@ export const MenuEditPage: React.FC = () => {
       item.id === id ? { ...item, isAvailable: !item.isAvailable } : item
     );
     setItems(updated);
-    // Save to localStorage immediately
     saveMenuItems(updated);
   };
 
@@ -244,7 +259,7 @@ export const MenuEditPage: React.FC = () => {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <span className="text-3xl">{item.image || '🍽️'}</span>
+                        <span className="text-3xl">{(item as any).image || '🍽️'}</span>
                         <div>
                           <h3 className="font-semibold text-gray-900">{item.name}</h3>
                           <p className="text-sm text-gray-500">
@@ -254,7 +269,7 @@ export const MenuEditPage: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-primary-600">
-                          RM{item.price.toFixed(2)}
+                          RM{(Number(item.price) || 0).toFixed(2)}
                         </p>
                         <span
                           className={`text-xs px-2 py-1 rounded-full ${
@@ -311,7 +326,7 @@ export const MenuEditPage: React.FC = () => {
                   className="bg-white rounded-xl border p-4 flex items-center justify-between"
                 >
                   <div className="flex items-center gap-4">
-                    <span className="text-3xl">{cat.icon || '📂'}</span>
+                    <span className="text-3xl">{(cat as any).icon || '📂'}</span>
                     <div>
                       <h3 className="font-semibold text-gray-900">{cat.name}</h3>
                     </div>

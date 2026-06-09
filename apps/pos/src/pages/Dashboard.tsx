@@ -3,31 +3,66 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Calendar, Bell, Package, Utensils, Settings, Receipt, LogOut,
-  Clock, Users, Plus, QrCode, ShoppingBag, Car, Home, Smartphone,
+  Clock, Users, Plus, QrCode, ShoppingBag, Car, Smartphone,
 } from 'lucide-react';
 import { usePOSStore } from '../stores/posStore';
 import { useSocket } from '../hooks/useSocket';
+import { POSOrder, POSOrderItem, toFrontendOrderType, toFrontendStatus } from '../lib/types';  // ← IMPORT BOTH
 
 const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
 
-// Types
-interface Table { id: string; number: string; status: string; capacity: number; }
-interface OrderItem { menuItemId: string; name: string; qty: number; price: number; }
-interface POSOrder {
-  id: string; orderNumber: string; type: string; status: string;
-  customerName?: string; customerPhone?: string; tableNumber?: string;
-  total: number; items: OrderItem[]; isQrOrder?: boolean;
-  customerInfo?: any; reservationTime?: string;
+
+// Table type (local — simple)
+interface DashboardTable {
+  id: string;
+  number: string;
+  status: string;
+  capacity: number;
 }
+
+// Normalize backend order → POS format
+const normalizeOrder = (o: any): POSOrder => {
+  if (!o) return o;
+  
+  const items: POSOrderItem[] = (o.items || []).map((i: any) => ({
+    id: i.id || i.menuItemId || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
+    menuId: i.menuItemId || i.id || '',
+    name: i.name || 'Unknown',
+    price: Number(i.unitPrice) || Number(i.price) || 0,
+    qty: Number(i.quantity) || Number(i.qty) || 0,
+    modifiers: i.options || i.modifiers || [],
+  }));
+
+  return {
+    id: o.id,
+    orderNumber: o.orderNumber || o.id?.slice(-4) || '',
+    items,
+    type: toFrontendOrderType(o.type),
+    status: toFrontendStatus(o.status),
+    tableNumber: o.table?.number || o.tableNumber,
+    customerName: o.customerName,
+    customerPhone: o.customerPhone,
+    customerInfo: o.customerName ? {
+      name: o.customerName,
+      phone: o.customerPhone || '',
+    } : undefined,
+    reservationTime: o.reservationTime,
+    subtotal: 0,
+    tax: 0,
+    total: Number(o.totalAmount) || Number(o.total) || 0,
+    createdAt: o.createdAt || new Date().toISOString(),
+    updatedAt: o.updatedAt || new Date().toISOString(),
+  };
+};
 
 export function Dashboard() {
   const navigate = useNavigate();
   const { currentStaff, logout } = usePOSStore();
   const { socket, connected } = useSocket('pos');
-  
+
   const [activeOrders, setActiveOrders] = useState<POSOrder[]>([]);
-  const [tables, setTables] = useState<Table[]>([]);
-  const [wsOrders, setWsOrders] = useState<any[]>([]); // Orders from WebSocket
+  const [tables, setTables] = useState<DashboardTable[]>([]);
+  const [wsOrders, setWsOrders] = useState<POSOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch data from backend API
@@ -38,32 +73,12 @@ export function Dashboard() {
           fetch(`${API_URL}/orders?status=PENDING`),
           fetch(`${API_URL}/tables`),
         ]);
-        
+
         const ordersData = await ordersRes.json();
         const orders = Array.isArray(ordersData) ? ordersData : [];
         const tablesData = await tablesRes.json();
-        
-        // Transform backend orders to POS format
-        const transformedOrders = orders.map((o: any) => ({
-          id: o.id,
-          orderNumber: o.orderNumber,
-          type: o.type?.toLowerCase().replace('_', '-') || 'dine-in',
-          status: o.status === 'PENDING' ? 'active' : o.status.toLowerCase(),
-          customerName: o.customerName,
-          customerPhone: o.customerPhone,
-          tableNumber: o.table?.number,
-          total: Number(o.totalAmount),
-          items: o.items?.map((i: any) => ({
-            menuItemId: i.menuItemId,
-            name: i.name,
-            qty: i.quantity,
-            price: Number(i.unitPrice),
-          })) || [],
-          isQrOrder: o.source === 'QR_MENU',
-          reservationTime: o.reservationTime,
-        }));
-        
-        setActiveOrders(transformedOrders);
+
+        setActiveOrders(orders.map(normalizeOrder));
         setTables(tablesData);
       } catch (err) {
         console.error('Failed to fetch data:', err);
@@ -71,9 +86,9 @@ export function Dashboard() {
         setLoading(false);
       }
     };
-    
+
     fetchData();
-    const interval = setInterval(fetchData, 5000); // Poll every 5s
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -83,8 +98,7 @@ export function Dashboard() {
 
     socket.on('pos:newOrder', (order) => {
       console.log('📱 New QR order:', order);
-      setWsOrders(prev => [order, ...prev]);
-      // Play notification sound
+      setWsOrders(prev => [normalizeOrder(order), ...prev]);
       new Audio('/notification.mp3').play().catch(() => {});
     });
 
@@ -93,7 +107,8 @@ export function Dashboard() {
     });
 
     socket.on('order:updated', (order) => {
-      setActiveOrders(prev => prev.map(o => o.id === order.id ? { ...o, ...order } : o));
+      const normalized = normalizeOrder(order);
+      setActiveOrders(prev => prev.map(o => o.id === normalized.id ? { ...o, ...normalized } : o));
     });
 
     return () => {
@@ -103,8 +118,11 @@ export function Dashboard() {
     };
   }, [socket]);
 
-  // Combine API orders + WS orders
-  const allOrders = [...wsOrders, ...activeOrders];
+  // Combine API orders + WS orders (deduplicate by id)
+  const allOrdersMap = new Map<string, POSOrder>();
+  [...activeOrders, ...wsOrders].forEach(o => allOrdersMap.set(o.id, o));
+  const allOrders = Array.from(allOrdersMap.values());
+
   const dineInOrders = allOrders.filter((o) => o.type === 'dine-in');
   const takeawayOrders = allOrders.filter((o) => o.type === 'takeaway');
   const deliveryOrders = allOrders.filter((o) => o.type === 'delivery');
@@ -117,18 +135,14 @@ export function Dashboard() {
     navigate('/pos', {
       state: {
         editMode: true,
-        orderId: order.id,
-        orderItems: order.items,
-        orderType: order.type,
+        order: order,
         tableNumber: order.tableNumber,
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        createdAt: order.reservationTime,
+        orderType: order.type,
       },
     });
   };
 
-  const handleTableClick = (table: Table) => {
+  const handleTableClick = (table: DashboardTable) => {
     if (table.status === 'occupied') {
       const order = dineInOrders.find((o) => o.tableNumber === table.number);
       if (order) handleOrderClick(order);
@@ -149,28 +163,6 @@ export function Dashboard() {
 // ============================================
 // HELPERS
 // ============================================
-const getTables = (): Table[] => {
-  try {
-    const saved = localStorage.getItem('mat-pos-tables');
-    if (saved) return JSON.parse(saved);
-  } catch {
-    /* corrupt data */
-  }
-  return [];
-};
-
-const getActiveOrders = (): POSOrder[] => {
-  try {
-    const saved = localStorage.getItem('mat-pos-active-orders');
-    if (saved) {
-      const orders = JSON.parse(saved);
-      return orders.filter((o: POSOrder) => o.status === 'active');
-    }
-  } catch {
-    /* corrupt */
-  }
-  return [];
-};
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -195,36 +187,6 @@ const getStatusDot = (status: string) => {
       return 'bg-amber-500';
     default:
       return 'bg-gray-500';
-  }
-};
-
-const getOrderTypeIcon = (type: string) => {
-  switch (type) {
-    case 'dine-in':
-      return <Home className="w-4 h-4" />;
-    case 'takeaway':
-      return <ShoppingBag className="w-4 h-4" />;
-    case 'delivery':
-      return <Car className="w-4 h-4" />;
-    case 'reservation':
-      return <Calendar className="w-4 h-4" />;
-    default:
-      return <Smartphone className="w-4 h-4" />;
-  }
-};
-
-const getOrderTypeColor = (type: string) => {
-  switch (type) {
-    case 'dine-in':
-      return 'bg-blue-50 border-blue-200 text-blue-800';
-    case 'takeaway':
-      return 'bg-orange-50 border-orange-200 text-orange-800';
-    case 'delivery':
-      return 'bg-purple-50 border-purple-200 text-purple-800';
-    case 'reservation':
-      return 'bg-pink-50 border-pink-200 text-pink-800';
-    default:
-      return 'bg-gray-50 border-gray-200 text-gray-800';
   }
 };
 

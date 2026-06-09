@@ -1,7 +1,8 @@
 // src/tables/tables.controller.ts
 import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
 import { TablesService } from './tables.service';
-import { TableStatus } from '@prisma/client';
+import { CreateTableDto } from './dto/create-table.dto';
+import { UpdateTableDto } from './dto/update-table.dto';
 
 @Controller('tables')
 export class TablesController {
@@ -18,18 +19,13 @@ export class TablesController {
   }
 
   @Post()
-  create(@Body() dto: { number: string; capacity?: number }) {
+  create(@Body() dto: CreateTableDto) {
     return this.tablesService.create(dto);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: Partial<{ number: string; capacity: number; status: TableStatus }>) {
+  update(@Param('id') id: string, @Body() dto: UpdateTableDto) {
     return this.tablesService.update(id, dto);
-  }
-
-  @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body('status') status: TableStatus) {
-    return this.tablesService.updateStatus(id, status);
   }
 
   @Delete(':id')

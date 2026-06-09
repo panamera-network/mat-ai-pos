@@ -2,17 +2,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
-  Search,
-  Plus,
-  AlertTriangle,
-  Package,
-  History,
-  X,
-  Check,
-  ArrowDownCircle,
+  ArrowLeft, Search, Plus, AlertTriangle, Package, History, X, Check, ArrowDownCircle,
 } from 'lucide-react';
 import type { InventoryItem, StockLog } from '@mat-ai/types';
+import { usePOSStore } from '../stores/posStore';
+
+const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
 
 const categories = [
   { key: 'all', label: 'Semua' },
@@ -26,86 +21,66 @@ const categories = [
   { key: 'oil', label: 'Oil' },
 ];
 
-const getInventory = (): InventoryItem[] => {
-  try {
-    const saved = localStorage.getItem('mat-pos-inventory');
-    if (saved) return JSON.parse(saved);
-  } catch {
-    /* ignore */
-  }
-  return [];
-};
-
-const getStockLogs = (): StockLog[] => {
-  try {
-    const saved = localStorage.getItem('mat-pos-stock-logs');
-    if (saved) return JSON.parse(saved);
-  } catch {
-    /* ignore */
-  }
-  return [];
-};
-
-const getComputedClose = (item: InventoryItem): number => {
-  return item.close || (item.open + item.in - item.out);
-};
-
-const getStatus = (close: number) => {
-  if (close <= 0)
-    return {
-      label: 'HABIS',
-      color: 'text-red-600',
-      bg: 'bg-red-50 border-red-200',
-    };
-  if (close < 50)
-    return {
-      label: 'KRITIKAL',
-      color: 'text-red-600',
-      bg: 'bg-red-50 border-red-200',
-    };
-  if (close < 100)
-    return {
-      label: 'RENDAH',
-      color: 'text-amber-600',
-      bg: 'bg-amber-50 border-amber-200',
-    };
-  return {
-    label: 'OK',
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50 border-emerald-200',
-  };
-};
-
 export const InventoryPage: React.FC = () => {
   const navigate = useNavigate();
+  const { currentStaff } = usePOSStore();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [logs, setLogs] = useState<StockLog[]>([]);
   const [showLogs, setShowLogs] = useState(false);
-
   const [showStockModal, setShowStockModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [stockQty, setStockQty] = useState('');
+  const [loading, setLoading] = useState(true);
 
+  // Fetch from backend
   useEffect(() => {
-    setInventory(getInventory());
-    setLogs(getStockLogs());
+    const fetchInventory = async () => {
+      try {
+        const res = await fetch(`${API_URL}/inventory/items`);
+        if (res.ok) {
+          const data = await res.json();
+          setInventory(data);
+          localStorage.setItem('mat-pos-inventory', JSON.stringify(data));
+        } else {
+          const saved = localStorage.getItem('mat-pos-inventory');
+          if (saved) setInventory(JSON.parse(saved));
+        }
+      } catch (err) {
+        console.error('Failed to fetch inventory:', err);
+        const saved = localStorage.getItem('mat-pos-inventory');
+        if (saved) setInventory(JSON.parse(saved));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInventory();
   }, []);
+
+  // Fetch logs
+  const fetchLogs = async () => {
+    try {
+      const res = await fetch(`${API_URL}/inventory/logs`);
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch logs:', err);
+    }
+  };
 
   const filteredItems = useMemo(() => {
     let items = inventory;
-    if (activeCategory !== 'all')
-      items = items.filter((i) => i.category === activeCategory);
-    if (searchQuery)
-      items = items.filter((i) =>
-        i.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+    if (activeCategory !== 'all') items = items.filter((i) => i.category === activeCategory);
+    if (searchQuery) items = items.filter((i) => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
     return items;
   }, [inventory, activeCategory, searchQuery]);
 
   const lowStockItems = useMemo(
-    () => inventory.filter((item) => getComputedClose(item) < 100),
+    () => inventory.filter((item) => item.currentStock <= item.minStock),
     [inventory]
   );
 
@@ -115,7 +90,7 @@ export const InventoryPage: React.FC = () => {
     setShowStockModal(true);
   };
 
-  const handleStockIn = () => {
+  const handleStockIn = async () => {
     if (!selectedItem) return;
     const qty = parseFloat(stockQty);
     if (!qty || qty <= 0) {
@@ -123,28 +98,36 @@ export const InventoryPage: React.FC = () => {
       return;
     }
 
-    const prevClose = getComputedClose(selectedItem);
-    const newItem = { ...selectedItem, in: selectedItem.in + qty };
+    try {
+      const res = await fetch(`${API_URL}/inventory/items/${selectedItem.id}/stock-in`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          qty,
+          staffId: currentStaff?.id || 'unknown',
+          reason: 'Terima Stok',
+        }),
+      });
 
-    const newInventory = inventory.map((item) =>
-      item.id === selectedItem.id ? newItem : item
-    );
-    setInventory(newInventory);
-    localStorage.setItem('mat-pos-inventory', JSON.stringify(newInventory));
+      if (!res.ok) throw new Error('Stock in failed');
 
-    const newLog: StockLog = {
-      id: crypto.randomUUID(),
-      itemName: selectedItem.name,
-      qty,
-      previousClose: prevClose,
-      newClose: prevClose + qty,
-      timestamp: new Date().toLocaleTimeString('ms-MY'),
-    };
-    const newLogs = [newLog, ...logs];
-    setLogs(newLogs);
-    localStorage.setItem('mat-pos-stock-logs', JSON.stringify(newLogs));
+      const result = await res.json();
+      setInventory(prev => prev.map(item => item.id === selectedItem.id ? result.item : item));
+      localStorage.setItem('mat-pos-inventory', JSON.stringify(
+        inventory.map(item => item.id === selectedItem.id ? result.item : item)
+      ));
+      setShowStockModal(false);
+    } catch (err) {
+      console.error('Stock in failed:', err);
+      alert('Gagal sync dengan server.');
+    }
+  };
 
-    setShowStockModal(false);
+  const getStatus = (item: InventoryItem) => {
+    if (item.currentStock <= 0) return { label: 'HABIS', color: 'text-red-600', bg: 'bg-red-50 border-red-200' };
+    if (item.currentStock <= item.minStock) return { label: 'KRITIKAL', color: 'text-red-600', bg: 'bg-red-50 border-red-200' };
+    if (item.currentStock <= item.minStock * 2) return { label: 'RENDAH', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' };
+    return { label: 'OK', color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200' };
   };
 
   return (
@@ -163,7 +146,7 @@ export const InventoryPage: React.FC = () => {
           </div>
         </div>
         <button
-          onClick={() => setShowLogs(true)}
+          onClick={() => { setShowLogs(true); fetchLogs(); }}
           className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
         >
           <History className="w-4 h-4" />
@@ -187,10 +170,9 @@ export const InventoryPage: React.FC = () => {
               key={cat.key}
               onClick={() => setActiveCategory(cat.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all
-                ${
-                  activeCategory === cat.key
-                    ? 'bg-primary-600 text-white shadow-md'
-                    : 'bg-white text-gray-700 border hover:bg-gray-50'
+                ${activeCategory === cat.key
+                  ? 'bg-primary-600 text-white shadow-md'
+                  : 'bg-white text-gray-700 border hover:bg-gray-50'
                 }`}
             >
               {cat.label}
@@ -213,7 +195,12 @@ export const InventoryPage: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-auto p-4">
-        {inventory.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mb-3" />
+            <p className="text-sm">Loading inventory...</p>
+          </div>
+        ) : inventory.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             <p>Tiada bahan dalam inventory</p>
@@ -222,8 +209,7 @@ export const InventoryPage: React.FC = () => {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filteredItems.map((item) => {
-              const close = getComputedClose(item);
-              const status = getStatus(close);
+              const status = getStatus(item);
               return (
                 <div
                   key={item.id}
@@ -235,7 +221,7 @@ export const InventoryPage: React.FC = () => {
                         {item.name}
                       </h3>
                       <p className="text-xs text-gray-500 uppercase">
-                        {item.category}
+                        {item.category} • {item.unit}
                       </p>
                     </div>
                     <span
@@ -249,11 +235,13 @@ export const InventoryPage: React.FC = () => {
                     <div>
                       <p className="text-xs text-gray-500">Stok Sedia Ada</p>
                       <p className={`text-2xl font-bold ${status.color}`}>
-                        {close}
+                        {item.currentStock}
                       </p>
-                      <p className="text-xs text-gray-400">
-                        {item.weight}g / pack
-                      </p>
+                      {item.weight && (
+                        <p className="text-xs text-gray-400">
+                          {item.weight}g / pack
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={() => openStockModal(item)}
@@ -277,6 +265,7 @@ export const InventoryPage: React.FC = () => {
         )}
       </div>
 
+      {/* Stock In Modal */}
       {showStockModal && selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
@@ -292,11 +281,11 @@ export const InventoryPage: React.FC = () => {
               <div className="mb-4 p-3 bg-gray-50 rounded-lg text-center">
                 <p className="text-xs text-gray-500">Stok Sedia Ada</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {getComputedClose(selectedItem)}
+                  {selectedItem.currentStock} {selectedItem.unit}
                 </p>
               </div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Kuantiti Masuk (g/unit)
+                Kuantiti Masuk ({selectedItem.unit})
               </label>
               <input
                 type="number"
@@ -325,6 +314,7 @@ export const InventoryPage: React.FC = () => {
         </div>
       )}
 
+      {/* Logs Modal */}
       {showLogs && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowLogs(false)} />
@@ -332,7 +322,7 @@ export const InventoryPage: React.FC = () => {
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <History className="w-5 h-5" />
-                Sejarah Stok Masuk
+                Sejarah Stok
               </h3>
               <button
                 onClick={() => setShowLogs(false)}
@@ -351,18 +341,26 @@ export const InventoryPage: React.FC = () => {
                       key={log.id}
                       className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
                     >
-                      <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                        <Plus className="w-4 h-4 text-emerald-600" />
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        log.type === 'MANUAL_IN' ? 'bg-emerald-100' : 
+                        log.type === 'AUTO_DEDUCT' ? 'bg-red-100' : 'bg-amber-100'
+                      }`}>
+                        {log.type === 'MANUAL_IN' ? <Plus className="w-4 h-4 text-emerald-600" /> :
+                         log.type === 'AUTO_DEDUCT' ? <ArrowDownCircle className="w-4 h-4 text-red-600" /> :
+                         <AlertTriangle className="w-4 h-4 text-amber-600" />}
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">
-                          {log.itemName}
+                          {log.inventoryItem?.name || log.menuItem?.name || 'Unknown'}
                         </p>
                         <p className="text-xs text-gray-500">
-                          +{log.qty} • {log.previousClose} → {log.newClose}
+                          {log.type === 'MANUAL_IN' ? '+' : log.type === 'AUTO_DEDUCT' ? '-' : '~'}
+                          {log.quantity} {log.reason}
                         </p>
                       </div>
-                      <p className="text-xs text-gray-400">{log.timestamp}</p>
+                      <p className="text-xs text-gray-400">
+                        {new Date(log.createdAt).toLocaleTimeString('ms-MY')}
+                      </p>
                     </div>
                   ))}
                 </div>

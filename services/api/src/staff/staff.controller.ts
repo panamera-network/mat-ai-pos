@@ -1,7 +1,8 @@
 // src/staff/staff.controller.ts
 import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
 import { StaffService } from './staff.service';
-import { Role, EmploymentType } from '@prisma/client';
+import { CreateStaffDto } from './dto/create-staff.dto';
+import { UpdateStaffDto } from './dto/update-staff.dto';
 
 @Controller('staff')
 export class StaffController {
@@ -18,27 +19,12 @@ export class StaffController {
   }
 
   @Post()
-  create(@Body() dto: {
-    name: string;
-    pin: string;
-    role?: Role;
-    employmentType?: EmploymentType;
-    hourlyRate?: number;
-    monthlySalary?: number;
-  }) {
+  create(@Body() dto: CreateStaffDto) {
     return this.staffService.create(dto);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: Partial<{
-    name: string;
-    pin: string;
-    role: Role;
-    employmentType: EmploymentType;
-    hourlyRate: number;
-    monthlySalary: number;
-    isActive: boolean;
-  }>) {
+  update(@Param('id') id: string, @Body() dto: UpdateStaffDto) {
     return this.staffService.update(id, dto);
   }
 

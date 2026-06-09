@@ -1,53 +1,58 @@
 // src/inventory/inventory.controller.ts
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
+import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
+import { StockInDto } from './dto/stock-in.dto';
 
 @Controller('inventory')
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
-  @Get()
+  @Get('items')
+  getInventoryItems(@Query('category') category?: string) {
+    return this.inventoryService.getInventoryItems(category);
+  }
+
+  @Get('items/low-stock')
+  getLowStockInventory() {
+    return this.inventoryService.getLowStockInventory();
+  }
+
+  @Post('items')
+  create(@Body() dto: CreateInventoryItemDto) {
+    return this.inventoryService.create(dto);
+  }
+
+  @Post('items/:id/stock-in')
+  stockInInventory(
+    @Param('id') id: string,
+    @Body() dto: StockInDto
+  ) {
+    return this.inventoryService.stockInInventory(id, dto.qty, dto.staffId, dto.reason);
+  }
+
+  @Get('menu-stock')
   getCurrentStock() {
     return this.inventoryService.getCurrentStock();
   }
 
-  @Get('low-stock')
-  getLowStock() {
-    return this.inventoryService.getLowStock();
+  @Get('menu-stock/low-stock')
+  getLowStockMenu() {
+    return this.inventoryService.getLowStockMenu();
   }
 
   @Get('logs')
   getLogs(
+    @Query('inventoryItemId') inventoryItemId?: string,
     @Query('menuItemId') menuItemId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
-    @Query('staffId') staffId?: string,
   ) {
     return this.inventoryService.getLogs({
+      inventoryItemId,
       menuItemId,
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
-      staffId,
     });
-  }
-
-  @Post('manual-in')
-  manualStockIn(@Body() dto: {
-    menuItemId: string;
-    quantity: number;
-    staffId: string;
-    reason?: string;
-  }) {
-    return this.inventoryService.manualStockIn(dto.menuItemId, dto.quantity, dto.staffId, dto.reason);
-  }
-
-  @Post('adjust')
-  adjustStock(@Body() dto: {
-    menuItemId: string;
-    newStock: number;
-    staffId: string;
-    reason: string;
-  }) {
-    return this.inventoryService.adjustStock(dto.menuItemId, dto.newStock, dto.staffId, dto.reason);
   }
 }

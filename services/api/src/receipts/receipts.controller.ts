@@ -1,6 +1,7 @@
 // src/receipts/receipts.controller.ts
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { ReceiptsService } from './receipts.service';
+import { PaymentMethod } from '@prisma/client';
 
 @Controller('receipts')
 export class ReceiptsController {
@@ -30,7 +31,7 @@ export class ReceiptsController {
     totalAmount: number;
     paidAmount: number;
     change?: number;
-    paymentMethod: string;
+    paymentMethod: PaymentMethod;
     taxAmount?: number;
     cashierId: string;
     posId: string;

@@ -10,14 +10,34 @@ export class StaffService {
   async findAll() {
     return this.prisma.staff.findMany({
       where: { isActive: true },
-      include: { timecards: true, payrolls: true },
+      select: {
+        id: true,
+        name: true,
+        pin: true,
+        role: true,
+        isActive: true,
+        employmentType: true,
+        hourlyRate: true,
+        monthlySalary: true,
+        joinDate: true,
+        customEpfRate: true,
+        customSocsoRate: true,
+        createdAt: true,
+        updatedAt: true,
+        // ❌ Exclude heavy relations
+      },
     });
   }
 
   async findOne(id: string) {
     const staff = await this.prisma.staff.findUnique({
       where: { id },
-      include: { timecards: true, payrolls: true, leaveRequests: true, advances: true },
+      include: {
+        timecards: { take: 10, orderBy: { clockIn: 'desc' } },
+        payrolls: { take: 5, orderBy: { periodStart: 'desc' } },
+        leaveRequests: { take: 5, orderBy: { createdAt: 'desc' } },
+        advances: { take: 5, orderBy: { createdAt: 'desc' } },
+      },
     });
     if (!staff) throw new NotFoundException(`Staff ${id} not found`);
     return staff;
@@ -26,6 +46,14 @@ export class StaffService {
   async findByPin(pin: string) {
     return this.prisma.staff.findFirst({
       where: { pin, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        pin: true,
+        role: true,
+        isActive: true,
+        employmentType: true,  // ← FIXED: was missing
+      },
     });
   }
 

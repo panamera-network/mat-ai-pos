@@ -1,5 +1,5 @@
 // src/tables/tables.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TableStatus } from '@prisma/client';
 
@@ -10,14 +10,24 @@ export class TablesService {
   findAll() {
     return this.prisma.table.findMany({
       orderBy: { number: 'asc' },
-      include: { orders: { where: { status: { in: ['PENDING', 'PAID', 'PREPARING'] } } } },
+      include: { 
+        orders: { 
+          where: { status: { in: ['PENDING', 'PAID', 'PREPARING'] } },
+          select: { id: true, status: true, totalAmount: true },
+        } 
+      },
     });
   }
 
   findOne(id: string) {
     return this.prisma.table.findUnique({
       where: { id },
-      include: { orders: true },
+      include: { 
+        orders: { 
+          where: { status: { not: 'CANCELLED' } },
+          select: { id: true, status: true, totalAmount: true },
+        } 
+      },
     });
   }
 
@@ -29,7 +39,22 @@ export class TablesService {
     return this.prisma.table.update({ where: { id }, data });
   }
 
-  delete(id: string) {
+  async delete(id: string) {
+    const table = await this.prisma.table.findUnique({ 
+      where: { id },
+      include: { 
+        orders: { 
+          where: { status: { not: 'CANCELLED' } } 
+        } 
+      }
+    });
+    
+    if (!table) throw new NotFoundException(`Table ${id} not found`);
+    
+    if (table.orders.length > 0) {
+      throw new ConflictException('Cannot delete table with active orders');
+    }
+    
     return this.prisma.table.delete({ where: { id } });
   }
 

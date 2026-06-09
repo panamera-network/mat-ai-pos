@@ -10,7 +10,6 @@ import {
   ChevronDown,
   Receipt,
 } from 'lucide-react';
-import type { Order } from '@mat-ai/types';
 
 interface ReceiptData {
   id: string;
@@ -36,14 +35,15 @@ const getReceipts = (): ReceiptData[] => {
 };
 
 const getPaymentIcon = (method: string) => {
-  switch (method) {
-    case 'cash':
+  const m = method?.toUpperCase();
+  switch (m) {
+    case 'CASH':
       return '💵';
-    case 'qr':
+    case 'QR_PAY':
       return '📱';
-    case 'card':
+    case 'CARD':
       return '💳';
-    case 'delivery':
+    case 'DELIVERY':
       return '🚚';
     default:
       return '💰';
@@ -67,7 +67,6 @@ export const ReceiptHistoryPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilter, setShowFilter] = useState(false);
-  const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<ReceiptData[]>([]);
 
   useEffect(() => {
@@ -178,9 +177,7 @@ export const ReceiptHistoryPage: React.FC = () => {
             filteredReceipts.map((receipt) => (
               <div
                 key={receipt.id}
-                className={`bg-white rounded-2xl shadow-sm border transition-all ${
-                  selectedReceipt === receipt.id ? 'ring-2 ring-primary-500' : ''
-                }`}
+                className="bg-white rounded-2xl shadow-sm border"
               >
                 {/* Receipt Header */}
                 <div className="p-4 border-b">
@@ -226,11 +223,11 @@ export const ReceiptHistoryPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{getPaymentIcon(receipt.paymentMethod)}</span>
                       <span className="text-sm text-gray-500 capitalize">
-                        {receipt.paymentMethod}
+                        {receipt.paymentMethod?.toLowerCase()}
                       </span>
                     </div>
                     <span className="text-xl font-bold text-primary-600">
-                      RM{receipt.total.toFixed(2)}
+                      RM{(Number(receipt.total) || 0).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -280,7 +277,7 @@ export const ReceiptHistoryPage: React.FC = () => {
           <span className="text-gray-500">
             Total:{' '}
             <span className="font-bold text-gray-900">
-              RM{filteredReceipts.reduce((s, r) => s + r.total, 0).toFixed(2)}
+              RM{filteredReceipts.reduce((s, r) => s + (Number(r.total) || 0), 0).toFixed(2)}
             </span>
           </span>
         </div>

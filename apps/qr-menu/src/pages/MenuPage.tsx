@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Search, Plus, ChefHat, AlertCircle, Loader2 } from 'lucide-react';
-import type { MenuItem } from '@mat-ai/types';
+import type { MenuItem, Category } from '@mat-ai/types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -14,12 +14,6 @@ interface CartItem {
   modifiers: string[];
 }
 
-const DEFAULT_CATEGORIES = [
-  { id: 'Makanan', name: 'Makanan' },
-  { id: 'Minuman', name: 'Minuman' },
-  { id: 'Roti', name: 'Roti' },
-];
-
 export const MenuPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<string>('');
@@ -29,7 +23,6 @@ export const MenuPage: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [categories] = useState(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModifierModal, setShowModifierModal] = useState(false);
@@ -55,7 +48,18 @@ export const MenuPage: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Auto-select first category
+  // Derive categories from menu items (backend now returns nested category object)
+  const categories = useMemo(() => {
+    const catMap = new Map<string, Category>();
+    menuItems.forEach(item => {
+      if (item.category && !catMap.has(item.category.id)) {
+        catMap.set(item.category.id, item.category);
+      }
+    });
+    return Array.from(catMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [menuItems]);
+
+  // Auto-select first category when categories loaded
   useEffect(() => {
     if (!activeCategory && categories.length > 0) {
       setActiveCategory(categories[0].id);
@@ -74,7 +78,8 @@ export const MenuPage: React.FC = () => {
         item.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     } else if (activeCategory) {
-      items = items.filter((item) => item.category === activeCategory);
+      // FIXED: use categoryId (string) instead of category (object)
+      items = items.filter((item) => item.categoryId === activeCategory);
     }
     return items;
   }, [menuItems, activeCategory, searchQuery]);
@@ -109,11 +114,12 @@ export const MenuPage: React.FC = () => {
   };
 
   const handleItemClick = (item: MenuItem) => {
-    console.log('Clicked:', item.name);
-    
-    // Check if item has options (from backend)
-    const hasOptions = item.options && Object.keys(item.options).length > 0;
-    
+    // FIXED: Safe check for options (Prisma Json? can be null/any shape)
+    const hasOptions = item.options && 
+      typeof item.options === 'object' && 
+      !Array.isArray(item.options) &&
+      Object.keys(item.options).length > 0;
+
     if (hasOptions) {
       setSelectedItem(item);
       setSelectedModifiers([]);
@@ -140,7 +146,9 @@ export const MenuPage: React.FC = () => {
 
   // Helper to flatten options for display
   const getOptionValues = (item: MenuItem | null): string[] => {
-    if (!item?.options) return [];
+    if (!item?.options || typeof item.options !== 'object' || Array.isArray(item.options)) {
+      return [];
+    }
     const values: string[] = [];
     Object.entries(item.options).forEach(([key, val]) => {
       if (Array.isArray(val)) {
@@ -201,7 +209,7 @@ export const MenuPage: React.FC = () => {
       {/* Error State */}
       {!loading && error && (
         <div className="flex flex-col items-center justify-center py-20 px-4">
-          <AlertCircle className="w-12 w-12 text-red-500 mb-3" />
+          <AlertCircle className="w-12 h-12 text-red-500 mb-3" />
           <p className="text-red-600 font-medium">{error}</p>
           <button
             onClick={() => window.location.reload()}
@@ -282,7 +290,7 @@ export const MenuPage: React.FC = () => {
                     <p className="text-lg font-bold text-primary-600 mt-1">
                       RM{Number(item.price).toFixed(2)}
                     </p>
-                    {item.options && Object.keys(item.options).length > 0 && (
+                    {item.options && typeof item.options === 'object' && !Array.isArray(item.options) && Object.keys(item.options).length > 0 && (
                       <span className="text-xs text-gray-400">+ Customizable</span>
                     )}
                   </button>
