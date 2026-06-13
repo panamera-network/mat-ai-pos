@@ -11,6 +11,16 @@ import {
   Wifi,
   Check,
 } from 'lucide-react';
+import {
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  Input,
+  Switch,
+  Modal,
+  ConfirmDialog,
+} from '@mat-ai/ui';
 import { getSettings, saveSettings, resetMemory, resetAll } from '../utils/storage';
 import type { KdsSettings } from '../types/kitchen';
 
@@ -20,7 +30,7 @@ export const Settings: React.FC = () => {
   const [saved, setSaved] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  const handleChange = (field: keyof KdsSettings, value: string | number | boolean | string[]) => {
+  const handleChange = (field: keyof KdsSettings, value: string | number | boolean) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
     setSaved(false);
   };
@@ -39,103 +49,95 @@ export const Settings: React.FC = () => {
   };
 
   const handleResetAll = () => {
-    if (confirm('Reset SEMUA termasuk settings? Ini akan mengembalikan ke default.')) {
-      resetAll();
-      setSettings(getSettings());
-      alert('Semua data direset!');
-    }
+    resetAll();
+    setSettings(getSettings());
+    setShowResetConfirm(false);
+    alert('Semua data direset!');
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
       {/* Header */}
-      <header className="bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-700" />
-          </button>
-          <h1 className="font-bold text-gray-900">KDS Settings</h1>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <h1 className="font-bold text-gray-900 dark:text-gray-100">KDS Settings</h1>
         </div>
-        <button
+        <Button
+          variant={saved ? 'success' : 'primary'}
+          size="sm"
           onClick={handleSave}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            saved ? 'bg-green-100 text-green-700' : 'bg-primary-600 text-white hover:bg-primary-700'
-          }`}
+          leftIcon={saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
         >
-          {saved ? <><Check className="w-4 h-4" /> Saved</> : <><Save className="w-4 h-4" /> Save</>}
-        </button>
+          {saved ? 'Saved' : 'Save'}
+        </Button>
       </header>
 
       <main className="flex-1 overflow-auto p-4">
         <div className="max-w-lg mx-auto space-y-4">
           {/* Connection */}
-          <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Wifi className="w-5 h-5 text-blue-600" />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                  <Wifi className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <CardTitle>POS Connection</CardTitle>
               </div>
-              <h2 className="text-lg font-bold text-gray-900">POS Connection</h2>
-            </div>
+            </CardHeader>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">POS IP Address</label>
-                <input
-                  type="text"
-                  value={settings.posIp}
-                  onChange={(e) => handleChange('posIp', e.target.value)}
-                  placeholder="192.168.1.100"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">POS Port</label>
-                <input
-                  type="number"
-                  value={settings.posPort}
-                  onChange={(e) => handleChange('posPort', parseInt(e.target.value) || 8080)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                />
-              </div>
+            <div className="space-y-4 px-6 pb-6">
+              <Input
+                label="POS IP Address"
+                value={settings.posIp}
+                onChange={(e) => handleChange('posIp', e.target.value)}
+                placeholder="192.168.1.100"
+                fullWidth
+              />
+              <Input
+                label="POS Port"
+                type="number"
+                value={settings.posPort}
+                onChange={(e) => handleChange('posPort', parseInt(e.target.value) || 8080)}
+                fullWidth
+              />
+              <Input
+                label="Station Name"
+                value={settings.stationName}
+                onChange={(e) => handleChange('stationName', e.target.value)}
+                placeholder="Main Kitchen"
+                fullWidth
+              />
             </div>
-          </div>
+          </Card>
 
           {/* Sound */}
-          <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                {settings.soundEnabled ? (
-                  <Volume2 className="w-5 h-5 text-amber-600" />
-                ) : (
-                  <VolumeX className="w-5 h-5 text-gray-400" />
-                )}
-              </div>
-              <h2 className="text-lg font-bold text-gray-900">Sound Alert</h2>
-            </div>
-
-            <div className="space-y-4">
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm font-medium text-gray-700">Enable Sound</span>
-                <div
-                  onClick={() => handleChange('soundEnabled', !settings.soundEnabled)}
-                  className={`relative w-12 h-6 rounded-full transition-colors ${
-                    settings.soundEnabled ? 'bg-primary-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <div
-                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                      settings.soundEnabled ? 'translate-x-6' : 'translate-x-0.5'
-                    }`}
-                  />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
+                  {settings.soundEnabled ? (
+                    <Volume2 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  ) : (
+                    <VolumeX className="w-5 h-5 text-gray-400" />
+                  )}
                 </div>
-              </label>
+                <CardTitle>Sound Alert</CardTitle>
+              </div>
+            </CardHeader>
+
+            <div className="space-y-4 px-6 pb-6">
+              <Switch
+                label="Enable Sound"
+                checked={settings.soundEnabled}
+                onChange={(e) => handleChange('soundEnabled', e.target.checked)}
+              />
 
               {settings.soundEnabled && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Volume: {Math.round(settings.soundVolume * 100)}%
                   </label>
                   <input
@@ -149,72 +151,53 @@ export const Settings: React.FC = () => {
                 </div>
               )}
             </div>
-          </div>
+          </Card>
 
           {/* Reset Memory */}
-          <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-red-600" />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
+                <CardTitle>Memory Management</CardTitle>
               </div>
-              <h2 className="text-lg font-bold text-gray-900">Memory Management</h2>
-            </div>
+            </CardHeader>
 
-            <div className="space-y-3">
-              <button
+            <div className="space-y-3 px-6 pb-6">
+              <Button
+                variant="warning"
+                fullWidth
                 onClick={handleResetMemory}
-                className="w-full py-3 bg-amber-50 text-amber-700 rounded-xl font-medium hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
+                leftIcon={<Trash2 className="w-4 h-4" />}
               >
-                <Trash2 className="w-4 h-4" />
                 Clear Order History
-              </button>
+              </Button>
 
-              <button
+              <Button
+                variant="danger"
+                fullWidth
                 onClick={() => setShowResetConfirm(true)}
-                className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                leftIcon={<AlertTriangle className="w-4 h-4" />}
               >
-                <AlertTriangle className="w-4 h-4" />
                 Factory Reset (All Data)
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       </main>
 
-      {/* Reset All Confirm Modal */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowResetConfirm(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">Factory Reset</h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-6">
-              Ini akan menghapus semua data termasuk settings, history, dan progress. Anda perlu setup semula.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowResetConfirm(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  handleResetAll();
-                  setShowResetConfirm(false);
-                }}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-              >
-                Reset Everything
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Reset All Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        title="Factory Reset"
+        description="Ini akan menghapus semua data termasuk settings, history. Anda perlu setup semula."
+        onConfirm={handleResetAll}
+        confirmText="Reset Everything"
+        confirmVariant="danger"
+        icon={<AlertTriangle className="w-6 h-6 text-red-600" />}
+      />
     </div>
   );
 };

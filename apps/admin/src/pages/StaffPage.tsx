@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useApi } from '../hooks/useApi';
 import { useStaffCache } from '../stores/staffCache';
-import { Clock, DollarSign, UserCheck, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 type StaffTab = 'staff' | 'attendance' | 'payroll';
 

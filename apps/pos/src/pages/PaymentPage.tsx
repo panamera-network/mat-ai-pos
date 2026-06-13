@@ -2,94 +2,61 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
-  ArrowLeft, Banknote, QrCode, CreditCard, Check, Split, MoreVertical,
+  ArrowLeft, Banknote, QrCode, CreditCard, Check, 
+  BikeIcon,
 } from 'lucide-react';
-import type { POSOrder } from '../lib/types';
+import type { Order, PaymentMethod } from '@mat-ai/types';
+import { normalizeBackendOrder, generateReceipt } from '../lib/types';
+import { db } from '@mat-ai/db';
+import { syncQueue } from '@mat-ai/sync';
+import { usePOSStore } from '../stores/posStore';
 
-const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
-
-// Local helpers (or import from types.ts)
-function toFrontendOrderType(type: string): string {
-  const map: Record<string, string> = {
-    'DINE_IN': 'dine-in',
-    'PICKUP': 'takeaway',
-    'DELIVERY': 'delivery',
-    'RESERVATION': 'reservation',
-  };
-  return map[type] || 'dine-in';
-}
-
-function toFrontendStatus(status: string): string {
-  switch (status) {
-    case 'PENDING': return 'active';
-    case 'PAID': return 'completed';
-    case 'CANCELLED': return 'cancelled';
-    default: return 'active';
-  }
-}
+const API_URL = import.meta.env.VITE_WS_URL || 'http://localhost:4000';
 
 interface PaymentMethodOption {
   id: string;
   name: string;
   icon: React.ReactNode;
   color: string;
-  backendValue: string;
+  backendValue: PaymentMethod;
 }
 
 const paymentMethods: PaymentMethodOption[] = [
   { id: 'cash', name: 'Cash', icon: <Banknote className="w-6 h-6" />, color: 'bg-green-500', backendValue: 'CASH' },
   { id: 'qr', name: 'QR Pay', icon: <QrCode className="w-6 h-6" />, color: 'bg-blue-500', backendValue: 'QR_PAY' },
   { id: 'card', name: 'Card', icon: <CreditCard className="w-6 h-6" />, color: 'bg-purple-500', backendValue: 'CARD' },
+  { id: 'delivery', name: 'Delivery', icon: <BikeIcon className="w-6 h-6" />, color: 'bg-orange-500', backendValue: 'DELIVERY' },
 ];
-
-// Transform backend response → frontend format
-const normalizeOrder = (data: any): POSOrder | null => {
-  if (!data) return null;
-  
-  return {
-    id: data.id,
-    orderNumber: data.orderNumber || data.id?.slice(-4) || '',
-    items: (data.items || []).map((i: any) => ({
-      id: i.id || i.menuItemId || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
-      menuId: i.menuItemId || i.id || '',
-      name: i.name || 'Unknown',
-      price: Number(i.unitPrice) || Number(i.price) || 0,
-      qty: Number(i.quantity) || Number(i.qty) || 0,
-      modifiers: i.options || i.modifiers || [],
-    })),
-    type: toFrontendOrderType(data.type) as any,
-    status: toFrontendStatus(data.status) as any,
-    tableNumber: data.table?.number || data.tableNumber,
-    customerName: data.customerName,
-    customerPhone: data.customerPhone,
-    customerInfo: data.customerName ? {
-      name: data.customerName,
-      phone: data.customerPhone || '',
-    } : undefined,
-    subtotal: Number(data.subtotal) || (Number(data.totalAmount) / 1.08) || 0,
-    tax: Number(data.taxAmount) || Number(data.tax) || 0,
-    total: Number(data.totalAmount) || Number(data.total) || 0,
-    createdAt: data.createdAt || new Date().toISOString(),
-    updatedAt: data.updatedAt || new Date().toISOString(),
-  };
-};
-
-// ... rest of component (same as before)
 
 export const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const { orderId } = useParams();
   const location = useLocation();
+  const { currentStaff } = usePOSStore();
 
-  const [order, setOrder] = useState<any>(
-    location.state?.order ? normalizeOrder(location.state.order) : null
+  const [order, setOrder] = useState<Order | null>(
+    location.state?.order ? normalizeBackendOrder(location.state.order) : null
   );
   const [isLoading, setIsLoading] = useState(!location.state?.order && !!orderId);
   const [selectedMethod, setSelectedMethod] = useState('cash');
   const [cashReceived, setCashReceived] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [posId, setPosId] = useState('POS-1');
 
-  // Fetch order if not in state (page refresh)
+  // Load POS ID from settings
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await db.settings.get(1);
+        if (settings?.posId) setPosId(settings.posId);
+      } catch {
+        // fallback to default
+      }
+    };
+    loadSettings();
+  }, []);
+
+  // Fetch order if not in state
   useEffect(() => {
     if (!order && orderId) {
       fetch(`${API_URL}/orders/${orderId}`)
@@ -98,18 +65,18 @@ export const PaymentPage: React.FC = () => {
           return res.json();
         })
         .then(data => {
-          setOrder(normalizeOrder(data));
+          setOrder(normalizeBackendOrder(data));
           setIsLoading(false);
         })
         .catch(err => {
           console.error('Failed to fetch order:', err);
-          const localOrders = JSON.parse(localStorage.getItem('mat-pos-active-orders') || '[]');
-          const localOrder = localOrders.find((o: any) => o.id === orderId);
-          if (localOrder) {
-            console.log('🔥 Found local order:', localOrder);
-            setOrder(normalizeOrder(localOrder));
-          }
-          setIsLoading(false);
+          // Try Dexie fallback
+          db.orders.get(orderId).then(localOrder => {
+            if (localOrder) {
+              setOrder(localOrder);
+            }
+            setIsLoading(false);
+          });
         });
     }
   }, [orderId]);
@@ -138,9 +105,9 @@ export const PaymentPage: React.FC = () => {
     );
   }
 
-  const total = Number(order.total) || 0;
-  const subtotal = Number(order.subtotal) || 0;
-  const tax = Number(order.tax) || 0;
+  const total = Number(order.totalAmount) || 0;
+  const subtotal = Number(order.totalAmount) / 1.08 || 0;
+  const tax = Number(order.taxAmount) || 0;
   const change = cashReceived ? parseFloat(cashReceived) - total : 0;
   const isValidPayment =
     selectedMethod !== 'cash' ||
@@ -159,13 +126,13 @@ export const PaymentPage: React.FC = () => {
     if (!selectedMethodData) return;
 
     const effectiveOrderId = order.id || orderId;
-
     if (!effectiveOrderId) {
       alert('No order ID found');
       return;
     }
 
     try {
+      // 1. Update order status to PAID
       const res = await fetch(`${API_URL}/orders/${effectiveOrderId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -181,44 +148,78 @@ export const PaymentPage: React.FC = () => {
         throw new Error(`Failed: ${res.status} - ${responseText}`);
       }
 
-      // Update table status to available
-      if (order.tableNumber) {
-        await fetch(`${API_URL}/tables/${order.tableNumber}`, {
+      const updatedOrder = await res.json();
+
+      // 2. Update table status to available
+      if (order.tableId) {
+        await fetch(`${API_URL}/tables/${order.tableId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'available' }),
+          body: JSON.stringify({ status: 'AVAILABLE' }),
         }).catch(err => console.error('Failed to update table status:', err));
+
+        // Update local table
+        await db.diningTables.update(order.tableId, { status: 'AVAILABLE' });
       }
 
-      // Save receipt
-      const receipts = JSON.parse(localStorage.getItem('mat-pos-receipts') || '[]');
-      receipts.push({
-        id: effectiveOrderId,
-        receiptNo: new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(receipts.length + 1).padStart(3, '0'),
-        tableNumber: order.tableNumber || '-',
-        orderType: order.type,
-        time: new Date().toLocaleTimeString(),
-        cashier: 'Ahmad',
-        posId: 'POS-1',
-        items: (order.items || []).map((i: any) => ({ 
-          name: i.name || 'Unknown', 
-          qty: i.qty || 0, 
-          price: i.price || 0 
-        })),
-        total: total,
+      // 3. Generate receipt
+      const receipt = generateReceipt(
+        updatedOrder,
+        selectedMethodData.backendValue,
+        total,
+        currentStaff?.id || 'unknown',
+        posId
+      );
+
+      // 4. Save receipt to Dexie
+      await db.receipts.put(receipt);
+
+      // 5. Queue receipt for sync
+      await syncQueue.enqueue('receipts', 'CREATE', receipt, receipt.id);
+
+      // 6. Update order in Dexie
+      await db.orders.update(effectiveOrderId, {
+        status: 'PAID',
+        paidAmount: total,
         paymentMethod: selectedMethodData.backendValue,
       });
-      localStorage.setItem('mat-pos-receipts', JSON.stringify(receipts));
 
-      // Remove from active orders
-      const activeOrders = JSON.parse(localStorage.getItem('mat-pos-active-orders') || '[]');
-      const updatedActive = activeOrders.filter((o: any) => o.id !== effectiveOrderId);
-      localStorage.setItem('mat-pos-active-orders', JSON.stringify(updatedActive));
+      // 7. Queue order update for sync
+      await syncQueue.enqueue('orders', 'UPDATE', {
+        id: effectiveOrderId,
+        status: 'PAID',
+        paidAmount: total,
+        paymentMethod: selectedMethodData.backendValue,
+      }, effectiveOrderId);
 
     } catch (err) {
       console.error('❌ Payment failed:', err);
-      alert('Payment failed. Please try again.');
-      return;
+
+      // Offline fallback
+      const receipt = generateReceipt(
+        order,
+        selectedMethodData.backendValue,
+        total,
+        currentStaff?.id || 'unknown',
+        posId
+      );
+
+      await db.receipts.put(receipt);
+      await syncQueue.enqueue('receipts', 'CREATE', receipt, receipt.id);
+
+      await db.orders.update(effectiveOrderId, {
+        status: 'PAID',
+        paidAmount: total,
+        paymentMethod: selectedMethodData.backendValue,
+      });
+      await syncQueue.enqueue('orders', 'UPDATE', {
+        id: effectiveOrderId,
+        status: 'PAID',
+        paidAmount: total,
+        paymentMethod: selectedMethodData.backendValue,
+      }, effectiveOrderId);
+
+      alert('Payment saved locally. Will sync when online.');
     }
 
     setShowSuccess(true);
@@ -251,44 +252,19 @@ export const PaymentPage: React.FC = () => {
           </button>
           <h1 className="font-bold text-gray-900">Payment — Order #{orderId}</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200">
-            <Split className="w-4 h-4" />
-            <span className="text-sm font-medium">Split Bill</span>
-          </button>
-          <button className="p-2 hover:bg-gray-100 rounded-lg">
-            <MoreVertical className="w-5 h-5 text-gray-700" />
-          </button>
-        </div>
       </header>
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-2xl mx-auto space-y-6">
+          {/* Order Summary */}
           <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded-full capitalize">
-                  {order.type?.replace('-', ' ') || 'Unknown'}
-                </span>
-                <span className="ml-2 text-sm text-gray-500">
-                  Table {order.tableNumber || '-'}
-                </span>
-              </div>
-            </div>
             <div className="space-y-2 mb-4">
-              {(order.items || []).map((item: any) => {
-                const qty = Number(item.qty) || 0;
-                const price = Number(item.price) || 0;
-                return (
-                  <div key={item.id || Math.random().toString(36).slice(2)} className="flex justify-between text-sm">
-                    <span className="text-gray-700">{qty}x {item.name || 'Unknown'}</span>
-                    <span className="font-medium">RM{(qty * price).toFixed(2)}</span>
-                  </div>
-                );
-              })}
-              {(!order.items || order.items.length === 0) && (
-                <p className="text-sm text-gray-400 italic">No items</p>
-              )}
+              {(order.items || []).map((item) => (
+                <div key={item.id} className="flex justify-between text-sm">
+                  <span className="text-gray-700">{item.quantity}x {item.name}</span>
+                  <span className="font-medium">RM{item.totalPrice.toFixed(2)}</span>
+                </div>
+              ))}
             </div>
             <div className="border-t pt-4 space-y-2">
               <div className="flex justify-between text-sm">
@@ -306,6 +282,7 @@ export const PaymentPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Payment Method */}
           <div className="bg-white rounded-2xl shadow-sm border p-6">
             <h3 className="font-semibold text-gray-900 mb-4">Payment Method</h3>
             <div className="grid grid-cols-3 gap-3 mb-6">
@@ -352,24 +329,6 @@ export const PaymentPage: React.FC = () => {
                   ))}
                   <button onClick={handleExactAmount} className="py-2 bg-primary-100 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-200 transition-colors">Exact</button>
                 </div>
-              </div>
-            )}
-
-            {selectedMethod === 'qr' && (
-              <div className="text-center py-8">
-                <div className="w-48 h-48 bg-gray-100 rounded-xl mx-auto mb-4 flex items-center justify-center">
-                  <QrCode className="w-24 h-24 text-gray-400" />
-                </div>
-                <p className="text-sm text-gray-600">Scan QR code to pay</p>
-                <p className="text-xs text-gray-400 mt-1">DuitNow / GrabPay / TouchNGo</p>
-              </div>
-            )}
-
-            {selectedMethod === 'card' && (
-              <div className="text-center py-8">
-                <CreditCard className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-sm text-gray-600">Insert or tap card</p>
-                <p className="text-xs text-gray-400 mt-1">Terminal will process automatically</p>
               </div>
             )}
           </div>

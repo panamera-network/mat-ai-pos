@@ -5,7 +5,7 @@ import type { KitchenTicketItem } from '../types/kitchen';
 
 interface OrderItemProps {
   item: KitchenTicketItem;
-  onToggle: () => void;  // Simplified — parent pass closure dengan item.id
+  onToggle: () => void;
 }
 
 export const OrderItemComponent: React.FC<OrderItemProps> = ({ item, onToggle }) => {
@@ -13,14 +13,14 @@ export const OrderItemComponent: React.FC<OrderItemProps> = ({ item, onToggle })
     <div
       onClick={onToggle}
       className={`
-        flex items-start gap-2.5 py-2 px-3 rounded-lg cursor-pointer transition-all
-        border ${item.done ? 'bg-emerald-50 border-emerald-200 opacity-60' : 'bg-white border-gray-100 hover:border-primary-200'}
+        flex items-start gap-3 py-2.5 px-3 rounded-xl cursor-pointer transition-all duration-200
+        border ${item.done ? 'bg-emerald-50/80 border-emerald-200 opacity-60' : 'bg-white border-gray-100 hover:border-primary-300 hover:shadow-sm'}
       `}
     >
       {/* Checkbox */}
       <div
         className={`
-          w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5
+          w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all
           ${item.done ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'}
         `}
       >
@@ -29,12 +29,12 @@ export const OrderItemComponent: React.FC<OrderItemProps> = ({ item, onToggle })
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-900 leading-snug">
-          {item.qty} x {item.name}
+        <p className={`text-sm font-semibold leading-snug ${item.done ? 'text-emerald-800 line-through' : 'text-gray-900'}`}>
+          {item.quantity} x {item.name}
         </p>
-        {item.modifiers.length > 0 && (
+        {item.options && item.options.length > 0 && (
           <p className="text-xs text-gray-500 mt-0.5">
-            {item.modifiers.join(', ')}
+            {item.options.map((opt) => opt.name).join(', ')}
           </p>
         )}
         {item.notes && (

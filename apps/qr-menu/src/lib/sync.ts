@@ -1,4 +1,4 @@
-// lib/sync.ts
+//apps/qr-menu/src/lib/sync.ts
 // MAT.ai QR Menu Sync Engine
 // Handles: POS online check, WS submit, Telegram fallback
 
@@ -17,7 +17,7 @@ let wsConnected = false;
 /**
  * Initialize persistent WS connection
  */
-export function initSync(room: string = 'qr'): () => void {
+export function initSync(_room: string = 'qr'): () => void {
   if (wsClient?.isConnected()) return () => {};
 
   wsClient = createWSClient({
@@ -101,12 +101,12 @@ export async function submitOrderViaTelegram(order: OrderView): Promise<boolean>
   const text = `🆕 <b>NEW QR ORDER</b>
 
 📋 <b>Order:</b> ${order.orderNumber || order.id}
-👤 <b>Name:</b> ${order.customerName || 'N/A'}
-📞 <b>Phone:</b> ${order.customerPhone || 'N/A'}
+👤 <b>Name:</b> ${order.customerInfo?.name || 'N/A'}
+📞 <b>Phone:</b> ${order.customerInfo?.phone || 'N/A'}
 🍽️ <b>Type:</b> ${order.type?.replace('_', ' ')}
 ${order.tableNumber ? `🪑 <b>Table:</b> ${order.tableNumber}\n` : ''}
 ${order.reservationTime ? `⏰ <b>Time:</b> ${new Date(order.reservationTime).toLocaleString()}\n` : ''}
-${order.customerAddress ? `📍 <b>Address:</b> ${order.customerAddress}\n` : ''}
+${order.customerInfo?.address ? `📍 <b>Address:</b> ${order.customerInfo?.address}\n` : ''}
 ${order.notes ? `📝 <b>Notes:</b> ${order.notes}\n` : ''}
 <b>Items:</b>
 ${itemsText}

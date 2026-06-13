@@ -1,22 +1,22 @@
 // apps/kitchen/src/utils/storage.ts
-// localStorage helpers for KDS
+// localStorage helpers for KDS — Order History stays local
 
 import type { HistoryOrder, KdsSettings } from '../types/kitchen';
 
 const KEYS = {
   HISTORY: 'mat-kds-history',
   SETTINGS: 'mat-kds-settings',
-  PROGRESS: 'mat-kds-progress',
 };
 
 const DEFAULT_SETTINGS: KdsSettings = {
   posIp: '192.168.1.100',
   posPort: 8080,
+  stationName: 'Main Kitchen',
   soundEnabled: true,
   soundVolume: 0.7,
 };
 
-// ============ HISTORY ============
+// ============ HISTORY (localStorage — KDS standalone) ============
 
 export const getHistory = (): HistoryOrder[] => {
   try {
@@ -30,7 +30,6 @@ export const getHistory = (): HistoryOrder[] => {
 export const addToHistory = (order: HistoryOrder): void => {
   const history = getHistory();
   history.unshift(order);
-  // Keep last 500 orders
   if (history.length > 500) history.pop();
   localStorage.setItem(KEYS.HISTORY, JSON.stringify(history));
 };
@@ -62,42 +61,13 @@ export const resetSettings = (): void => {
   localStorage.setItem(KEYS.SETTINGS, JSON.stringify(DEFAULT_SETTINGS));
 };
 
-// ============ PROGRESS (backup) ============
-
-export interface ItemProgress {
-  orderId: string;
-  itemIndex: number;
-  done: boolean;
-  doneAt: string;
-}
-
-export const getProgress = (): ItemProgress[] => {
-  try {
-    const raw = localStorage.getItem(KEYS.PROGRESS);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-export const saveProgress = (progress: ItemProgress[]): void => {
-  localStorage.setItem(KEYS.PROGRESS, JSON.stringify(progress));
-};
-
-export const clearProgress = (): void => {
-  localStorage.removeItem(KEYS.PROGRESS);
-};
-
-// ============ RESET MEMORY ============
+// ============ RESET ============
 
 export const resetMemory = (): void => {
   clearHistory();
-  clearProgress();
-  // Keep settings (user config)
 };
 
 export const resetAll = (): void => {
   clearHistory();
-  clearProgress();
   resetSettings();
 };

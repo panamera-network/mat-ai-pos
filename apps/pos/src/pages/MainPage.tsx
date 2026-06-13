@@ -1,4 +1,4 @@
-// src/pages/MainPage.tsx
+// apps/pos/src/pages/MainPage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, LogIn, Delete, Store } from 'lucide-react';

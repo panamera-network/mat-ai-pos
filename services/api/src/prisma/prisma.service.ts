@@ -6,19 +6,13 @@ import { PrismaClient } from '@prisma/client';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     await this.$connect();
-    this.setupMiddleware();
   }
 
   async onModuleDestroy() {
     await this.$disconnect();
   }
 
-  private setupMiddleware() {
-    this.$use(async (params, next) => {
-      const result = await next(params);
-      return this.serialize(result);
-    });
-  }
+  
 
   private serialize(data: unknown): unknown {
     if (data === null || data === undefined) return data;

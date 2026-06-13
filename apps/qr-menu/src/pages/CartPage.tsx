@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Send } from 'lucide-react';
 import type { OrderType, OrderItemInput, OrderView } from '@mat-ai/types';
+import { sendFallback } from '@mat-ai/sync';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -64,13 +65,22 @@ export const CartPage: React.FC = () => {
     setSubmitting(true);
     setError('');
 
+    // Build items array
     const items: OrderItemInput[] = cart.map(item => ({
       menuItemId: item.menuId,
       name: item.name,
       quantity: item.qty,
       unitPrice: item.price,
       totalPrice: item.price * item.qty,
-      options: item.modifiers.length > 0 ? { modifiers: item.modifiers } : undefined,
+      options: item.modifiers.length > 0 
+        ? item.modifiers.map(m => ({
+            id: m,
+            name: m,
+            required: false,
+            multiSelect: false,
+            choices: [{ id: m, name: m, priceModifier: 0, isDefault: true }]
+          }))
+        : undefined,
     }));
 
     const orderData = {
@@ -89,6 +99,8 @@ export const CartPage: React.FC = () => {
       items,
     };
 
+    let orderView: OrderView | null = null;
+
     try {
       const res = await fetch(`${API_URL}/orders`, {
         method: 'POST',
@@ -100,11 +112,11 @@ export const CartPage: React.FC = () => {
 
       const data = await res.json();
 
-      // FIXED: Convert all Decimal strings to numbers
+      // Convert all Decimal strings to numbers
       const totalAmount = Number(data.totalAmount ?? 0);
       const taxAmount = Number(data.taxAmount ?? 0);
 
-      const orderView: OrderView = {
+      orderView = {
         ...data,
         totalAmount,
         paidAmount: data.paidAmount ? Number(data.paidAmount) : undefined,
@@ -121,6 +133,7 @@ export const CartPage: React.FC = () => {
         })),
       };
 
+      // Save to localStorage
       const existingOrders = JSON.parse(localStorage.getItem('mat-pos-active-orders') || '[]');
       existingOrders.push(orderView);
       localStorage.setItem('mat-pos-active-orders', JSON.stringify(existingOrders));
@@ -139,11 +152,61 @@ export const CartPage: React.FC = () => {
       navigate(`/status/${data.id}`);
     } catch (err) {
       console.error('Failed to submit order:', err);
-      setError('Failed to send order. Please try again.');
+
+      // FALLBACK: POS offline
+      const settings = JSON.parse(localStorage.getItem('mat-pos-settings') || '{}');
+
+      if (settings.fallbackChannel && settings.fallbackChannel !== 'none') {
+        // Build fallback order from cart if orderView not available
+        const fallbackOrder = orderView || buildFallbackOrder(orderData, tables, tableId);
+        const result = await sendFallback(fallbackOrder, settings);
+
+        if (result.success) {
+          alert(`Order sent via ${result.method}! Please wait for confirmation.`);
+          navigate(`/status/fallback?method=${result.method}`);
+        } else {
+          setError('Failed to send order. Please try again or contact staff.');
+        }
+      } else {
+        setError('Failed to send order. POS is offline.');
+      }
     } finally {
       setSubmitting(false);
     }
   };
+
+  // Helper to build fallback order from cart data
+  function buildFallbackOrder(
+    orderData: any, 
+    tables: TableData[], 
+    tableId: string
+  ): OrderView {
+    return {
+      id: 'fallback-' + Date.now(),
+      orderNumber: 'FB-' + Date.now(),
+      type: orderData.type,
+      source: 'QR_MENU',
+      status: 'PENDING',
+      totalAmount: orderData.totalAmount,
+      paidAmount: undefined,
+      taxAmount: 0,
+      subtotal: orderData.totalAmount,
+      tax: 0,
+      finalTotal: orderData.totalAmount,
+      tableNumber: tables.find(t => t.id === tableId)?.number,
+      customerName: orderData.customerName,
+      customerPhone: orderData.customerPhone,
+      customerAddress: orderData.customerAddress,
+      items: orderData.items.map((item: any) => ({
+        ...item,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalPrice),
+      })),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as OrderView;
+  }
 
   if (cart.length === 0 && !submitting) {
     return (

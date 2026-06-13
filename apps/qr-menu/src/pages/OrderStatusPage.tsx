@@ -24,8 +24,9 @@ function prismaOrderToView(o: Order): OrderView {
     subtotal: totalAmount,
     tax: taxAmount,
     finalTotal: totalAmount + taxAmount,
-    tableNumber: (o as any).table?.number,
-    items: (o.items || []).map((item: any) => ({
+    // FIXED: Remove as-any cast
+    tableNumber: o.table?.number,
+    items: (o.items || []).map((item) => ({
       ...item,
       quantity: Number(item.quantity ?? 1),
       unitPrice: Number(item.unitPrice ?? 0),
@@ -159,8 +160,8 @@ export const OrderStatusPage: React.FC = () => {
           <div className="space-y-1 text-gray-600">
             <p><span className="font-medium">Type:</span> {order.type?.replace('_', ' ')}</p>
             {order.tableNumber && <p><span className="font-medium">Table:</span> {order.tableNumber}</p>}
-            {order.customerName && <p><span className="font-medium">Name:</span> {order.customerName}</p>}
-            {order.customerPhone && <p><span className="font-medium">Phone:</span> {order.customerPhone}</p>}
+            {order.customerInfo && <p><span className="font-medium">Name:</span> {order.customerInfo.name}</p>}
+            {order.customerInfo && <p><span className="font-medium">Phone:</span> {order.customerInfo.phone}</p>}
             {order.reservationTime && (
               <p><span className="font-medium">Reservation:</span> {new Date(order.reservationTime).toLocaleString()}</p>
             )}

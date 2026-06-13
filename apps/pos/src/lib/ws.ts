@@ -1,71 +1,79 @@
 // apps/pos/src/lib/ws.ts
-import { MATaiWSClient, createWSClient } from '@mat-ai/ws';
-import type { WSMessage, WSMessageType } from '@mat-ai/ws';
-import type { POSOrder } from './types';
+import { MATaiWSServer } from '@mat-ai/ws';
+import type { WSServerOptions } from '@mat-ai/ws';
+import type { Order, KitchenStatus, ItemStatus } from '@mat-ai/types';
 
-let client: MATaiWSClient | null = null;
+let server: MATaiWSServer | null = null;
 
-function getCategories(): string[] {
-  try {
-    const cats = JSON.parse(localStorage.getItem('mat-pos-categories') || '[]');
-    return cats.map((c: any) => c.name).filter(Boolean);
-  } catch {
-    return ['Pizza', 'Pasta', 'Nasi', 'Side Order', 'Beverages', 'Extras'];
+function getWsPort(): number {
+  const settings = JSON.parse(localStorage.getItem('mat-pos-settings') || '{}');
+  return settings.wsPort || 3001;
+  
+}
+
+function itemStatusToKitchenStatus(status: ItemStatus): KitchenStatus {
+  switch (status) {
+    case 'PENDING': return 'pending';
+    case 'PREPARING': return 'preparing';
+    case 'READY': return 'done';
+    case 'SERVED': return 'done';
+    default: return 'pending';
   }
 }
 
-function getWsUrl(): string {
-  const stations = JSON.parse(localStorage.getItem('mat-pos-stations') || '[]');
-  const defaultKds = stations.find((s: any) => s.type === 'kds' && s.enabled);
-  return defaultKds
-    ? `ws://${defaultKds.ip}:${defaultKds.port}`
-    : 'ws://localhost:4000';
-}
-
-export const wsClient = {
-  get connected() {
-    return client?.isConnected() ?? false;
+export const wsServer = {
+  get isRunning() {
+    return !!server;
   },
 
-  connect(): void {
-    if (client?.isConnected()) return;
+  start(): void {
+    if (server) return;
 
-    client = createWSClient({
-      url: getWsUrl(),
-      stationName: 'POS-1',
-      categories: getCategories(),
-      deviceType: 'desktop',
-      onConnect: () => console.log('[POS] WS connected'),
-      onDisconnect: () => console.log('[POS] WS disconnected'),
-      onError: (err) => console.error('[POS] WS error:', err),
-    });
+    const options: WSServerOptions = {
+      port: getWsPort(),
+      onStationConnect: (station) => {
+        console.log('[POS-WS] KDS connected:', station.name, station.id);
+      },
+      onStationDisconnect: (stationId) => {
+        console.log('[POS-WS] KDS disconnected:', stationId);
+      },
+      onItemDone: (payload) => {
+        console.log('[POS-WS] Item done:', payload.orderId, payload.itemIndex);
+        // TODO: update order item status in Dexie
+      },
+      onItemUndone: (payload) => {
+        console.log('[POS-WS] Item undone:', payload.orderId, payload.itemIndex);
+        // TODO: update order item status in Dexie
+      },
+      onOrderDone: (payload) => {
+        console.log('[POS-WS] Order done:', payload.orderId);
+        // TODO: mark order complete in Dexie
+      },
+    };
 
-    client.connect();
+    server = new MATaiWSServer(options);
+    server.start();
+    console.log('[POS-WS] Server started on port', getWsPort());
   },
 
-  disconnect(): void {
-    client?.disconnect();
+  stop(): void {
+    server?.stop();
+    server = null;
+    console.log('[POS-WS] Server stopped');
   },
 
-  send(msg: WSMessage): boolean {
-    return client?.send(msg) ?? false;
-  },
-
-  on(type: WSMessageType, handler: (msg: WSMessage) => void): () => void {
-    return client?.on(type, handler) ?? (() => {});
-  },
-
-  broadcastOrder(order: POSOrder, event: 'NEW_ORDER' | 'UPDATE_ORDER' = 'NEW_ORDER'): boolean {
-    if (!client?.isConnected()) {
-      console.warn(`[POS] WS offline — ${event} queued:`, order.id);
-      return false;
+  broadcastOrder(order: Order): void {
+    if (!server) {
+      console.warn('[POS-WS] Server not running — order not broadcasted');
+      return;
     }
-
-    return client.send({
-      type: event === 'NEW_ORDER' ? 'NEW_ORDER' : 'ORDER_UPDATED',
-      payload: order,
-      timestamp: new Date().toISOString(),
-      stationName: 'POS-1',
-    } as WSMessage);
+    server.broadcastOrderCreated(order);
+    console.log('[POS-WS] Broadcasted order:', order.orderNumber);
   },
+
+  broadcastOrderUpdate(orderId: string, itemStatus: ItemStatus): void {
+  if (!server) return;
+  const kitchenStatus = itemStatusToKitchenStatus(itemStatus);
+  server.broadcastOrderUpdated(orderId, kitchenStatus, kitchenStatus);
+  }
 };

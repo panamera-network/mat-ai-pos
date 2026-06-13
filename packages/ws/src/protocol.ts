@@ -1,15 +1,17 @@
 // packages/ws/src/protocol.ts
 // MAT.ai POS WebSocket Protocol
 
-import type { Order, OrderItem, KitchenStatus } from '@mat-ai/types';
+import type { Order, KitchenStatus } from '@mat-ai/types';
 
 // ============ MESSAGE TYPES ============
 
 export type WSMessageType =
-  | 'ORDER_CREATED'
+  | 'NEW_ORDER'        // ← ADDED: POS broadcast new order to KDS
+  | 'ORDER_CREATED'    // Server confirms order creation
   | 'ORDER_UPDATED'
   | 'ITEM_DONE'
   | 'ORDER_DONE'
+  | 'ITEM_UNDONE'
   | 'STATION_REGISTER'
   | 'STATION_UNREGISTER'
   | 'PING'
@@ -24,6 +26,10 @@ export interface WSMessage<T = unknown> {
 }
 
 // ============ PAYLOAD TYPES ============
+
+export interface NewOrderPayload {
+  order: Order;
+}
 
 export interface OrderCreatedPayload {
   order: Order;
@@ -47,6 +53,12 @@ export interface OrderDonePayload {
   completedAt: string;
 }
 
+export interface ItemUndonePayload {
+  orderId: string;
+  itemIndex: number;
+  stationId: string;
+}
+
 export interface StationRegisterPayload {
   stationName: string;
   categories: string[];
@@ -64,6 +76,9 @@ export interface ErrorPayload {
 
 // ============ TYPE GUARDS ============
 
+export const isNewOrder = (msg: WSMessage): msg is WSMessage<NewOrderPayload> =>
+  msg.type === 'NEW_ORDER';
+
 export const isOrderCreated = (msg: WSMessage): msg is WSMessage<OrderCreatedPayload> =>
   msg.type === 'ORDER_CREATED';
 
@@ -72,6 +87,9 @@ export const isOrderUpdated = (msg: WSMessage): msg is WSMessage<OrderUpdatedPay
 
 export const isItemDone = (msg: WSMessage): msg is WSMessage<ItemDonePayload> =>
   msg.type === 'ITEM_DONE';
+
+export const isItemUndone = (msg: WSMessage): msg is WSMessage<ItemUndonePayload> =>
+  msg.type === 'ITEM_UNDONE';
 
 export const isOrderDone = (msg: WSMessage): msg is WSMessage<OrderDonePayload> =>
   msg.type === 'ORDER_DONE';
@@ -92,6 +110,9 @@ export const createMessage = <T>(
   stationId,
 });
 
+export const createNewOrder = (order: Order): WSMessage<NewOrderPayload> =>
+  createMessage('NEW_ORDER', { order });
+
 export const createOrderCreated = (order: Order): WSMessage<OrderCreatedPayload> =>
   createMessage('ORDER_CREATED', { order });
 
@@ -101,15 +122,6 @@ export const createOrderUpdated = (
   kitchenStatus: KitchenStatus
 ): WSMessage<OrderUpdatedPayload> =>
   createMessage('ORDER_UPDATED', { orderId, status, kitchenStatus });
-
-  export function createNewOrder(order: Order, stationName: string): WSMessage {
-  return {
-    type: 'NEW_ORDER',
-    payload: order,
-    timestamp: new Date().toISOString(),
-    stationName,
-  };
-}
 
 export const createItemDone = (
   orderId: string,
@@ -124,7 +136,14 @@ export const createOrderDone = (
 ): WSMessage<OrderDonePayload> =>
   createMessage('ORDER_DONE', { orderId, stationId, completedAt: new Date().toISOString() }, stationId);
 
-export const createStationRegister = (
+export const createItemUndone = (
+  orderId: string,
+  itemIndex: number,
+  stationId: string
+): WSMessage<ItemUndonePayload> =>
+  createMessage('ITEM_UNDONE', { orderId, itemIndex, stationId }, stationId);
+
+  export const createStationRegister = (
   stationName: string,
   categories: string[],
   deviceType: 'tablet' | 'ipad' | 'android' | 'desktop' = 'tablet'

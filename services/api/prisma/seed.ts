@@ -1,4 +1,4 @@
-import { PrismaClient, OrderStatus, OrderSource, OrderType, TableStatus, Role, EmploymentType, StockType } from '@prisma/client';
+import { PrismaClient, OrderStatus, OrderSource, OrderType, DiningTableStatus, Role, EmploymentType, StockType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -47,7 +47,7 @@ async function main() {
   await prisma.inventoryItem.deleteMany();
   await prisma.menuItem.deleteMany();
   await prisma.category.deleteMany();
-  await prisma.table.deleteMany();
+  await prisma.diningTable.deleteMany();
   await prisma.staff.deleteMany();
   await prisma.setting.deleteMany();
 
@@ -246,20 +246,20 @@ async function main() {
 
   // ==================== TABLES ====================
   const tables = [
-    { number: '1', capacity: 4, status: TableStatus.AVAILABLE },
-    { number: '2', capacity: 4, status: TableStatus.AVAILABLE },
-    { number: '3', capacity: 4, status: TableStatus.AVAILABLE },
-    { number: '4', capacity: 4, status: TableStatus.AVAILABLE },
-    { number: '5', capacity: 2, status: TableStatus.AVAILABLE },
-    { number: '6', capacity: 2, status: TableStatus.AVAILABLE },
-    { number: '7', capacity: 6, status: TableStatus.AVAILABLE },
-    { number: '8', capacity: 6, status: TableStatus.AVAILABLE },
-    { number: '9', capacity: 8, status: TableStatus.AVAILABLE },
-    { number: '10', capacity: 10, status: TableStatus.AVAILABLE },
+    { number: '1', capacity: 4, status: DiningTableStatus.AVAILABLE },
+    { number: '2', capacity: 4, status: DiningTableStatus.AVAILABLE },
+    { number: '3', capacity: 4, status: DiningTableStatus.AVAILABLE },
+    { number: '4', capacity: 4, status: DiningTableStatus.AVAILABLE },
+    { number: '5', capacity: 2, status: DiningTableStatus.AVAILABLE },
+    { number: '6', capacity: 2, status: DiningTableStatus.AVAILABLE },
+    { number: '7', capacity: 6, status: DiningTableStatus.AVAILABLE },
+    { number: '8', capacity: 6, status: DiningTableStatus.AVAILABLE },
+    { number: '9', capacity: 8, status: DiningTableStatus.AVAILABLE },
+    { number: '10', capacity: 10, status: DiningTableStatus.AVAILABLE },
   ];
 
   for (const table of tables) {
-    await prisma.table.upsert({
+    await prisma.diningTable.upsert({
       where: { number: table.number },
       update: {},
       create: table,
@@ -359,7 +359,7 @@ async function main() {
 
   // ==================== SALES / ORDERS (30 days realistic) ====================
   const menuItemsDb = await prisma.menuItem.findMany();
-  const tablesDb = await prisma.table.findMany();
+  const tablesDb = await prisma.diningTable.findMany();
   const staffDb = await prisma.staff.findMany();
 
   const salesStartDate = new Date();

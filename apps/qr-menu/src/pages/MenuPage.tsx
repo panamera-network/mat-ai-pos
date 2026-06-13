@@ -87,8 +87,8 @@ export const MenuPage: React.FC = () => {
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-  const isAvailable = (itemId: string): boolean => {
-    return true; // Simplified for now
+  const isAvailable = (item: MenuItem): boolean => {
+    return item.isAvailable !== false; // Simplified for now
   };
 
   const addToCart = (item: MenuItem, mods: string[] = []) => {
@@ -113,12 +113,11 @@ export const MenuPage: React.FC = () => {
     });
   };
 
+  // FIXED: Check options as MenuItemOption[]
   const handleItemClick = (item: MenuItem) => {
-    // FIXED: Safe check for options (Prisma Json? can be null/any shape)
     const hasOptions = item.options && 
-      typeof item.options === 'object' && 
-      !Array.isArray(item.options) &&
-      Object.keys(item.options).length > 0;
+      Array.isArray(item.options) && 
+      item.options.length > 0;
 
     if (hasOptions) {
       setSelectedItem(item);
@@ -144,18 +143,12 @@ export const MenuPage: React.FC = () => {
     );
   };
 
-  // Helper to flatten options for display
+  // FIXED: Flatten MenuItemOption[] for display
   const getOptionValues = (item: MenuItem | null): string[] => {
-    if (!item?.options || typeof item.options !== 'object' || Array.isArray(item.options)) {
-      return [];
-    }
-    const values: string[] = [];
-    Object.entries(item.options).forEach(([key, val]) => {
-      if (Array.isArray(val)) {
-        val.forEach((v) => values.push(`${key}: ${v}`));
-      }
-    });
-    return values;
+    if (!item?.options || !Array.isArray(item.options)) return [];
+    return item.options.flatMap(opt => 
+      opt.choices.map(c => `${opt.name}: ${c.name}`)
+    );
   };
 
   return (
@@ -258,7 +251,7 @@ export const MenuPage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 gap-3">
               {filteredItems.map((item) => {
-                const available = isAvailable(item.id);
+                const available = isAvailable(item);
                 return (
                   <button
                     key={item.id}
@@ -290,7 +283,8 @@ export const MenuPage: React.FC = () => {
                     <p className="text-lg font-bold text-primary-600 mt-1">
                       RM{Number(item.price).toFixed(2)}
                     </p>
-                    {item.options && typeof item.options === 'object' && !Array.isArray(item.options) && Object.keys(item.options).length > 0 && (
+                    {/* FIXED: Check options as array */}
+                    {item.options && Array.isArray(item.options) && item.options.length > 0 && (
                       <span className="text-xs text-gray-400">+ Customizable</span>
                     )}
                   </button>

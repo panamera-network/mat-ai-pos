@@ -1,6 +1,8 @@
 // src/app.module.ts
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { SerializeInterceptor } from './common/interceptors/serialize.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
 import { SettingsModule } from './settings/settings.module';
 import { AuthModule } from './auth/auth.module';
@@ -37,6 +39,12 @@ import { GatewayModule } from './gateway/gateway.module';
     PayrollModule,
     ReportsModule,
     GatewayModule,
+  ],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: SerializeInterceptor,
+    },
   ],
 })
 export class AppModule {}

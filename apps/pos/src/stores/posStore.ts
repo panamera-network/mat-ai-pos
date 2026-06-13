@@ -1,7 +1,7 @@
-// src/stores/posStore.ts
+// apps/pos/src/stores/posStore.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Staff, Order, Table, MenuItem } from '@mat-ai/types';
+import type { Staff, Order, DiningTable, MenuItem } from '@mat-ai/types';
 
 interface POSState {
   // Auth
@@ -15,8 +15,8 @@ interface POSState {
   setCurrentOrder: (order: Order | null) => void;
 
   // Active Tables
-  activeTables: Table[];
-  setActiveTables: (tables: Table[]) => void;
+  activeTables: DiningTable[];
+  setActiveTables: (tables: DiningTable[]) => void;
 
   // Menu
   menuItems: MenuItem[];

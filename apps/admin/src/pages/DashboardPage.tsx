@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useApi } from '../hooks/useApi';
 import { useSocket } from '../hooks/useSocket';
 import { useDashboardCache } from '../stores/dashboardCache';
-import { SummaryCard } from '../components/SummaryCard';
+import { StatCard } from '@mat-ai/ui';
 import { DollarSign, Users, Package, AlertCircle, TrendingUp, Receipt, RefreshCw } from 'lucide-react';
 
 export function DashboardPage() {
@@ -117,11 +117,11 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
-        <SummaryCard title="Today's Sales" value={`RM${stats.todaySales.toFixed(2)}`} icon={DollarSign} color="blue" />
-        <SummaryCard title="Orders" value={stats.todayOrders} icon={Receipt} color="blue" />
-        <SummaryCard title="Active Staff" value={stats.activeStaff} icon={Users} color="green" />
-        <SummaryCard title="Low Stock" value={stats.lowStock} icon={Package} color="orange" />
-        <SummaryCard title="Pending Leave" value={stats.pendingLeave} icon={AlertCircle} color="red" />
+        <StatCard title="Today's Sales" value={`RM${stats.todaySales.toFixed(2)}`} icon={DollarSign} color="success" />
+        <StatCard title="Orders" value={stats.todayOrders} icon={Receipt} color="success" />
+        <StatCard title="Active Staff" value={stats.activeStaff} icon={Users} color="primary" />
+        <StatCard title="Low Stock" value={stats.lowStock} icon={Package} color="warning" />
+        <StatCard title="Pending Leave" value={stats.pendingLeave} icon={AlertCircle} color="danger" />
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 md:gap-6">

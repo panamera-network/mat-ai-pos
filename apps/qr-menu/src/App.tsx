@@ -10,7 +10,6 @@ const App: React.FC = () => {
   // Load menu data from localStorage (synced from POS settings)
   useEffect(() => {
     const menuItems = localStorage.getItem('mat-pos-menu-items');
-    const categories = localStorage.getItem('mat-pos-categories');
 
     if (!menuItems) {
       console.warn('[QR] No menu found. Open POS Settings to configure menu first.');

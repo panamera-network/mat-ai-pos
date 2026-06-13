@@ -3,9 +3,8 @@ import type {
   Staff,
   Timecard,
   Category,
-  Modifier,
   MenuItem,
-  Table,
+  DiningTable,
   Reservation,
   Station,
   Order,
@@ -17,15 +16,15 @@ import type {
   QrOrder,
   RefundRequest,
   VoidRecord,
+  StockType,
 } from '@mat-ai/types';
 
 export class MATaiDatabase extends Dexie {
   staff!: Dexie.Table<Staff, string>;
   timecards!: Dexie.Table<Timecard, string>;
   categories!: Dexie.Table<Category, string>;
-  modifiers!: Dexie.Table<Modifier, string>;
   menuItems!: Dexie.Table<MenuItem, string>;
-  tables!: Dexie.Table<Table, string>;
+  diningTables!: Dexie.Table<DiningTable, string>;
   reservations!: Dexie.Table<Reservation, string>;
   stations!: Dexie.Table<Station, string>;
   orders!: Dexie.Table<Order, string>;
@@ -33,7 +32,7 @@ export class MATaiDatabase extends Dexie {
   inventoryLogs!: Dexie.Table<InventoryLog, string>;
   lowStockAlerts!: Dexie.Table<LowStockAlert, string>;
   syncLogs!: Dexie.Table<SyncLog, string>;
-  settings!: Dexie.Table<AppSettings, string>;
+  settings!: Dexie.Table<AppSettings & { id: number }, number>;
   qrOrders!: Dexie.Table<QrOrder, string>;
   refundRequests!: Dexie.Table<RefundRequest, string>;
   voidRecords!: Dexie.Table<VoidRecord, string>;
@@ -43,15 +42,14 @@ export class MATaiDatabase extends Dexie {
 
     this.version(1).stores({
       staff: 'id, name, pin, role, isActive',
-      timecards: 'id, staffId, date, clockIn, clockOut',
+      timecards: 'id, staffId, clockIn, clockOut',
       categories: 'id, name, sortOrder, isActive',
-      modifiers: 'id, name, isActive',
       menuItems: 'id, name, categoryId, isAvailable, stock',
-      tables: 'id, number, status, currentOrderId, isActive',
+      diningTables: 'id, number, status',
       reservations: 'id, date, time, status, tableId',
       stations: 'id, name, ipAddress, isActive',
-      orders: 'id, status, tableId, orderedAt, cashierId',
-      receipts: 'id, receiptNo, orderId, printedAt',
+      orders: 'id, status, tableId, createdAt',
+      receipts: 'id, receiptNo, orderId',
       inventoryLogs: 'id, menuItemId, action, timestamp',
       lowStockAlerts: 'id, menuItemId, acknowledged, alertTime',
       syncLogs: 'id, type, status, startedAt',
@@ -64,12 +62,18 @@ export class MATaiDatabase extends Dexie {
 }
 
 export const db = new MATaiDatabase();
+export { Dexie } from 'dexie';
+
+export function getTable(name: string): Dexie.Table<any, string> | undefined {
+  return (db as any)[name];
+}
 
 // Initialize default settings
 export async function initDefaultSettings(): Promise<void> {
   const count = await db.settings.count();
   if (count === 0) {
     await db.settings.add({
+      posId: 'POS-1',
       posName: 'MAT.ai POS',
       receiptHeader: 'MAT.ai POS\nThank you for dining with us!',
       receiptFooter: 'Please come again!\nFollow us @mataipos',
@@ -90,7 +94,7 @@ export async function initDefaultSettings(): Promise<void> {
       language: 'ms',
       dateFormat: 'DD/MM/YYYY',
       timeFormat: 'HH:mm',
-    } as AppSettings);
+    } as AppSettings & { id: number });
   }
 }
 
@@ -98,7 +102,7 @@ export async function initDefaultSettings(): Promise<void> {
 export async function updateStock(
   menuItemId: string,
   qty: number,
-  action: 'deduct' | 'add' | 'adjust',
+  action: StockType,
   reason: string,
   staffId: string,
   staffName: string
@@ -110,13 +114,13 @@ export async function updateStock(
   let newStock: number;
 
   switch (action) {
-    case 'deduct':
+    case 'AUTO_DEDUCT':
       newStock = previousStock - qty;
       break;
-    case 'add':
+    case 'MANUAL_IN':
       newStock = previousStock + qty;
       break;
-    case 'adjust':
+    case 'ADJUSTMENT':
       newStock = qty;
       break;
     default:

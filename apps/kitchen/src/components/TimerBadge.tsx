@@ -1,7 +1,8 @@
 // apps/kitchen/src/components/TimerBadge.tsx
 import React from 'react';
+import { Badge } from '@mat-ai/ui';
 import { Clock } from 'lucide-react';
-import { getTimerState, formatElapsed, TIMER_COLORS } from '../utils/timer';
+import { getTimerState, formatElapsed } from '../utils/timer';
 
 interface TimerBadgeProps {
   orderedAt: string;
@@ -9,12 +10,13 @@ interface TimerBadgeProps {
 
 export const TimerBadge: React.FC<TimerBadgeProps> = ({ orderedAt }) => {
   const timer = getTimerState(orderedAt);
-  const colors = TIMER_COLORS[timer.color];
+
+  const variant = timer.color === 'green' ? 'success' : timer.color === 'yellow' ? 'warning' : 'danger';
 
   return (
-    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-      <Clock className="w-3.5 h-3.5" />
+    <Badge variant={variant} size="sm" dot>
+      <Clock className="w-3 h-3 mr-1" />
       {formatElapsed(timer.minutes)}
-    </div>
+    </Badge>
   );
 };

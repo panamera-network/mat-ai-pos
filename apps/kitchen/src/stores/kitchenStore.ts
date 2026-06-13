@@ -1,118 +1,109 @@
 // apps/kitchen/src/stores/kitchenStore.ts
+// WS-driven Zustand store
+
 import { create } from 'zustand';
+import type { Order } from '@mat-ai/types';
 import type { KitchenTicket, KitchenTicketItem } from '../types/kitchen';
 import { getTimerState } from '../utils/timer';
-
-const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
 
 interface KitchenState {
   tickets: KitchenTicket[];
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
-  fetchTickets: () => Promise<void>;
-  toggleItemDone: (orderId: string, itemId: string) => Promise<void>;
-  removeTicket: (orderId: string) => Promise<void>;
+  addTicket: (order: Order) => void;
+  toggleItemDone: (orderId: string, itemId: string) => void;
+  updateItemDoneFromWS: (orderId: string, itemIndex: number) => void;
+  updateItemUndoneFromWS: (orderId: string, itemIndex: number) => void;
+  removeTicket: (orderId: string) => void;
   updateTimers: () => void;
   getTicket: (orderId: string) => KitchenTicket | undefined;
+  isAllDone: (orderId: string) => boolean;
 }
 
-// Transform backend Order → KitchenTicket
-const transformOrder = (order: any): KitchenTicket => ({
-  orderId: order.id,
-  tableNumber: order.table?.number || null,
-  orderType: order.type?.toLowerCase().replace('_', '-') || 'dine-in',
-  customerName: order.customerName || undefined,
-  orderedAt: order.createdAt,
-  items: order.items.map((item: any) => ({
-    id: item.id, // Backend item ID
-    menuItemId: item.menuItemId,
-    name: item.name,
-    qty: item.quantity,
-    done: item.status === 'READY' || item.status === 'SERVED',
-    doneAt: item.status === 'READY' ? new Date().toISOString() : undefined,
-    modifiers: item.options ? Object.keys(item.options) : [],
-    notes: item.notes,
-  })),
-  elapsedMinutes: 0,
-  allDone: order.items.every((i: any) => i.status === 'READY' || i.status === 'SERVED'),
-});
+function transformOrder(order: Order): KitchenTicket {
+  return {
+    orderId: order.id,
+    orderNumber: order.orderNumber || order.id.slice(-4),
+    tableNumber: order.table?.number,
+    orderType: order.type?.toLowerCase().replace('_', '-') || 'dine-in',
+    customerName: order.customerInfo?.name,
+    orderedAt: order.createdAt,
+    items: order.items.map((item): KitchenTicketItem => ({
+      ...item,
+      done: false,
+      doneAt: undefined,
+    })),
+    elapsedMinutes: 0,
+    allDone: false,
+  };
+}
 
 export const useKitchenStore = create<KitchenState>((set, get) => ({
   tickets: [],
   isLoading: false,
   error: null,
 
-  fetchTickets: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const res = await fetch(`${API_URL}/orders/kitchen/queue`);
-      if (!res.ok) throw new Error('Failed to fetch kitchen queue');
-      
-      const orders = await res.json();
-      const tickets = orders.map(transformOrder);
-      
-      set({ tickets, isLoading: false });
-    } catch (err) {
-      console.error('Failed to fetch tickets:', err);
-      set({ error: err instanceof Error ? err.message : 'Unknown error', isLoading: false });
-    }
+  addTicket: (order: Order) => {
+    set((state) => {
+      if (state.tickets.some((t) => t.orderId === order.id)) {
+        return state;
+      }
+      const ticket = transformOrder(order);
+      return { tickets: [...state.tickets, ticket] };
+    });
   },
 
-  toggleItemDone: async (orderId, itemId) => {
-    // Optimistic update
+  toggleItemDone: (orderId: string, itemId: string) => {
     set((state) => ({
       tickets: state.tickets.map((ticket) => {
         if (ticket.orderId !== orderId) return ticket;
 
         const newItems = ticket.items.map((item) => {
           if (item.id !== itemId) return item;
+          const newDone = !item.done;
           return {
             ...item,
-            done: !item.done,
-            doneAt: !item.done ? new Date().toISOString() : undefined,
+            done: newDone,
+            doneAt: newDone ? new Date().toISOString() : undefined,
           };
         });
 
         const allDone = newItems.every((item) => item.done);
 
-        return {
-          ...ticket,
-          items: newItems,
-          allDone,
-        };
+        return { ...ticket, items: newItems, allDone };
       }),
     }));
-
-    // Sync to backend
-    try {
-      const ticket = get().tickets.find((t) => t.orderId === orderId);
-      const item = ticket?.items.find((i) => i.id === itemId);
-      if (!item) return;
-
-      await fetch(`${API_URL}/orders/items/${itemId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: item.done ? 'READY' : 'PENDING' }),
-      });
-    } catch (err) {
-      console.error('Failed to update item status:', err);
-    }
   },
 
-  removeTicket: async (orderId) => {
-    // Mark order as SERVED in backend
-    try {
-      await fetch(`${API_URL}/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'SERVED' }),
-      });
-    } catch (err) {
-      console.error('Failed to update order status:', err);
-    }
+  updateItemDoneFromWS: (orderId: string, itemIndex: number) => {
+    set((state) => ({
+      tickets: state.tickets.map((ticket) => {
+        if (ticket.orderId !== orderId) return ticket;
+        const newItems = ticket.items.map((item, idx) =>
+          idx === itemIndex ? { ...item, done: true, doneAt: new Date().toISOString() } : item
+        );
+        const allDone = newItems.every((item) => item.done);
+        return { ...ticket, items: newItems, allDone };
+      }),
+    }));
+  },
 
+  updateItemUndoneFromWS: (orderId: string, itemIndex: number) => {
+    set((state) => ({
+      tickets: state.tickets.map((ticket) => {
+        if (ticket.orderId !== orderId) return ticket;
+        const newItems = ticket.items.map((item, idx) =>
+          idx === itemIndex ? { ...item, done: false, doneAt: undefined } : item
+        );
+        const allDone = newItems.every((item) => item.done);
+        return { ...ticket, items: newItems, allDone };
+      }),
+    }));
+  },
+
+  removeTicket: (orderId: string) => {
     set((state) => ({
       tickets: state.tickets.filter((t) => t.orderId !== orderId),
     }));
@@ -122,15 +113,17 @@ export const useKitchenStore = create<KitchenState>((set, get) => ({
     set((state) => ({
       tickets: state.tickets.map((ticket) => {
         const timer = getTimerState(ticket.orderedAt);
-        return {
-          ...ticket,
-          elapsedMinutes: timer.minutes,
-        };
+        return { ...ticket, elapsedMinutes: timer.minutes };
       }),
     }));
   },
 
-  getTicket: (orderId) => {
+  getTicket: (orderId: string) => {
     return get().tickets.find((t) => t.orderId === orderId);
+  },
+
+  isAllDone: (orderId: string) => {
+    const ticket = get().tickets.find((t) => t.orderId === orderId);
+    return ticket?.allDone ?? false;
   },
 }));

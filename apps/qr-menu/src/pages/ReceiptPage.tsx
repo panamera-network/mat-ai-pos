@@ -23,8 +23,9 @@ function prismaOrderToView(o: Order): OrderView {
     subtotal: totalAmount,
     tax: taxAmount,
     finalTotal: totalAmount + taxAmount,
-    tableNumber: (o as any).table?.number,
-    items: (o.items || []).map((item: any) => ({
+    // FIXED: Remove as-any cast
+    tableNumber: o.table?.number,
+    items: (o.items || []).map((item) => ({
       ...item,
       quantity: Number(item.quantity ?? 1),
       unitPrice: Number(item.unitPrice ?? 0),
@@ -65,7 +66,9 @@ export const ReceiptPage: React.FC = () => {
   const handleShare = async () => {
     if (!order) return;
     const total = Number(order.finalTotal ?? order.totalAmount ?? 0);
-    const text = `MAT.ai Order ${order.orderNumber || order.id}\nTotal: RM${formatMoney(total)}\nThank you!`;
+    const text = `MAT.ai Order ${order.orderNumber || order.id}
+Total: RM${formatMoney(total)}
+Thank you!`;
 
     if (navigator.share) {
       await navigator.share({ title: 'MAT.ai Receipt', text });
@@ -116,10 +119,10 @@ export const ReceiptPage: React.FC = () => {
               <span>{order.tableNumber}</span>
             </div>
           )}
-          {order.customerName && (
+          {order.customerInfo && (
             <div className="flex justify-between">
               <span>Customer:</span>
-              <span>{order.customerName}</span>
+              <span>{order.customerInfo.name}</span>
             </div>
           )}
         </div>

@@ -6,8 +6,8 @@ import {
   Home, ShoppingBag, Car, Check, User, Phone, MapPin, Calendar,
   Clock, Users,
 } from 'lucide-react';
-import type { POSOrder, POSOrderItem } from '../lib/types';
-import type { MenuItem, Category, Table, CustomerInfo } from '@mat-ai/types';
+import type { Order, OrderItem, MenuItem, Category, DiningTable, CustomerInfo, MenuItemOptions,  } from '@mat-ai/types';
+import { toBackendOrderType, buildOrderPayload, normalizeBackendOrder } from '../lib/types';
 
 const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
 
@@ -30,7 +30,7 @@ const getCategories = (): Category[] => {
   return [];
 };
 
-const getTables = (): Table[] => {
+const getTables = (): DiningTable[] => {
   try {
     const saved = localStorage.getItem('mat-pos-tables');
     if (saved) return JSON.parse(saved);
@@ -38,10 +38,10 @@ const getTables = (): Table[] => {
   return [];
 };
 
-const saveOrder = (order: POSOrder) => {
+const saveOrder = (order: Order) => {
   try {
     const existing = JSON.parse(localStorage.getItem('mat-pos-active-orders') || '[]');
-    const filtered = existing.filter((o: POSOrder) => o.id !== order.id);
+    const filtered = existing.filter((o: Order) => o.id !== order.id);
     filtered.push(order);
     localStorage.setItem('mat-pos-active-orders', JSON.stringify(filtered));
   } catch (e) {
@@ -49,7 +49,7 @@ const saveOrder = (order: POSOrder) => {
   }
 };
 
-const updateTableStatus = (tableId: string, status: Table['status']) => {
+const updateTableStatus = (tableId: string, status: DiningTable['status']) => {
   try {
     const tables = getTables();
     const updated = tables.map((t) => t.id === tableId ? { ...t, status } : t);
@@ -59,8 +59,8 @@ const updateTableStatus = (tableId: string, status: Table['status']) => {
   }
 };
 
-// Use string literal type for order types (backend enum: DINE_IN, TAKEAWAY, DELIVERY, RESERVATION)
-type OrderTypeString = 'dine-in' | 'takeaway' | 'delivery' | 'reservation';
+// Frontend kebab-case type for UI
+export type OrderTypeString = 'dine-in' | 'takeaway' | 'delivery' | 'reservation';
 
 const orderTypeStyles: Record<OrderTypeString, { border: string; bg: string; iconBg: string; iconText: string }> = {
   'dine-in': { border: 'border-blue-500', bg: 'bg-blue-50', iconBg: 'bg-blue-100', iconText: 'text-blue-600' },
@@ -68,103 +68,6 @@ const orderTypeStyles: Record<OrderTypeString, { border: string; bg: string; ico
   'delivery': { border: 'border-purple-500', bg: 'bg-purple-50', iconBg: 'bg-purple-100', iconText: 'text-purple-600' },
   'reservation': { border: 'border-pink-500', bg: 'bg-pink-50', iconBg: 'bg-pink-100', iconText: 'text-pink-600' },
 };
-
-// ============================================
-// CONVERTERS (Frontend ↔ Backend)
-// ============================================
-
-/** Convert kebab-case frontend type to SNAKE_CASE backend type */
-function toBackendOrderType(type: OrderTypeString): string {
-  return type.toUpperCase().replace(/-/g, '_');
-}
-
-/** Convert SNAKE_CASE backend type to kebab-case frontend type */
-function toFrontendOrderType(type: string): OrderTypeString {
-  const map: Record<string, OrderTypeString> = {
-    'DINE_IN': 'dine-in',
-    'PICKUP': 'takeaway',
-    'DELIVERY': 'delivery',
-    'RESERVATION': 'reservation',
-  };
-  return map[type] || 'dine-in';
-}
-
-/** Convert backend OrderStatus to frontend POS status */
-function toFrontendStatus(status: string): POSOrder['status'] {
-  switch (status) {
-    case 'PENDING': return 'active';
-    case 'PAID': return 'completed';
-    case 'CANCELLED': return 'cancelled';
-    default: return 'active';
-  }
-}
-
-/** Build backend payload from POS order */
-function buildOrderPayload(
-  order: POSOrder,
-  selectedTableId: string,
-  orderType: OrderTypeString
-): any {
-  // Only include tableId for dine-in and reservation
-  const hasTable = orderType === 'dine-in' || orderType === 'reservation';
-  
-  return {
-    orderNumber: order.orderNumber || `ORD-${Date.now()}`,
-    type: toBackendOrderType(orderType),
-    source: 'POS',
-    totalAmount: order.total,
-    taxAmount: order.tax,
-    customerName: order.customerName || undefined,
-    customerPhone: order.customerPhone || undefined,
-    customerAddress: order.address || undefined,
-    tableId: hasTable ? (selectedTableId || undefined) : undefined,
-    pax: order.pax || undefined,
-    reservationTime: order.reservationTime || undefined,
-    notes: order.notes || undefined,
-    items: order.items.map(item => ({
-      menuItemId: item.menuId,
-      name: item.name,
-      quantity: item.qty,
-      unitPrice: item.price,
-      totalPrice: (Number(item.price) || 0) * item.qty,
-      options: item.modifiers && item.modifiers.length > 0 ? item.modifiers : undefined,
-      notes: undefined,
-    })),
-  };
-}
-
-/** Convert backend order response to POSOrder */
-function normalizeBackendOrder(data: any): POSOrder {
-  const items: POSOrderItem[] = (data.items || []).map((i: any) => ({
-    id: i.id || i.menuItemId || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
-    menuId: i.menuItemId || i.id || '',
-    name: i.name || 'Unknown',
-    price: Number(i.unitPrice) || Number(i.price) || 0,
-    qty: Number(i.quantity) || Number(i.qty) || 0,
-    modifiers: i.options || [],
-  }));
-
-  return {
-    id: data.id,
-    orderNumber: data.orderNumber || data.id?.slice(-4) || '',
-    items,
-    type: toFrontendOrderType(data.type),
-    status: toFrontendStatus(data.status),
-    tableNumber: data.table?.number || data.tableNumber,
-    customerName: data.customerName,
-    customerPhone: data.customerPhone,
-    customerInfo: data.customerName ? {
-      name: data.customerName,
-      phone: data.customerPhone || '',
-    } : undefined,
-    reservationTime: data.reservationTime,
-    subtotal: Number(data.totalAmount) / 1.08 || 0,
-    tax: Number(data.taxAmount) || 0,
-    total: Number(data.totalAmount) || 0,
-    createdAt: data.createdAt || new Date().toISOString(),
-    updatedAt: data.updatedAt || new Date().toISOString(),
-  };
-}
 
 // ============================================
 // COMPONENT
@@ -177,32 +80,39 @@ export const POSPage: React.FC = () => {
   const isEditMode = state.editMode || false;
 
   // Support both nested order object AND flat fields from Dashboard
-  const incomingOrder = state.order as POSOrder | undefined;
-  
-  const existingOrder: POSOrder | undefined = incomingOrder ? {
+  const incomingOrder = state.order as Order | undefined;
+
+  const existingOrder: Order | undefined = incomingOrder ? {
     ...incomingOrder,
-    type: incomingOrder.type || 'dine-in',
-    status: incomingOrder.status || 'active',
+    type: incomingOrder.type || 'DINE_IN',
+    status: (incomingOrder.status || 'PENDING') as Order['status'],
     items: (incomingOrder.items || []).map((i: any) => ({
       id: i.id || i.menuItemId || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
-      menuId: i.menuId || i.menuItemId || '',
+      orderId: incomingOrder.id,
+      menuItemId: i.menuItemId || i.menuId || i.id || '',
+      menuItem: i.menuItem,
       name: i.name || 'Unknown',
-      price: Number(i.price) || Number(i.unitPrice) || 0,
-      qty: Number(i.qty) || Number(i.quantity) || 0,
-      modifiers: i.modifiers || i.options || [],
+      unitPrice: Number(i.unitPrice) || Number(i.price) || 0,
+      quantity: Number(i.quantity) || Number(i.qty) || 0,
+      totalPrice: (Number(i.unitPrice) || Number(i.price) || 0) * (Number(i.quantity) || Number(i.qty) || 0),
+      options: i.options || i.modifiers || [],
+      notes: i.notes,
+      status: (i.status || 'PENDING') as OrderItem['status'],
+      createdAt: i.createdAt || new Date().toISOString(),
+      updatedAt: i.updatedAt || new Date().toISOString(),
     })),
   } : undefined;
 
   const existingTableId = state.tableId as string | undefined;
   const existingOrderType = state.orderType as OrderTypeString | undefined;
-  const existingCustomer = state.customerInfo as any | undefined;
+  const existingCustomer = state.customerInfo as CustomerInfo | undefined;
 
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [cartItems, setCartItems] = useState<POSOrderItem[]>(existingOrder?.items || []);
+  const [cartItems, setCartItems] = useState<OrderItem[]>(existingOrder?.items || []);
   const [orderType, setOrderType] = useState<OrderTypeString>(existingOrderType || 'dine-in');
   const [selectedTableId, setSelectedTableId] = useState<string>(existingTableId || '');
-  const [customerInfo, setCustomerInfo] = useState<any>(
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>(
     existingCustomer || existingOrder?.customerInfo || { name: '', phone: '' }
   );
 
@@ -222,19 +132,19 @@ export const POSPage: React.FC = () => {
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [tables, setTables] = useState<Table[]>([]);
+  const [tables, setTables] = useState<DiningTable[]>([]);
   const [menuLoading, setMenuLoading] = useState(true);
-  
+
   const availableTables = tables.filter((t) => t.status === 'AVAILABLE');
   const selectedTable = tables.find((t) => t.id === selectedTableId);
 
   // Resolve tableNumber to tableId when editing an existing order
   useEffect(() => {
-    if (existingOrder?.tableNumber && tables.length > 0 && !selectedTableId && !existingTableId) {
-      const found = tables.find(t => t.number === existingOrder.tableNumber);
+    if (existingOrder?.table?.number && tables.length > 0 && !selectedTableId && !existingTableId) {
+      const found = tables.find(t => t.number === existingOrder.table!.number);
       if (found) setSelectedTableId(found.id);
     }
-  }, [existingOrder?.tableNumber, tables, selectedTableId, existingTableId]);
+  }, [existingOrder?.table?.number, tables, selectedTableId, existingTableId]);
 
   // Fetch menu & tables from backend
   useEffect(() => {
@@ -275,16 +185,15 @@ export const POSPage: React.FC = () => {
           categoryId: item.categoryId || item.category?.id || 'uncategorized',
           imageUrl: item.imageUrl,
           isAvailable: item.isAvailable ?? true,
-          modifiers: (() => {
+          stock: item.stock || 999,
+          minStock: item.minStock || 0,
+          options: (() => {
             if (!item.options) return [];
             if (Array.isArray(item.options)) {
               return item.options.map((o: any) => typeof o === 'string' ? o : o.name || String(o));
             }
             return Object.keys(item.options);
           })(),
-          options: item.options,
-          stock: item.stock || 999,
-          minStock: item.minStock || 0,
           createdAt: item.createdAt || new Date().toISOString(),
           updatedAt: item.updatedAt || new Date().toISOString(),
         }));
@@ -353,30 +262,48 @@ export const POSPage: React.FC = () => {
   }, [menuItems, activeCategory, searchQuery]);
 
   // Build cart item from menu item + modifiers
-  const buildCartItem = (item: MenuItem, modStrings: string[]): POSOrderItem => {
+  const buildCartItem = (item: MenuItem, modStrings: string[] = []): OrderItem => {
     const id = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
       : Math.random().toString(36).slice(2) + Date.now().toString(36);
 
+    const unitPrice = Number(item.price) || 0;
+    const quantity = 1;
+
     return {
       id,
-      menuId: item.id,
+      orderId: existingOrder?.id || 'temp',
+      menuItemId: item.id,
+      menuItem: item,
       name: item.name,
-      price: Number(item.price) || 0,
-      qty: 1,
-      modifiers: modStrings,
+      unitPrice,
+      quantity,
+      totalPrice: unitPrice * quantity,
+      options: modStrings.length > 0 
+        ? modStrings.map(m => ({ 
+            id: m, 
+            name: m, 
+            required: false,
+            multiSelect: false,
+            choices: [{ id: m, name: m, priceModifier: 0, isDefault: true }] 
+          })) as MenuItemOptions
+        : undefined,
+      notes: undefined,
+      status: 'PENDING',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
   };
 
   const addToCart = (item: MenuItem, modStrings: string[] = []) => {
     setCartItems((prev) => {
       const existing = prev.find(
-        (i) => i.menuId === item.id && JSON.stringify(i.modifiers) === JSON.stringify(modStrings)
+        (i) => i.menuItemId === item.id && JSON.stringify(i.options) === JSON.stringify(modStrings)
       );
       if (existing) {
         return prev.map((i) =>
-          i.menuId === item.id && JSON.stringify(i.modifiers) === JSON.stringify(modStrings)
-            ? { ...i, qty: i.qty + 1 }
+          i.menuItemId === item.id && JSON.stringify(i.options) === JSON.stringify(modStrings)
+            ? { ...i, quantity: i.quantity + 1, totalPrice: i.unitPrice * (i.quantity + 1) }
             : i
         );
       }
@@ -385,7 +312,6 @@ export const POSPage: React.FC = () => {
   };
 
   const handleMenuItemClick = (item: MenuItem) => {
-    // Check for modifiers in options or modifiers field
     const itemModifiers = (item as any).modifiers || (item as any).options || [];
     if (itemModifiers.length > 0) {
       setSelectedMenuItem(item);
@@ -408,8 +334,12 @@ export const POSPage: React.FC = () => {
   const updateQty = (id: string, delta: number) => {
     setCartItems((prev) =>
       prev
-        .map((item) => (item.id === id ? { ...item, qty: Math.max(0, item.qty + delta) } : item))
-        .filter((item) => item.qty > 0)
+        .map((item) => (item.id === id ? { 
+          ...item, 
+          quantity: Math.max(0, item.quantity + delta),
+          totalPrice: item.unitPrice * Math.max(0, item.quantity + delta)
+        } : item))
+        .filter((item) => item.quantity > 0)
     );
   };
 
@@ -417,29 +347,26 @@ export const POSPage: React.FC = () => {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (Number(item.price) || 0) * item.qty, 0);
+  const subtotal = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const tax = subtotal * 0.08;
   const total = subtotal + tax;
 
-  // Build POSOrder from current state
-  const buildOrder = (): POSOrder => ({
+  // Build Order from current state
+  const buildOrder = (): Order => ({
     id: existingOrder?.id || `ORD-${Date.now()}`,
-    orderNumber: existingOrder?.orderNumber,
-    items: cartItems,
-    type: orderType,
-    status: 'active',
-    tableNumber: (orderType === 'dine-in' || orderType === 'reservation') ? selectedTable?.number : undefined,
+    orderNumber: existingOrder?.orderNumber || `ORD-${Date.now()}`,
+    status: 'PENDING',
+    source: 'POS',
+    type: toBackendOrderType(orderType),
+    totalAmount: total,
+    taxAmount: tax,
     customerInfo: (orderType === 'takeaway' || orderType === 'delivery' || orderType === 'reservation') ? customerInfo : undefined,
-    customerName: customerInfo.name || undefined,
-    customerPhone: customerInfo.phone || undefined,
-    address: orderType === 'delivery' ? customerInfo.address : undefined,
-    reservationTime: orderType === 'reservation' ? reservationTime : undefined,
+    tableId: (orderType === 'dine-in' || orderType === 'reservation') ? selectedTableId : undefined,
+    table: selectedTable,
     pax: pax ? parseInt(pax) : undefined,
-    orderTiming: orderType === 'reservation' ? orderTiming : 'now',
-    notes: customerInfo.note || undefined,
-    subtotal,
-    tax,
-    total,
+    reservationTime: orderType === 'reservation' ? reservationTime : undefined,
+    notes: customerInfo.note,
+    items: cartItems,
     createdAt: existingOrder?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
@@ -626,14 +553,14 @@ export const POSPage: React.FC = () => {
                     }`}
                   >
                     <div className="text-5xl mb-3">
-                      {typeof (item as any).image === 'string' ? (item as any).image : '🍽️'}
+                      {item.imageUrl ? '📷' : '🍽️'}
                     </div>
                     <p className="text-sm font-medium text-gray-900 text-center leading-tight">{item.name}</p>
                     <p className="text-lg font-bold text-primary-600 mt-2">RM{(Number(item.price) || 0).toFixed(2)}</p>
                     {item.isAvailable === false && (
                       <span className="text-xs text-red-500 font-bold mt-1">SOLD OUT</span>
                     )}
-                    {((item as any).modifiers || (item as any).options)?.length > 0 && item.isAvailable !== false && (
+                    {item.options && item.options.length > 0 && item.isAvailable !== false && (
                       <span className="text-xs text-gray-400 mt-1">+ options</span>
                     )}
                   </button>
@@ -668,16 +595,16 @@ export const POSPage: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                        {item.modifiers && item.modifiers.length > 0 && (
-                          <p className="text-xs text-gray-500">{item.modifiers.join(', ')}</p>
+                        {item.options && item.options.length > 0 && (
+                          <p className="text-xs text-gray-500">{item.options.map((o) => o.name).join(', ')}</p>
                         )}
-                        <p className="text-xs text-gray-500">RM{(Number(item.price) || 0).toFixed(2)} each</p>
+                        <p className="text-xs text-gray-500">RM{item.unitPrice.toFixed(2)} each</p>
                       </div>
                       <div className="flex items-center gap-2 ml-2">
                         <button onClick={() => updateQty(item.id, -1)} className="w-8 h-8 bg-white border rounded-lg flex items-center justify-center hover:bg-gray-100 active:scale-95 transition-all">
                           <Minus className="w-3 h-3" />
                         </button>
-                        <span className="text-sm font-bold w-6 text-center">{item.qty}</span>
+                        <span className="text-sm font-bold w-6 text-center">{item.quantity}</span>
                         <button onClick={() => updateQty(item.id, 1)} className="w-8 h-8 bg-white border rounded-lg flex items-center justify-center hover:bg-gray-100 active:scale-95 transition-all">
                           <Plus className="w-3 h-3" />
                         </button>
@@ -946,18 +873,18 @@ export const POSPage: React.FC = () => {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModifierModal(false)} />
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 p-6">
             <div className="text-center mb-6">
-              <div className="text-5xl mb-3">{(selectedMenuItem as any).image || '🍽️'}</div>
+              <div className="text-5xl mb-3">{selectedMenuItem.imageUrl ? '📷' : '🍽️'}</div>
               <h2 className="text-xl font-bold text-gray-900">{selectedMenuItem.name}</h2>
               <p className="text-lg font-bold text-primary-600">RM{(Number(selectedMenuItem.price) || 0).toFixed(2)}</p>
             </div>
             <div className="space-y-3 mb-6">
               <p className="text-sm font-medium text-gray-700">Select Options:</p>
-              {((selectedMenuItem as any).modifiers || (selectedMenuItem as any).options || []).map((mod: string) => (
-                <label key={mod} onClick={() => toggleModifier(mod)} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedModifiers.includes(mod) ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selectedModifiers.includes(mod) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'}`}>
-                    {selectedModifiers.includes(mod) && <Check className="w-3 h-3 text-white" />}
+              {(selectedMenuItem.options || []).map((opt) => (
+                <label key={typeof opt === 'string' ? opt : opt.id || opt.name} onClick={() => toggleModifier(typeof opt === 'string' ? opt : opt.name)} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedModifiers.includes(typeof opt === 'string' ? opt : opt.name) ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selectedModifiers.includes(typeof opt === 'string' ? opt : opt.name) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'}`}>
+                    {selectedModifiers.includes(typeof opt === 'string' ? opt : opt.name) && <Check className="w-3 h-3 text-white" />}
                   </div>
-                  <span className="text-sm font-medium text-gray-700">{mod}</span>
+                  <span className="text-sm font-medium text-gray-700">{typeof opt === 'string' ? opt : opt.name}</span>
                 </label>
               ))}
             </div>

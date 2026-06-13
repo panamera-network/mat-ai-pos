@@ -1,24 +1,27 @@
 // packages/ws/src/server.ts
-// MAT.ai POS WebSocket Server (runs inside POS app)
-
 import {
   type WSMessage,
-  type OrderCreatedPayload,
   type ItemDonePayload,
   type OrderDonePayload,
   type StationRegisterPayload,
   createOrderCreated,
   createOrderUpdated,
   createPong,
+  ItemUndonePayload,
 } from './protocol';
 import type { Order, KitchenStatus } from '@mat-ai/types';
+
+// ============================================================
+// WS TYPES — Use ws package types, NOT DOM WebSocket
+// ============================================================
+import type { WebSocket as WsWebSocket, WebSocketServer } from 'ws';
 
 export interface ConnectedStation {
   id: string;
   name: string;
   categories: string[];
   deviceType: string;
-  ws: WebSocket;
+  ws: WsWebSocket;  // ← ws package WebSocket
   connectedAt: string;
 }
 
@@ -27,12 +30,13 @@ export interface WSServerOptions {
   onStationConnect?: (station: ConnectedStation) => void;
   onStationDisconnect?: (stationId: string) => void;
   onItemDone?: (payload: ItemDonePayload) => void;
+  onItemUndone?: (payload: ItemUndonePayload) => void;
   onOrderDone?: (payload: OrderDonePayload) => void;
   onOrderCreated?: (order: Order) => void;
 }
 
 export class MATaiWSServer {
-  private server: ReturnType<typeof import('ws')['Server']> | null = null;
+  private server: WebSocketServer | null = null;
   private stations: Map<string, ConnectedStation> = new Map();
   private options: WSServerOptions;
   private stationCounter = 0;
@@ -42,18 +46,22 @@ export class MATaiWSServer {
   }
 
   async start(): Promise<void> {
-    // Dynamic import ws to avoid bundling issues in browser
-    const { Server } = await import('ws');
+    const { WebSocketServer } = await import('ws');
 
-    this.server = new Server({ port: this.options.port });
+    this.server = new WebSocketServer({ port: this.options.port });
 
-    this.server.on('connection', (ws: WebSocket) => {
+    // Null check
+    if (!this.server) {
+      throw new Error('[WSS] Failed to create WebSocket server');
+    }
+
+    this.server.on('connection', (ws) => {
       const tempId = `temp-${Date.now()}`;
 
       ws.on('message', (data: Buffer) => {
         try {
           const msg: WSMessage = JSON.parse(data.toString());
-          this.handleMessage(tempId, ws, msg);
+          this.handleMessage(tempId, ws as any, msg);  // Cast ws untuk avoid type conflict
         } catch (err) {
           console.error('[WSS] Invalid message:', err);
         }
@@ -63,7 +71,7 @@ export class MATaiWSServer {
         this.handleDisconnect(tempId);
       });
 
-      ws.on('error', (err) => {
+      ws.on('error', (err: Error) => {
         console.error('[WSS] WebSocket error:', err);
       });
     });
@@ -77,13 +85,14 @@ export class MATaiWSServer {
     });
     this.stations.clear();
     this.server?.close();
+    this.server = null;
     console.log('[WSS] Server stopped');
   }
 
   broadcast(msg: WSMessage, filter?: (station: ConnectedStation) => boolean): void {
     this.stations.forEach((station) => {
       if (filter && !filter(station)) return;
-      if (station.ws.readyState === WebSocket.OPEN) {
+      if (station.ws.readyState === 1) { // OPEN = 1
         station.ws.send(JSON.stringify(msg));
       }
     });
@@ -91,13 +100,14 @@ export class MATaiWSServer {
 
   broadcastOrderCreated(order: Order): void {
     const msg = createOrderCreated(order);
-    // Send to all KDS stations that handle this order's categories
-    const orderCategories = new Set(order.items.map((i) => i.categoryId));
+    const orderCategories = new Set(
+      order.items
+        .map((i) => i.menuItem?.categoryId)
+        .filter((cat): cat is string => !!cat)
+    );
 
     this.broadcast(msg, (station) => {
-      // If station has no categories filter, send all
       if (station.categories.length === 0) return true;
-      // Otherwise check if any item category matches station categories
       return station.categories.some((cat) => orderCategories.has(cat));
     });
   }
@@ -111,7 +121,7 @@ export class MATaiWSServer {
     return Array.from(this.stations.values());
   }
 
-  private handleMessage(tempId: string, ws: WebSocket, msg: WSMessage): void {
+  private handleMessage(tempId: string, ws: WsWebSocket, msg: WSMessage): void {
     switch (msg.type) {
       case 'STATION_REGISTER': {
         const payload = msg.payload as StationRegisterPayload;
@@ -123,11 +133,10 @@ export class MATaiWSServer {
           name: payload.stationName,
           categories: payload.categories,
           deviceType: payload.deviceType,
-          ws,
+          ws,  // ← ws is WsWebSocket (ws package type)
           connectedAt: new Date().toISOString(),
         };
 
-        // Replace temp connection with registered station
         this.stations.delete(tempId);
         this.stations.set(stationId, station);
 
@@ -140,7 +149,14 @@ export class MATaiWSServer {
         const payload = msg.payload as ItemDonePayload;
         console.log(`[WSS] Item done: order=${payload.orderId}, item=${payload.itemIndex}`);
         this.options.onItemDone?.(payload);
-        // Broadcast to all stations so they can update UI
+        this.broadcast(msg);
+        break;
+      }
+
+      case 'ITEM_UNDONE': {
+        const payload = msg.payload as ItemUndonePayload;
+        console.log(`[WSS] Item undone: order=${payload.orderId}, item=${payload.itemIndex}`);
+        this.options.onItemUndone?.(payload);
         this.broadcast(msg);
         break;
       }
@@ -149,7 +165,6 @@ export class MATaiWSServer {
         const payload = msg.payload as OrderDonePayload;
         console.log(`[WSS] Order done: ${payload.orderId}`);
         this.options.onOrderDone?.(payload);
-        // Broadcast to all stations
         this.broadcast(msg);
         break;
       }
@@ -165,9 +180,8 @@ export class MATaiWSServer {
   }
 
   private handleDisconnect(tempId: string): void {
-    // Find station by tempId or ws reference
     for (const [id, station] of this.stations) {
-      if (id === tempId || station.ws.readyState !== WebSocket.OPEN) {
+      if (id === tempId || station.ws.readyState !== 1) {
         console.log(`[WSS] Station disconnected: ${station.name} (${id})`);
         this.options.onStationDisconnect?.(id);
         this.stations.delete(id);

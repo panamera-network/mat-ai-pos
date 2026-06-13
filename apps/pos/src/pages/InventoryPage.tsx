@@ -7,7 +7,7 @@ import {
 import type { InventoryItem, StockLog } from '@mat-ai/types';
 import { usePOSStore } from '../stores/posStore';
 
-const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
+const API_URL = import.meta.env.VITE_WS_URL || 'http://localhost:4000';
 
 const categories = [
   { key: 'all', label: 'Semua' },

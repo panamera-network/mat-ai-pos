@@ -4,7 +4,7 @@ import { useApi } from './useApi';
 
 export function useAuth() {
   const { staff, isAuthenticated, login, logout } = useAuthStore();
-  const { post, get } = useApi();
+  const { post } = useApi();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 

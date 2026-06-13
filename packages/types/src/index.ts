@@ -12,8 +12,8 @@ export type OrderStatus = 'PENDING' | 'PAID' | 'PREPARING' | 'READY' | 'SERVED' 
 export type ItemStatus = 'PENDING' | 'PREPARING' | 'READY' | 'SERVED';
 export type OrderSource = 'QR_MENU' | 'POS' | 'ONLINE' | 'PHONE';
 export type OrderType = 'DINE_IN' | 'PICKUP' | 'DELIVERY' | 'RESERVATION';
-export type PaymentMethod = 'CASH' | 'CARD' | 'EWALLET' | 'QR_PAY';
-export type TableStatus = 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'CLEANING';
+export type PaymentMethod = 'CASH' | 'CARD' | 'DELIVERY' | 'QR_PAY';
+export type DiningTableStatus = 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'CLEANING';
 export type StockType = 'AUTO_DEDUCT' | 'MANUAL_IN' | 'ADJUSTMENT';
 export type LeaveType = 'ANNUAL' | 'SICK' | 'UNPAID' | 'EMERGENCY';
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -40,18 +40,18 @@ export interface BaseEntityNoUpdatedAt {
 // ============ MENU ITEM OPTIONS (Replaces `any` in MenuItem.options / OrderItem.options) ============
 
 export interface OptionChoice {
-  id: string;           // e.g., "large", "extra-spicy", "cheese"
-  name: string;         // Display: "Large", "Extra Spicy", "Extra Cheese"
-  priceModifier: number; // 0 = no extra cost
-  isDefault?: boolean;  // Pre-selected?
+  id: string;
+  name: string;
+  priceModifier: number;
+  isDefault?: boolean;
   sortOrder?: number;
 }
 
 export interface MenuItemOption {
-  id: string;           // e.g., "size", "spiciness", "toppings"
-  name: string;         // Display label: "Size", "Spiciness Level"
-  required: boolean;    // Must select at least one?
-  multiSelect: boolean; // Single choice vs multiple
+  id: string;
+  name: string;
+  required: boolean;
+  multiSelect: boolean;
   choices: OptionChoice[];
 }
 
@@ -76,7 +76,7 @@ export interface Staff extends BaseEntity {
   role: Role;
   isActive: boolean;
   employmentType: EmploymentType;
-  hourlyRate?: number;        // Prisma Decimal → serialized as number/string
+  hourlyRate?: number;
   monthlySalary?: number;
   joinDate: string;
   customEpfRate?: number;
@@ -84,7 +84,6 @@ export interface Staff extends BaseEntity {
 }
 
 export interface StaffView extends Staff {
-  // Frontend computed / legacy fields (NOT in Prisma Staff table)
   phone?: string;
   email?: string;
 }
@@ -176,23 +175,22 @@ export interface Category extends BaseEntity {
 
 export interface MenuItem extends BaseEntity {
   name: string;
-  price: number;        // Prisma Decimal
+  price: number;
   categoryId: string;
-  category?: Category;  // <-- FIXED: Prisma now returns nested category object
-  imageUrl?: string;    // <-- FIXED: was `image` in old types
+  category?: Category;
+  imageUrl?: string;
   isAvailable: boolean;
   stock: number;
   minStock: number;
-  options?: MenuItemOptions;  // <-- FIXED: was `any`, now strict type
+  options?: MenuItemOptions;
   ingredients?: MenuItemIngredient[];
 }
 
 export interface MenuItemView extends MenuItem {
-  // Frontend-only extensions (not persisted in Prisma MenuItem)
   cost?: number;
   description?: string;
   barcode?: string;
-  modifiers?: string[]; // legacy — consider migrating to `options`
+  modifiers?: string[];
 }
 
 export interface SelectedModifier {
@@ -201,15 +199,14 @@ export interface SelectedModifier {
   price: number;
 }
 
-// ============ TABLE ============
-export interface Table extends BaseEntity {
+// ============ DINING TABLE (renamed from Table to avoid Dexie conflict) ============
+export interface DiningTable extends BaseEntity {
   number: string;
   capacity: number;
-  status: TableStatus;
+  status: DiningTableStatus;
 }
 
-export interface TableView extends Table {
-  // Frontend computed (NOT in Prisma Table table)
+export interface DiningTableView extends DiningTable {
   name?: string;
   currentOrderId?: string;
   isActive?: boolean;
@@ -246,43 +243,42 @@ export interface Station extends BaseEntity {
   soundEnabled: boolean;
 }
 
-// ============ ORDER (Database Shape — matches Prisma Order exactly) ============
+// ============ ORDER ============
 export interface OrderItem extends BaseEntity {
   orderId: string;
   menuItemId: string;
-  menuItem?: MenuItem;   // <-- FIXED: Prisma relation
+  menuItem?: MenuItem;
   name: string;
-  quantity: number;      // <-- FIXED: was `qty`
-  unitPrice: number;     // <-- FIXED: was `price`
-  totalPrice: number;    // <-- FIXED: was `subtotal`
-  options?: MenuItemOptions;  // <-- FIXED: was `any`, now strict type
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  options?: MenuItemOptions;
   notes?: string;
-  status: ItemStatus;    // <-- FIXED: was missing / using KitchenStatus
+  status: ItemStatus;
 }
 
 export interface OrderItemInput {
-  // Use this for creating orders from frontend cart
   menuItemId: string;
   name: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  options?: MenuItemOptions;  // <-- FIXED: was `any`, now strict type
+  options?: MenuItemOptions;
   notes?: string;
 }
 
 export interface Order extends BaseEntity {
-  orderNumber: string;           // <-- FIXED: was missing! Required by Prisma
+  orderNumber: string;
   status: OrderStatus;
-  source: OrderSource;           // <-- FIXED: was missing
-  type: OrderType;               // <-- FIXED: was `orderType`
-  totalAmount: number;           // <-- FIXED: was `total` / `finalTotal`
+  source: OrderSource;
+  type: OrderType;
+  totalAmount: number;
   paidAmount?: number;
   taxAmount?: number;
   paymentMethod?: PaymentMethod;
   customerInfo?: CustomerInfo;
   tableId?: string;
-  table?: Table;
+  table?: DiningTable;
   pax?: number;
   reservationTime?: string;
   notes?: string;
@@ -292,24 +288,24 @@ export interface Order extends BaseEntity {
 }
 
 export interface OrderView extends Order {
-  // Frontend computed / legacy fields (NOT in Prisma Order table)
   tableNumber?: string;
-  cashierId?: string;      // <-- NOTE: lives in Receipt table, not Order
-  cashierName?: string;    // <-- NOTE: lives in Receipt table, not Order
-  kitchenStatus?: KitchenStatus; // <-- NOTE: NOT in Prisma Order. Derive from items[]
-  subtotal?: number;       // Frontend calc: totalAmount - taxAmount
+  cashierId?: string;
+  cashierName?: string;
+  kitchenStatus?: KitchenStatus;
+  subtotal?: number;
   discount?: AppliedDiscount;
   tax?: number;
   serviceCharge?: number;
-  finalTotal?: number;     // Alias for totalAmount + tax + serviceCharge - discount
+  finalTotal?: number;
   payment?: Payment;
   payments?: SplitPayment[];
-  orderedAt?: string;      // Alias for createdAt
+  orderedAt?: string;
   sentToKitchenAt?: string;
   isQrOrder?: boolean;
   qrOrderId?: string;
   originalOrderId?: string;
   movedFromTableId?: string;
+  customerInfo?: CustomerInfo;
 }
 
 export interface AppliedDiscount {
@@ -336,7 +332,7 @@ export interface SplitPayment {
   timestamp: string;
 }
 
-// ============ DRAFT ORDER (Frontend state before submit) ============
+// ============ DRAFT ORDER ============
 export interface DraftOrder {
   id?: string;
   orderNumber?: string;
@@ -356,56 +352,55 @@ export interface DraftOrder {
   total: number;
 }
 
-// ============ CART ITEM (Frontend state) ============
+// ============ CART ITEM ============
 export interface CartItem {
-  id: string;              // frontend-generated
+  id: string;
   menuItemId: string;
   name: string;
   unitPrice: number;
   quantity: number;
-  totalPrice: number;      // computed
-  modifiers?: string[];    // legacy frontend format
-  options?: MenuItemOptions;  // <-- FIXED: was `any`, now strict type
+  totalPrice: number;
+  modifiers?: string[];
+  options?: MenuItemOptions;
   notes?: string;
 }
 
-// ============ RECEIPT (Database Shape — matches Prisma Receipt exactly) ============
-// NOTE: Receipt has NO updatedAt in Prisma schema — uses BaseEntityNoUpdatedAt
+// ============ RECEIPT ============
 export interface Receipt extends BaseEntityNoUpdatedAt {
   receiptNo: string;
   orderId: string;
   order?: Order;
-  totalAmount: number;      // <-- FIXED: was `total`
-  paidAmount: number;       // <-- FIXED: was `amountPaid`
+  totalAmount: number;
+  paidAmount: number;
   change?: number;
-  paymentMethod: PaymentMethod; // <-- FIXED: was `string`
+  paymentMethod: PaymentMethod;
   taxAmount?: number;
   cashierId: string;
   cashier?: Staff;
-  posId: string;            // <-- FIXED: was missing
-  itemsSnapshot: ReceiptItemsSnapshot;  // <-- FIXED: was `any`, now strict type
-  customerInfo?: ReceiptCustomerInfo;   // <-- FIXED: was `any`, now strict type
+  posId: string;
+  itemsSnapshot: ReceiptItemsSnapshot;
+  customerInfo?: ReceiptCustomerInfo;
   printCount: number;
   lastPrintedAt?: string;
   pdfGeneratedAt?: string;
   pdfUrl?: string;
   emailedTo?: string;
   emailSentAt?: string;
+  [key: string]: unknown; 
 }
 
 export interface ReceiptView extends Receipt {
-  // Frontend unpacked view
-  items?: OrderItem[];      // <-- Parsed from itemsSnapshot JSON
+  items?: OrderItem[];
   cashierName?: string;
   tableNumber?: string;
   orderType?: OrderType;
-  printedAt?: string;       // Alias for lastPrintedAt
-  reprintCount?: number;    // Alias for printCount
-  lastReprintedAt?: string;  // Alias for lastPrintedAt
+  printedAt?: string;
+  reprintCount?: number;
+  lastReprintedAt?: string;
   savedAsPdf?: boolean;
 }
 
-// ============ RECEIPT SUMMARY (POS display) ============
+// ============ RECEIPT SUMMARY ============
 export interface ReceiptSummary {
   id: string;
   receiptNo: string;
@@ -419,7 +414,7 @@ export interface ReceiptSummary {
   paymentMethod: string;
 }
 
-// ============ REFUND & VOID (No Prisma models — keep as-is) ============
+// ============ REFUND & VOID ============
 export interface RefundRequest extends BaseEntity {
   orderId: string;
   receiptNo: string;
@@ -444,7 +439,6 @@ export interface VoidRecord {
 }
 
 // ============ INVENTORY ============
-
 export interface StockLog extends BaseEntity {
   type: StockType;
   menuItemId?: string;
@@ -454,14 +448,14 @@ export interface StockLog extends BaseEntity {
   quantity: number;
   orderId?: string;
   reason?: string;
-  staffId?: string;         // <-- FIXED: was non-nullable, now optional (match Prisma)
+  staffId?: string;
   staff?: Staff;
 }
 
 export interface InventoryLog extends BaseEntity {
   menuItemId: string;
   menuItemName: string;
-  action: StockType;         // <-- FIXED: was custom string union, now uses StockType
+  action: StockType;
   qty: number;
   previousStock: number;
   newStock: number;
@@ -487,10 +481,10 @@ export interface InventoryItem extends BaseEntity {
   name: string;
   category: string;
   unit: string;
-  weight?: number;        // ← ADDED: grams per pack/unit
+  weight?: number;
   currentStock: number;
   minStock: number;
-  costPerUnit?: number;   // ← ADDED: for COGS tracking
+  costPerUnit?: number;
   supplier?: string;
   isActive: boolean;
 }
@@ -523,14 +517,14 @@ export interface SyncLog extends BaseEntity {
   deviceId: string;
 }
 
-// ============ QR ORDER (No Prisma model — keep as-is) ============
+// ============ QR ORDER ============
 export interface QrOrder extends BaseEntity {
   tableId?: string;
   tableNumber?: string;
   customerName?: string;
   customerPhone?: string;
-  orderType: 'DINE_IN' | 'PICKUP'; // <-- aligned with Prisma OrderType subset
-  items: OrderItemInput[]; // <-- Use input shape, not DB shape
+  orderType: 'DINE_IN' | 'PICKUP';
+  items: OrderItemInput[];
   total: number;
   status: 'pending' | 'confirmed' | 'cancelled';
   posOrderId?: string;
@@ -545,8 +539,8 @@ export interface Setting extends BaseEntity {
   updatedBy?: string;
 }
 
-// AppSettings = hydrated from multiple Setting rows (frontend config object)
 export interface AppSettings {
+  posId?: string;
   posName: string;
   receiptHeader: string;
   receiptFooter: string;
@@ -569,11 +563,16 @@ export interface AppSettings {
   language: string;
   dateFormat: string;
   timeFormat: string;
+  lastSyncAt?: string;
+  fallbackChannel: 'whatsapp' | 'telegram' | 'sms' | 'none';
+  whatsappNumber: string;    // Admin/owner number
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  smsApiKey?: string;
 }
 
 // ============ API DTOs / Helpers ============
 export interface CreateOrderPayload {
-  // Strict payload for POST /orders — only fields Prisma accepts
   type: OrderType;
   source?: OrderSource;
   totalAmount: number;

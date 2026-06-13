@@ -1,5 +1,3 @@
-// services/api/prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,7 +5,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  // directUrl = env("DIRECT_URL") // optional
 }
 
 // ==================== ENUMS ====================
@@ -61,7 +58,7 @@ enum PaymentMethod {
   QR_PAY
 }
 
-enum TableStatus {
+enum DiningTableStatus {
   AVAILABLE
   OCCUPIED
   RESERVED
@@ -121,7 +118,7 @@ model MenuItem {
   isAvailable Boolean              @default(true)
   stock       Int                  @default(0)
   minStock    Int                  @default(0)
-  options     Json?                // MenuItemOptions[]
+  options     Json?
   ingredients MenuItemIngredient[]
   stockLogs   StockLog[]
   orderItems  OrderItem[]
@@ -129,14 +126,14 @@ model MenuItem {
   updatedAt   DateTime             @updatedAt
 }
 
-model Table {
-  id        String      @id @default(cuid())
-  number    String      @unique
-  capacity  Int         @default(4)
-  status    TableStatus @default(AVAILABLE)
+model DiningTable {
+  id        String           @id @default(cuid())
+  number    String           @unique
+  capacity  Int              @default(4)
+  status    DiningTableStatus @default(AVAILABLE)
   orders    Order[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 }
 
 // ==================== ORDERS ====================
@@ -155,7 +152,7 @@ model Order {
   customerPhone   String?
   customerAddress String?
   tableId         String?
-  table           Table?         @relation(fields: [tableId], references: [id])
+  table           DiningTable?   @relation(fields: [tableId], references: [id])
   pax             Int?
   reservationTime DateTime?
   notes           String?
@@ -176,7 +173,7 @@ model OrderItem {
   quantity   Int
   unitPrice  Decimal
   totalPrice Decimal
-  options    Json?      // MenuItemOptions[]
+  options    Json?
   notes      String?
   status     ItemStatus @default(PENDING)
   createdAt  DateTime   @default(now())
@@ -308,13 +305,13 @@ model Receipt {
   totalAmount    Decimal
   paidAmount     Decimal
   change         Decimal?
-  paymentMethod  PaymentMethod // <-- FIXED: was String, now enum
+  paymentMethod  PaymentMethod
   taxAmount      Decimal?
   cashierId      String
   cashier        Staff         @relation(fields: [cashierId], references: [id])
   posId          String
-  itemsSnapshot  Json          // ReceiptItemsSnapshot (OrderItem[])
-  customerInfo   Json?         // ReceiptCustomerInfo
+  itemsSnapshot  Json
+  customerInfo   Json?
   printCount     Int           @default(0)
   lastPrintedAt  DateTime?
   pdfGeneratedAt DateTime?

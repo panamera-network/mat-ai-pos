@@ -4,11 +4,11 @@
 import {
   type WSMessage,
   type WSMessageType,
-  type StationRegisterPayload,
   createStationRegister,
   createItemDone,
   createOrderDone,
   createPing,
+  createItemUndone,
 } from './protocol';
 
 export interface WSClientOptions {
@@ -112,6 +112,10 @@ export class MATaiWSClient {
   itemDone(orderId: string, itemIndex: number): boolean {
     return this.send(createItemDone(orderId, itemIndex, this.options.stationName));
   }
+
+  itemUndone(orderId: string, itemIndex: number): boolean {
+  return this.send(createItemUndone(orderId, itemIndex, this.options.stationName));
+}
 
   orderDone(orderId: string): boolean {
     return this.send(createOrderDone(orderId, this.options.stationName));

@@ -1,6 +1,6 @@
 // src/tables/dto/create-table.dto.ts
 import { IsString, IsInt, IsEnum, IsOptional } from 'class-validator';
-import { TableStatus } from '@prisma/client';
+import { DiningTableStatus } from '@prisma/client';
 
 export class CreateTableDto {
   @IsString()
@@ -10,6 +10,6 @@ export class CreateTableDto {
   capacity: number;
 
   @IsOptional()
-  @IsEnum(TableStatus)
-  status?: TableStatus;
+  @IsEnum(DiningTableStatus)
+  status?: DiningTableStatus;
 }

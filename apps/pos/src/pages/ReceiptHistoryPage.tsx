@@ -1,3 +1,4 @@
+// apps/pos/src/pages/ReceiptHistoryPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -10,8 +11,10 @@ import {
   ChevronDown,
   Receipt,
 } from 'lucide-react';
+import type { Receipt as ReceiptType, PaymentMethod } from '@mat-ai/types';
 
-interface ReceiptData {
+// Lightweight view for display (no need ReceiptView, just pick what we need)
+interface ReceiptDisplay {
   id: string;
   receiptNo: string;
   tableNumber: string;
@@ -24,7 +27,27 @@ interface ReceiptData {
   paymentMethod: string;
 }
 
-const getReceipts = (): ReceiptData[] => {
+// Convert @mat-ai/types Receipt → local display format
+function toDisplay(receipt: ReceiptType): ReceiptDisplay {
+  return {
+    id: receipt.id,
+    receiptNo: receipt.receiptNo,
+    tableNumber: receipt.order?.table?.number || '-',
+    orderType: receipt.order?.type?.toLowerCase().replace('_', '-') || 'dine-in',
+    time: new Date(receipt.createdAt).toLocaleTimeString('ms-MY'),
+    cashier: receipt.cashier?.name || receipt.cashierId || 'Unknown',
+    posId: receipt.posId,
+    items: (receipt.itemsSnapshot || []).map(item => ({
+      name: item.name,
+      qty: item.quantity,
+      price: item.unitPrice,
+    })),
+    total: receipt.totalAmount,
+    paymentMethod: receipt.paymentMethod,
+  };
+}
+
+const getReceipts = (): ReceiptType[] => {
   try {
     const saved = localStorage.getItem('mat-pos-receipts');
     if (saved) return JSON.parse(saved);
@@ -34,9 +57,8 @@ const getReceipts = (): ReceiptData[] => {
   return [];
 };
 
-const getPaymentIcon = (method: string) => {
-  const m = method?.toUpperCase();
-  switch (m) {
+const getPaymentIcon = (method: PaymentMethod | string): string => {
+  switch (method) {
     case 'CASH':
       return '💵';
     case 'QR_PAY':
@@ -50,7 +72,7 @@ const getPaymentIcon = (method: string) => {
   }
 };
 
-const getOrderTypeColor = (type: string) => {
+const getOrderTypeColor = (type: string): string => {
   switch (type) {
     case 'dine-in':
       return 'bg-blue-100 text-blue-700';
@@ -67,10 +89,11 @@ export const ReceiptHistoryPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilter, setShowFilter] = useState(false);
-  const [receipts, setReceipts] = useState<ReceiptData[]>([]);
+  const [receipts, setReceipts] = useState<ReceiptDisplay[]>([]);
 
   useEffect(() => {
-    setReceipts(getReceipts());
+    const rawReceipts = getReceipts();
+    setReceipts(rawReceipts.map(toDisplay));
   }, []);
 
   const filteredReceipts = receipts.filter(
@@ -80,15 +103,15 @@ export const ReceiptHistoryPage: React.FC = () => {
       r.cashier.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handlePrint = (receipt: ReceiptData) => {
+  const handlePrint = (receipt: ReceiptDisplay) => {
     alert(`Printing receipt ${receipt.receiptNo}...`);
   };
 
-  const handleReprintOrder = (receipt: ReceiptData) => {
+  const handleReprintOrder = (receipt: ReceiptDisplay) => {
     alert(`Reprinting order slip for ${receipt.receiptNo} to kitchen display...`);
   };
 
-  const handleEmail = (receipt: ReceiptData) => {
+  const handleEmail = (receipt: ReceiptDisplay) => {
     const email = prompt('Enter email address:');
     if (email) {
       alert(`Sending receipt ${receipt.receiptNo} to ${email}...`);

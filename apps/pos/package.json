@@ -17,6 +17,7 @@
     "@mat-ai/types": "workspace:*",
     "@mat-ai/ui": "workspace:*",
     "@mat-ai/ws": "workspace:*",
+    "@mat-ai/sync": "workspace:*",
     "date-fns": "^3.3.0",
     "html2canvas": "^1.4.0",
     "jspdf": "^2.5.0",

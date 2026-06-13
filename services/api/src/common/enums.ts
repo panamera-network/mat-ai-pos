@@ -9,7 +9,7 @@ export {
   OrderSource,
   OrderType,
   PaymentMethod,
-  TableStatus,
+  DiningTableStatus,
   StockType,
   LeaveType,
   LeaveStatus,

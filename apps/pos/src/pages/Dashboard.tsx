@@ -4,66 +4,40 @@ import { useNavigate } from 'react-router-dom';
 import {
   Calendar, Bell, Package, Utensils, Settings, Receipt, LogOut,
   Clock, Users, Plus, QrCode, ShoppingBag, Car, Smartphone,
+  Check, X, Edit3
 } from 'lucide-react';
 import { usePOSStore } from '../stores/posStore';
 import { useSocket } from '../hooks/useSocket';
-import { POSOrder, POSOrderItem, toFrontendOrderType, toFrontendStatus } from '../lib/types';  // ← IMPORT BOTH
+import { wsServer } from '../lib/ws';
+import type { Order, DiningTable, OrderType } from '@mat-ai/types';
+import { normalizeBackendOrder, toFrontendOrderType } from '../lib/types';
 
-const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
+const API_URL = import.meta.env.VITE_WS_URL || 'http://localhost:4000';
 
-
-// Table type (local — simple)
-interface DashboardTable {
-  id: string;
-  number: string;
-  status: string;
-  capacity: number;
-}
-
-// Normalize backend order → POS format
-const normalizeOrder = (o: any): POSOrder => {
-  if (!o) return o;
-  
-  const items: POSOrderItem[] = (o.items || []).map((i: any) => ({
-    id: i.id || i.menuItemId || crypto.randomUUID?.() || Math.random().toString(36).slice(2),
-    menuId: i.menuItemId || i.id || '',
-    name: i.name || 'Unknown',
-    price: Number(i.unitPrice) || Number(i.price) || 0,
-    qty: Number(i.quantity) || Number(i.qty) || 0,
-    modifiers: i.options || i.modifiers || [],
-  }));
-
-  return {
-    id: o.id,
-    orderNumber: o.orderNumber || o.id?.slice(-4) || '',
-    items,
-    type: toFrontendOrderType(o.type),
-    status: toFrontendStatus(o.status),
-    tableNumber: o.table?.number || o.tableNumber,
-    customerName: o.customerName,
-    customerPhone: o.customerPhone,
-    customerInfo: o.customerName ? {
-      name: o.customerName,
-      phone: o.customerPhone || '',
-    } : undefined,
-    reservationTime: o.reservationTime,
-    subtotal: 0,
-    tax: 0,
-    total: Number(o.totalAmount) || Number(o.total) || 0,
-    createdAt: o.createdAt || new Date().toISOString(),
-    updatedAt: o.updatedAt || new Date().toISOString(),
+// Frontend display helpers for order type
+const getOrderTypeLabel = (type: OrderType): string => {
+  const labels: Record<OrderType, string> = {
+    DINE_IN: 'Dine In',
+    PICKUP: 'Takeaway',
+    DELIVERY: 'Delivery',
+    RESERVATION: 'Reservation',
   };
+  return labels[type] || type;
 };
+
+// Check if order is from QR Menu
+const isQrOrder = (order: Order): boolean => order.source === 'QR_MENU';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const { currentStaff, logout } = usePOSStore();
   const { socket, connected } = useSocket('pos');
 
-  const [activeOrders, setActiveOrders] = useState<POSOrder[]>([]);
-  const [tables, setTables] = useState<DashboardTable[]>([]);
-  const [wsOrders, setWsOrders] = useState<POSOrder[]>([]);
+  const [activeOrders, setActiveOrders] = useState<Order[]>([]);
+  const [tables, setTables] = useState<DiningTable[]>([]);
+  const [wsOrders, setWsOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingQrId, setProcessingQrId] = useState<string | null>(null);
 
   // Fetch data from backend API
   useEffect(() => {
@@ -78,7 +52,7 @@ export function Dashboard() {
         const orders = Array.isArray(ordersData) ? ordersData : [];
         const tablesData = await tablesRes.json();
 
-        setActiveOrders(orders.map(normalizeOrder));
+        setActiveOrders(orders.map(normalizeBackendOrder));
         setTables(tablesData);
       } catch (err) {
         console.error('Failed to fetch data:', err);
@@ -98,7 +72,7 @@ export function Dashboard() {
 
     socket.on('pos:newOrder', (order) => {
       console.log('📱 New QR order:', order);
-      setWsOrders(prev => [normalizeOrder(order), ...prev]);
+      setWsOrders(prev => [normalizeBackendOrder(order), ...prev]);
       new Audio('/notification.mp3').play().catch(() => {});
     });
 
@@ -107,8 +81,10 @@ export function Dashboard() {
     });
 
     socket.on('order:updated', (order) => {
-      const normalized = normalizeOrder(order);
+      const normalized = normalizeBackendOrder(order);
       setActiveOrders(prev => prev.map(o => o.id === normalized.id ? { ...o, ...normalized } : o));
+      // Also update in wsOrders if present
+      setWsOrders(prev => prev.map(o => o.id === normalized.id ? { ...o, ...normalized } : o).filter(o => o.status !== 'CANCELLED'));
     });
 
     return () => {
@@ -118,33 +94,46 @@ export function Dashboard() {
     };
   }, [socket]);
 
+  useEffect(() => {
+    // Start local WS server for KDS connections
+    if (!wsServer.isRunning) {
+      wsServer.start();
+    }
+    
+    return () => {
+      // Jangan stop — KDS perlu stay connected
+      // wsServer.stop(); 
+    };
+  }, []);
+
   // Combine API orders + WS orders (deduplicate by id)
-  const allOrdersMap = new Map<string, POSOrder>();
+  const allOrdersMap = new Map<string, Order>();
   [...activeOrders, ...wsOrders].forEach(o => allOrdersMap.set(o.id, o));
   const allOrders = Array.from(allOrdersMap.values());
 
-  const dineInOrders = allOrders.filter((o) => o.type === 'dine-in');
-  const takeawayOrders = allOrders.filter((o) => o.type === 'takeaway');
-  const deliveryOrders = allOrders.filter((o) => o.type === 'delivery');
-  const reservationOrders = allOrders.filter((o) => o.type === 'reservation');
-  const qrOrdersList = allOrders.filter((o) => o.isQrOrder);
+  // Filter by OrderType enum
+  const dineInOrders = allOrders.filter((o) => o.type === 'DINE_IN');
+  const takeawayOrders = allOrders.filter((o) => o.type === 'PICKUP');
+  const deliveryOrders = allOrders.filter((o) => o.type === 'DELIVERY');
+  const reservationOrders = allOrders.filter((o) => o.type === 'RESERVATION');
+  const qrOrdersList = allOrders.filter((o) => isQrOrder(o) && o.status === 'PENDING');
 
   const handleLogout = () => { logout(); navigate('/'); };
 
-  const handleOrderClick = (order: POSOrder) => {
+  const handleOrderClick = (order: Order) => {
     navigate('/pos', {
       state: {
         editMode: true,
-        order: order,
-        tableNumber: order.tableNumber,
-        orderType: order.type,
+        order: normalizeBackendOrder(order),
+        tableNumber: order.table?.number,
+        orderType: toFrontendOrderType(order.type),
       },
     });
   };
 
-  const handleTableClick = (table: DashboardTable) => {
-    if (table.status === 'occupied') {
-      const order = dineInOrders.find((o) => o.tableNumber === table.number);
+  const handleTableClick = (table: DiningTable) => {
+    if (table.status === 'OCCUPIED') {
+      const order = dineInOrders.find((o) => o.table?.number === table.number);
       if (order) handleOrderClick(order);
       else navigate('/pos', { state: { tableNumber: table.number, orderType: 'dine-in' } });
     } else {
@@ -160,44 +149,141 @@ export function Dashboard() {
     document.getElementById('qr-orders-section')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-// ============================================
-// HELPERS
-// ============================================
+  // ============================================
+  // QR ORDER HANDLERS
+  // ============================================
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'available':
-      return 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100';
-    case 'occupied':
-      return 'bg-red-50 border-red-200 text-red-800 hover:bg-red-100';
-    case 'reserved':
-      return 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100';
-    default:
-      return 'bg-gray-50 border-gray-200 text-gray-800';
-  }
-};
+  /** Confirm QR Order → Backend API → WS Broadcast → KDS */
+  const handleConfirmQrOrder = async (order: Order) => {
+    setProcessingQrId(order.id);
+    try {
+      // 1. Update order status to PREPARING (confirmed)
+      const res = await fetch(`${API_URL}/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'PREPARING',
+          source: 'POS', // Mark as confirmed by POS
+          confirmedBy: currentStaff?.id || 'system',
+          confirmedAt: new Date().toISOString(),
+        }),
+      });
 
-const getStatusDot = (status: string) => {
-  switch (status) {
-    case 'available':
-      return 'bg-emerald-500';
-    case 'occupied':
-      return 'bg-red-500';
-    case 'reserved':
-      return 'bg-amber-500';
-    default:
-      return 'bg-gray-500';
-  }
-};
+      if (!res.ok) {
+        throw new Error(`Failed to confirm order: ${res.status}`);
+      }
 
-if (loading) {
+      const updatedOrder = await res.json();
+      const normalized = normalizeBackendOrder(updatedOrder);
+
+      // 2. Broadcast to KDS via LOCAL WebSocket (MATaiWSServer on port 3001)
+      // NOT Socket.IO — KDS connects directly to POS WS
+      wsServer.broadcastOrder(normalized);
+
+      // 3. Remove from QR pending list
+      setWsOrders(prev => prev.filter(o => o.id !== order.id));
+      setActiveOrders(prev => prev.map(o => o.id === order.id ? normalized : o));
+
+      // 4. Play success sound
+      new Audio('/success.mp3').play().catch(() => {});
+
+    } catch (err) {
+      console.error('❌ Failed to confirm QR order:', err);
+      alert('Failed to confirm order. Please try again.');
+    } finally {
+      setProcessingQrId(null);
+    }
+  };
+
+  /** Edit QR Order → Navigate to POSPage with order data */
+  const handleEditQrOrder = (order: Order) => {
+    navigate('/pos', {
+      state: {
+        editMode: true,
+        order: normalizeBackendOrder(order),
+        tableNumber: order.table?.number,
+        orderType: toFrontendOrderType(order.type),
+        isQrEdit: true, // Flag to indicate QR order edit
+      },
+    });
+  };
+
+  /** Reject/Cancel QR Order */
+  const handleRejectQrOrder = async (order: Order) => {
+    if (!confirm(`Are you sure you want to reject order #${order.orderNumber || order.id.slice(-4)}?`)) {
+      return;
+    }
+
+    setProcessingQrId(order.id);
+    try {
+      const res = await fetch(`${API_URL}/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'CANCELLED',
+          cancelledBy: currentStaff?.id || 'system',
+          cancelledAt: new Date().toISOString(),
+          cancellationReason: 'Rejected by POS staff',
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to cancel order: ${res.status}`);
+      }
+
+      // Remove from lists
+      setWsOrders(prev => prev.filter(o => o.id !== order.id));
+      setActiveOrders(prev => prev.filter(o => o.id !== order.id));
+
+    } catch (err) {
+      console.error('❌ Failed to reject QR order:', err);
+      alert('Failed to reject order. Please try again.');
+    } finally {
+      setProcessingQrId(null);
+    }
+  };
+
+  // ============================================
+  // HELPERS
+  // ============================================
+
+  const getStatusColor = (status: DiningTable['status']) => {
+    switch (status) {
+      case 'AVAILABLE':
+        return 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100';
+      case 'OCCUPIED':
+        return 'bg-red-50 border-red-200 text-red-800 hover:bg-red-100';
+      case 'RESERVED':
+        return 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100';
+      case 'CLEANING':
+        return 'bg-gray-50 border-gray-200 text-gray-800';
+      default:
+        return 'bg-gray-50 border-gray-200 text-gray-800';
+    }
+  };
+
+  const getStatusDot = (status: DiningTable['status']) => {
+    switch (status) {
+      case 'AVAILABLE':
+        return 'bg-emerald-500';
+      case 'OCCUPIED':
+        return 'bg-red-500';
+      case 'RESERVED':
+        return 'bg-amber-500';
+      case 'CLEANING':
+        return 'bg-gray-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full" />
       </div>
     );
   }
-
 
   const navItems = [
     { icon: Receipt, label: 'Receipt', path: '/receipts' },
@@ -224,10 +310,13 @@ if (loading) {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <button 
+            onClick={handleQROrder}
+            className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
             <Bell className="w-5 h-5 text-gray-600" />
             {qrOrdersList.length > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+              <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
                 {qrOrdersList.length}
               </span>
             )}
@@ -299,38 +388,81 @@ if (loading) {
               <div id="qr-orders-section">
                 <h3 className="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2 flex items-center gap-1">
                   <Smartphone className="w-3 h-3" />
-                  QR Orders ({qrOrdersList.length})
+                  QR Orders ({qrOrdersList.length}) — Needs Review
                 </h3>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 gap-3">
                   {qrOrdersList.map((order) => (
-                    <button
+                    <div
                       key={order.id}
-                      onClick={() => handleOrderClick(order)}
-                      className="relative p-4 rounded-xl border-2 border-primary-200 bg-primary-50 
-                               hover:bg-primary-100 hover:border-primary-400 transition-all 
-                               hover:scale-105 active:scale-95 text-left"
+                      className="relative p-4 rounded-xl border-2 border-primary-200 bg-primary-50"
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-lg text-primary-700">
-                          {order.orderNumber || order.id.slice(-4)}
-                        </span>
-                        <Smartphone className="w-4 h-4 text-primary-500" />
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-lg text-primary-700">
+                              {order.orderNumber || order.id.slice(-4)}
+                            </span>
+                            <Smartphone className="w-4 h-4 text-primary-500" />
+                            <span className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
+                              {getOrderTypeLabel(order.type)}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-gray-700">
+                            {order.customerInfo?.name || 'Guest'}
+                            {order.customerInfo?.phone && ` · ${order.customerInfo.phone}`}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {order.items.reduce((sum, i) => sum + i.quantity, 0)} items · 
+                            RM {order.totalAmount.toFixed(2)}
+                          </p>
+                          {order.table?.number && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              🪑 Table {order.table.number}
+                            </p>
+                          )}
+                          <div className="mt-2 text-xs text-gray-400">
+                            {order.items.slice(0, 3).map(item => (
+                              <span key={item.id} className="mr-2">
+                                {item.quantity}x {item.name}
+                              </span>
+                            ))}
+                            {order.items.length > 3 && <span>+{order.items.length - 3} more</span>}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-col gap-2 ml-4">
+                          <button
+                            onClick={() => handleConfirmQrOrder(order)}
+                            disabled={processingQrId === order.id}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-50"
+                          >
+                            {processingQrId === order.id ? (
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <Check className="w-4 h-4" />
+                            )}
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => handleEditQrOrder(order)}
+                            disabled={processingQrId === order.id}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleRejectQrOrder(order)}
+                            disabled={processingQrId === order.id}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 active:scale-95 transition-all disabled:opacity-50"
+                          >
+                            <X className="w-4 h-4" />
+                            Reject
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-sm font-medium text-gray-700 truncate">
-                        {order.customerName || order.customerInfo?.name || 'Guest'}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {order.items.reduce((sum: any, i: { qty: any; }) => sum + i.qty, 0)} items
-                      </p>
-                      <p className="text-sm font-bold text-primary-600 mt-2">
-                        RM {order.total.toFixed(2)}
-                      </p>
-                      {order.tableNumber && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          🪑 {order.tableNumber}
-                        </p>
-                      )}
-                    </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -355,14 +487,14 @@ if (loading) {
                       <div className={`w-3 h-3 rounded-full ${getStatusDot(table.status)}`} />
                     </div>
                     <p className="text-sm font-medium opacity-90">
-                      {table.status === 'occupied' ? 'Occupied' : table.status}
+                      {table.status === 'OCCUPIED' ? 'Occupied' : table.status.toLowerCase()}
                     </p>
-                    {table.status === 'occupied' && (
+                    {table.status === 'OCCUPIED' && (
                       <p className="text-xs opacity-60 mt-1">
                         RM{' '}
                         {dineInOrders
-                          .find((o) => o.tableNumber === table.number)
-                          ?.total.toFixed(2) || '0.00'}
+                          .find((o) => o.table?.number === table.number)
+                          ?.totalAmount.toFixed(2) || '0.00'}
                       </p>
                     )}
                   </button>
@@ -390,13 +522,13 @@ if (loading) {
                         <ShoppingBag className="w-4 h-4 text-orange-500" />
                       </div>
                       <p className="text-sm font-medium truncate">
-                        {order.customerInfo?.name || order.customerName || 'Guest'}
+                        {order.customerInfo?.name || 'Guest'}
                       </p>
                       <p className="text-xs opacity-70 mt-1">
-                        {order.items.reduce((sum: any, i: { qty: any; }) => sum + i.qty, 0)} items
+                        {order.items.reduce((sum, i) => sum + i.quantity, 0)} items
                       </p>
                       <p className="text-sm font-bold mt-2">
-                        RM {order.total.toFixed(2)}
+                        RM {order.totalAmount.toFixed(2)}
                       </p>
                     </button>
                   ))}
@@ -424,13 +556,13 @@ if (loading) {
                         <Car className="w-4 h-4 text-purple-500" />
                       </div>
                       <p className="text-sm font-medium truncate">
-                        {order.customerInfo?.name || order.customerName || 'Guest'}
+                        {order.customerInfo?.name || 'Guest'}
                       </p>
                       <p className="text-xs opacity-70 mt-1">
-                        {order.items.reduce((sum: any, i: { qty: any; }) => sum + i.qty, 0)} items
+                        {order.items.reduce((sum, i) => sum + i.quantity, 0)} items
                       </p>
                       <p className="text-sm font-bold mt-2">
-                        RM {order.total.toFixed(2)}
+                        RM {order.totalAmount.toFixed(2)}
                       </p>
                       {order.customerInfo?.address && (
                         <p className="text-xs opacity-70 mt-1 truncate">
@@ -463,7 +595,7 @@ if (loading) {
                         <Calendar className="w-4 h-4 text-pink-500" />
                       </div>
                       <p className="text-sm font-medium truncate">
-                        {order.customerInfo?.name || order.customerName || 'Guest'}
+                        {order.customerInfo?.name || 'Guest'}
                       </p>
                       {order.reservationTime && (
                         <p className="text-xs text-pink-600 mt-1">
@@ -471,10 +603,10 @@ if (loading) {
                         </p>
                       )}
                       <p className="text-xs opacity-70 mt-1">
-                        {order.items.reduce((sum: any, i: { qty: any; }) => sum + i.qty, 0)} items
+                        {order.items.reduce((sum, i) => sum + i.quantity, 0)} items
                       </p>
                       <p className="text-sm font-bold mt-2">
-                        RM {order.total.toFixed(2)}
+                        RM {order.totalAmount.toFixed(2)}
                       </p>
                     </button>
                   ))}
@@ -505,9 +637,9 @@ if (loading) {
           </div>
 
           <div className="bg-white rounded-xl border shadow-sm p-4">
-            <p className="text-xs text-gray-500 mb-1">Today's Sales</p>
+            <p className="text-xs text-gray-500 mb-1">Today\'s Sales</p>
             <p className="text-xl font-bold text-gray-900">
-              RM {activeOrders.reduce((sum: any, o: { total: any; }) => sum + o.total, 0).toFixed(2)}
+              RM {activeOrders.reduce((sum, o) => sum + o.totalAmount, 0).toFixed(2)}
             </p>
             <p className="text-xs text-emerald-600 mt-1 font-medium">Active only</p>
           </div>
@@ -558,4 +690,4 @@ if (loading) {
       </div>
     </div>
   );
-};
+}

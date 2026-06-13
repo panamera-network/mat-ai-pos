@@ -6,7 +6,6 @@ import {
   Save,
   Store,
   DollarSign,
-  Printer,
   Monitor,
   Cloud,
   RefreshCw,
@@ -20,7 +19,15 @@ import {
   Settings2,
   LayoutGrid,
 } from 'lucide-react';
-import type { Table, Station } from '@mat-ai/types';
+import type { DiningTable, Station } from '@mat-ai/types';
+import {
+  Input,
+  Switch,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from '@mat-ai/ui';
 
 // ============================================
 // TYPES (UI-only, not in @mat-ai/types)
@@ -135,7 +142,7 @@ export const SettingsPage: React.FC = () => {
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; msg: string } | null>(null);
 
   // Table states
-  const [tables, setTables] = useState<Table[]>(() => {
+  const [tables, setTables] = useState<DiningTable[]>(() => {
     const saved = localStorage.getItem('mat-pos-tables');
     return saved
       ? JSON.parse(saved)
@@ -149,7 +156,7 @@ export const SettingsPage: React.FC = () => {
         }));
   });
   const [showTableModal, setShowTableModal] = useState(false);
-  const [editingTable, setEditingTable] = useState<Table | null>(null);
+  const [editingTable, setEditingTable] = useState<DiningTable | null>(null);
   const [formTableNumber, setFormTableNumber] = useState('');
   const [formTableCapacity, setFormTableCapacity] = useState('4');
 
@@ -291,7 +298,7 @@ export const SettingsPage: React.FC = () => {
     setShowTableModal(true);
   };
 
-  const openEditTable = (table: Table) => {
+  const openEditTable = (table: DiningTable) => {
     setEditingTable(table);
     setFormTableNumber(table.number);
     setFormTableCapacity(table.capacity.toString());
@@ -365,18 +372,22 @@ export const SettingsPage: React.FC = () => {
     icon: React.ReactNode;
     children: React.ReactNode;
   }> = ({ title, icon, children }) => (
-    <div className="bg-white rounded-2xl shadow-sm border p-6 mb-4">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
-          {icon}
+    <Card className="mb-4">
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
+            {icon}
+          </div>
+          <CardTitle>{title}</CardTitle>
         </div>
-        <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-      </div>
-      {children}
-    </div>
+      </CardHeader>
+      <CardContent>
+        {children}
+      </CardContent>
+    </Card>
   );
 
-  const Input: React.FC<{
+  const FormInput: React.FC<{
     label: string;
     value: string | number;
     onChange: (value: string) => void;
@@ -387,36 +398,28 @@ export const SettingsPage: React.FC = () => {
       <label className="block text-sm font-medium text-gray-700 mb-1">
         {label}
       </label>
-      <input
+      <Input  // ← Now this is @mat-ai/ui Input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+        fullWidth
       />
     </div>
   );
 
-  const Toggle: React.FC<{
+  const FormToggle: React.FC<{
     label: string;
     checked: boolean;
     onChange: (checked: boolean) => void;
   }> = ({ label, checked, onChange }) => (
-    <label className="flex items-center justify-between py-2 cursor-pointer">
+    <div className="flex items-center justify-between py-2">
       <span className="text-sm font-medium text-gray-700">{label}</span>
-      <div
-        onClick={() => onChange(!checked)}
-        className={`relative w-12 h-6 rounded-full transition-colors ${
-          checked ? 'bg-primary-600' : 'bg-gray-300'
-        }`}
-      >
-        <div
-          className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-            checked ? 'translate-x-6' : 'translate-x-0.5'
-          }`}
-        />
-      </div>
-    </label>
+      <Switch
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+    </div>
   );
 
   // ============================================
@@ -458,17 +461,17 @@ export const SettingsPage: React.FC = () => {
         <div className="max-w-3xl mx-auto">
           {/* POS Settings */}
           <Section title="POS Settings" icon={<Store className="w-5 h-5 text-primary-600" />}>
-            <Input
+            <FormInput
               label="POS Name"
               value={settings.posName}
               onChange={(v) => handleChange('posName', v)}
             />
-            <Input
+            <FormInput
               label="Receipt Header"
               value={settings.receiptHeader}
               onChange={(v) => handleChange('receiptHeader', v)}
             />
-            <Input
+            <FormInput
               label="Receipt Footer"
               value={settings.receiptFooter}
               onChange={(v) => handleChange('receiptFooter', v)}
@@ -578,26 +581,26 @@ export const SettingsPage: React.FC = () => {
             title="Tax & Service Charge"
             icon={<DollarSign className="w-5 h-5 text-primary-600" />}
           >
-            <Toggle
+            <FormToggle
               label={`Enable SST (${settings.taxRate}%)`}
               checked={settings.taxEnabled}
               onChange={(v) => handleChange('taxEnabled', v)}
             />
             {settings.taxEnabled && (
-              <Input
+              <FormInput
                 label="Tax Rate (%)"
                 value={settings.taxRate}
                 onChange={(v) => handleChange('taxRate', parseFloat(v) || 0)}
                 type="number"
               />
             )}
-            <Toggle
+            <FormToggle
               label={`Enable Service Charge (${settings.serviceChargeRate}%)`}
               checked={settings.serviceChargeEnabled}
               onChange={(v) => handleChange('serviceChargeEnabled', v)}
             />
             {settings.serviceChargeEnabled && (
-              <Input
+              <FormInput
                 label="Service Charge Rate (%)"
                 value={settings.serviceChargeRate}
                 onChange={(v) =>
@@ -713,13 +716,13 @@ export const SettingsPage: React.FC = () => {
 
           {/* Cloud Sync */}
           <Section title="Cloud Sync" icon={<Cloud className="w-5 h-5 text-primary-600" />}>
-            <Toggle
+            <FormToggle
               label="Auto Sync"
               checked={settings.autoSync}
               onChange={(v) => handleChange('autoSync', v)}
             />
             {settings.autoSync && (
-              <Input
+              <FormInput
                 label="Sync Interval (minutes)"
                 value={settings.syncInterval}
                 onChange={(v) => handleChange('syncInterval', parseInt(v) || 30)}

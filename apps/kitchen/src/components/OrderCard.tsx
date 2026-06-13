@@ -1,6 +1,7 @@
 // apps/kitchen/src/components/OrderCard.tsx
 import React from 'react';
 import { CheckCircle, UtensilsCrossed, Package, Bike, Calendar } from 'lucide-react';
+import { Card, CardHeader, Badge, Button } from '@mat-ai/ui';
 import type { KitchenTicket } from '../types/kitchen';
 import { getTimerState, TIMER_COLORS } from '../utils/timer';
 import { TimerBadge } from './TimerBadge';
@@ -8,85 +9,77 @@ import { OrderItemComponent } from './OrderItem';
 
 interface OrderCardProps {
   ticket: KitchenTicket;
-  onToggleItem: (orderId: string, itemId: string) => void; // Was itemIndex: number
+  onToggleItem: (orderId: string, itemId: string) => void;
   onDone: (orderId: string) => void;
 }
 
-const ORDER_TYPE_ICONS: Record<string, React.ReactNode> = {
-  'dine-in': <UtensilsCrossed className="w-3 h-3" />,
-  'takeaway': <Package className="w-3 h-3" />,
-  'delivery': <Bike className="w-3 h-3" />,
-  'reservation': <Calendar className="w-3 h-3" />, // Tambah kalau ada
-};
-
-const ORDER_TYPE_LABELS: Record<string, string> = {
-  'dine-in': 'Dine In',
-  'takeaway': 'Takeaway',
-  'delivery': 'Delivery',
-  'reservation': 'Reservation', // Tambah kalau ada
+const ORDER_TYPE_CONFIG: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+  'dine-in': { icon: <UtensilsCrossed className="w-3 h-3" />, label: 'Dine In', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
+  'takeaway': { icon: <Package className="w-3 h-3" />, label: 'Takeaway', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' },
+  'delivery': { icon: <Bike className="w-3 h-3" />, label: 'Delivery', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' },
+  'reservation': { icon: <Calendar className="w-3 h-3" />, label: 'Reservation', color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300' },
 };
 
 export const OrderCard: React.FC<OrderCardProps> = ({ ticket, onToggleItem, onDone }) => {
   const timer = getTimerState(ticket.orderedAt);
   const colors = TIMER_COLORS[timer.color];
+  const typeConfig = ORDER_TYPE_CONFIG[ticket.orderType] || ORDER_TYPE_CONFIG['dine-in'];
 
   const handleDone = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onDone(ticket.orderId);
+    if (ticket.allDone) {
+      onDone(ticket.orderId);
+    }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full w-full">
-      {/* Header */}
-      <div className={`px-3 py-2.5 ${colors.bg} border-b ${colors.border} flex-shrink-0`}>
+    <Card variant="default" padding="none" className="h-full flex flex-col overflow-hidden">
+      {/* Header with timer color */}
+      <div className={`px-4 py-3 ${colors.bg} border-b ${colors.border}`}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-base font-bold text-gray-900 truncate">
-                {ticket.tableNumber ? `Table ${ticket.tableNumber}` : `#${ticket.orderId.slice(-6)}`}
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 truncate">
+                {ticket.tableNumber ? `Table ${ticket.tableNumber}` : `#${ticket.orderNumber}`}
               </h3>
               <TimerBadge orderedAt={ticket.orderedAt} />
             </div>
-            <p className="text-[11px] text-gray-600 mt-0.5">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
               {new Date(ticket.orderedAt).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
               {ticket.customerName && ` • ${ticket.customerName}`}
             </p>
           </div>
-          <button
+          <Button
+            variant="success"
+            size="sm"
             onClick={handleDone}
             disabled={!ticket.allDone}
-            className={`
-              flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex-shrink-0
-              ${ticket.allDone
-                ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              }
-            `}
+            leftIcon={<CheckCircle className="w-3.5 h-3.5" />}
+            className="flex-shrink-0"
           >
-            <CheckCircle className="w-3.5 h-3.5" />
             Done
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Order Type Badge */}
-      <div className="px-3 py-1.5 border-b border-gray-100 flex-shrink-0">
-        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-[11px] font-medium">
-          {ORDER_TYPE_ICONS[ticket.orderType] || ORDER_TYPE_ICONS['dine-in']}
-          {ORDER_TYPE_LABELS[ticket.orderType] || ticket.orderType}
-        </div>
+      <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
+        <Badge variant="default" size="sm" className={typeConfig.color}>
+          {typeConfig.icon}
+          <span className="ml-1">{typeConfig.label}</span>
+        </Badge>
       </div>
 
-      {/* Items - flex-1 to fill remaining space */}
-      <div className="flex-1 p-2 space-y-1 overflow-y-auto min-h-0">
+      {/* Items */}
+      <div className="flex-1 p-3 space-y-1.5 overflow-y-auto min-h-0">
         {ticket.items.map((item) => (
           <OrderItemComponent
-            key={item.id} // Use item.id instead of index
+            key={item.id}
             item={item}
-            onToggle={() => onToggleItem(ticket.orderId, item.id)} // Pass item.id          
+            onToggle={() => onToggleItem(ticket.orderId, item.id)}
           />
         ))}
       </div>
-    </div>
+    </Card>
   );
 };

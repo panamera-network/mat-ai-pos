@@ -1,9 +1,48 @@
-// app/admin/src/pages/SettingsPage.tsx
+// apps/admin/src/pages/SettingsPage.tsx
+import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { LogOut, Store, Percent, Printer, User, Shield, Bell, CreditCard } from 'lucide-react';
+import { LogOut, Store, Percent, Printer, User, Shield, Bell, CreditCard, AlertTriangle } from 'lucide-react';
+import { Input, Select } from '@mat-ai/ui';
+
+interface FallbackSettings {
+  fallbackChannel: 'whatsapp' | 'telegram' | 'sms' | 'none';
+  whatsappNumber: string;
+  telegramBotToken: string;
+  telegramChatId: string;
+}
 
 export function SettingsPage() {
   const { staff, logout } = useAuth();
+
+  // Fallback settings state
+  const [fallbackSettings, setFallbackSettings] = useState<FallbackSettings>(() => {
+    const saved = localStorage.getItem('mat-pos-settings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          fallbackChannel: parsed.fallbackChannel || 'none',
+          whatsappNumber: parsed.whatsappNumber || '',
+          telegramBotToken: parsed.telegramBotToken || '',
+          telegramChatId: parsed.telegramChatId || '',
+        };
+      } catch {
+        // fall through to default
+      }
+    }
+    return {
+      fallbackChannel: 'none',
+      whatsappNumber: '',
+      telegramBotToken: '',
+      telegramChatId: '',
+    };
+  });
+
+  const handleFallbackChange = (field: keyof FallbackSettings, value: string) => {
+    const updated = { ...fallbackSettings, [field]: value };
+    setFallbackSettings(updated);
+    localStorage.setItem('mat-pos-settings', JSON.stringify(updated));
+  };
 
   const settingsGroups = [
     {
@@ -30,10 +69,18 @@ export function SettingsPage() {
     },
   ];
 
+  const fallbackOptions = [
+    { value: 'whatsapp', label: 'WhatsApp (Default)' },
+    { value: 'telegram', label: 'Telegram' },
+    { value: 'sms', label: 'SMS' },
+    { value: 'none', label: 'Disable Fallback' },
+  ];
+
   return (
     <div className="space-y-4 md:space-y-6">
       <h1 className="text-xl md:text-2xl font-bold text-gray-900">Settings</h1>
 
+      {/* User Profile Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 md:p-6 flex items-center gap-4 border-b border-gray-100">
           <div className="w-14 h-14 md:w-16 md:h-16 bg-blue-100 rounded-2xl flex items-center justify-center">
@@ -46,6 +93,7 @@ export function SettingsPage() {
         </div>
       </div>
 
+      {/* Settings Groups */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {settingsGroups.map((group) => (
           <div key={group.title} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -67,6 +115,61 @@ export function SettingsPage() {
         ))}
       </div>
 
+      {/* Offline Fallback Settings */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-4 md:px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-amber-600" />
+          </div>
+          <h2 className="font-semibold text-gray-900">Offline Fallback</h2>
+        </div>
+        <div className="p-4 md:p-6 space-y-4">
+          <Select
+            label="Fallback Channel"
+            value={fallbackSettings.fallbackChannel}
+            onChange={(e) => handleFallbackChange('fallbackChannel', e.target.value)}
+            options={fallbackOptions}
+            fullWidth
+          />
+
+          {fallbackSettings.fallbackChannel === 'whatsapp' && (
+            <Input
+              label="WhatsApp Number (with country code)"
+              value={fallbackSettings.whatsappNumber}
+              onChange={(e) => handleFallbackChange('whatsappNumber', e.target.value)}
+              placeholder="60123456789"
+              fullWidth
+            />
+          )}
+
+          {fallbackSettings.fallbackChannel === 'telegram' && (
+            <div className="space-y-3">
+              <Input
+                label="Bot Token"
+                value={fallbackSettings.telegramBotToken}
+                onChange={(e) => handleFallbackChange('telegramBotToken', e.target.value)}
+                placeholder="123456:ABC-DEF..."
+                fullWidth
+              />
+              <Input
+                label="Chat ID"
+                value={fallbackSettings.telegramChatId}
+                onChange={(e) => handleFallbackChange('telegramChatId', e.target.value)}
+                placeholder="-1001234567890"
+                fullWidth
+              />
+            </div>
+          )}
+
+          {fallbackSettings.fallbackChannel === 'sms' && (
+            <div className="p-3 bg-gray-50 rounded-xl text-sm text-gray-500">
+              SMS fallback coming soon. Please use WhatsApp or Telegram for now.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Logout */}
       <button
         onClick={logout}
         className="w-full md:w-auto md:px-8 flex items-center justify-center gap-2 py-4 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors"
