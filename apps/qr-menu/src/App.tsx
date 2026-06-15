@@ -1,3 +1,4 @@
+// App.tsx
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { OrderTypePage } from './pages/OrderTypePage';
@@ -6,14 +7,20 @@ import { CartPage } from './pages/CartPage';
 import { OrderStatusPage } from './pages/OrderStatusPage';
 import { ReceiptPage } from './pages/ReceiptPage';
 
-const App: React.FC = () => {
-  // Load menu data from localStorage (synced from POS settings)
-  useEffect(() => {
-    const menuItems = localStorage.getItem('mat-pos-menu-items');
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-    if (!menuItems) {
-      console.warn('[QR] No menu found. Open POS Settings to configure menu first.');
-    }
+const App: React.FC = () => {
+  useEffect(() => {
+    fetch(`${API_URL}/menu-items`)
+      .then(res => res.json())
+      .then(data => {
+        if (!data || data.length === 0) {
+          console.warn('[QR] No menu found. Admin need to configure menu first.');
+        }
+      })
+      .catch(err => {
+        console.error('[QR] Failed to load menu:', err);
+      });
   }, []);
 
   return (

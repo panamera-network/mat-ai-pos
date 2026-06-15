@@ -9,7 +9,7 @@ import type { Order, PaymentMethod } from '@mat-ai/types';
 import { normalizeBackendOrder, generateReceipt } from '../lib/types';
 import { db } from '@mat-ai/db';
 import { syncQueue } from '@mat-ai/sync';
-import { usePOSStore } from '../stores/posStore';
+import { useAuthStore } from '@mat-ai/backoffice';
 
 const API_URL = import.meta.env.VITE_WS_URL || 'http://localhost:4000';
 
@@ -32,7 +32,7 @@ export const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const { orderId } = useParams();
   const location = useLocation();
-  const { currentStaff } = usePOSStore();
+  const { staff } = useAuthStore();
 
   const [order, setOrder] = useState<Order | null>(
     location.state?.order ? normalizeBackendOrder(location.state.order) : null
@@ -167,7 +167,7 @@ export const PaymentPage: React.FC = () => {
         updatedOrder,
         selectedMethodData.backendValue,
         total,
-        currentStaff?.id || 'unknown',
+        staff?.id || 'unknown',
         posId
       );
 
@@ -200,7 +200,7 @@ export const PaymentPage: React.FC = () => {
         order,
         selectedMethodData.backendValue,
         total,
-        currentStaff?.id || 'unknown',
+        staff?.id || 'unknown',
         posId
       );
 

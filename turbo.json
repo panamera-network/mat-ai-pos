@@ -1,12 +1,17 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
+  "globalEnv": ["DATABASE_URL", "PORT", "CORS_ORIGIN", "NODE_ENV"],
   "pipeline": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "start:dev": {
       "cache": false,
       "persistent": true
     },

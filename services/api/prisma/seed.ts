@@ -27,6 +27,28 @@ function getWorkingDays(startDate: Date, weeks: number): Date[] {
   return days;
 }
 
+// Convert old flat options → MenuItemOption[] format
+function convertOptions(
+  oldOptions: Record<string, number> | undefined,
+  optionName = 'Add-ons'
+): any {
+  if (!oldOptions || Object.keys(oldOptions).length === 0) return undefined;
+
+  return [{
+    id: 'opt-' + Math.random().toString(36).substr(2, 9),
+    name: optionName,
+    required: false,
+    multiSelect: true,
+    choices: Object.entries(oldOptions).map(([name, priceModifier], idx) => ({
+      id: 'ch-' + idx + '-' + Math.random().toString(36).substr(2, 5),
+      name,
+      priceModifier,
+      isDefault: false,
+      sortOrder: idx,
+    })),
+  }];
+}
+
 // ==================== MAIN SEED ====================
 async function main() {
   console.log('🌱 Starting RICH seed (idempotent)...');
@@ -102,7 +124,7 @@ async function main() {
   }
   console.log('✅ Categories seeded');
 
-  // ==================== MENU ITEMS ====================
+  // ==================== MENU ITEMS (NEW MenuItemOption[] FORMAT) ====================
   const nasiGoreng = await prisma.category.findUnique({ where: { name: 'Nasi Goreng' } });
   const mee = await prisma.category.findUnique({ where: { name: 'Mee & Kuey Teow' } });
   const western = await prisma.category.findUnique({ where: { name: 'Western' } });
@@ -111,26 +133,162 @@ async function main() {
   const sides = await prisma.category.findUnique({ where: { name: 'Sides' } });
 
   const menuItems = [
-    { name: 'Nasi Goreng Ayam', price: 12.00, categoryId: nasiGoreng!.id, stock: 50, minStock: 10, options: { 'Extra Spicy': 0, 'Telur Mata': 1.50, 'Ayam Tambah': 5.00 } },
-    { name: 'Nasi Goreng Kampung', price: 10.00, categoryId: nasiGoreng!.id, stock: 50, minStock: 10, options: { 'Extra Spicy': 0, 'Telur Mata': 1.50 } },
-    { name: 'Nasi Goreng Pattaya', price: 11.00, categoryId: nasiGoreng!.id, stock: 40, minStock: 10, options: { 'Extra Spicy': 0, 'Telur Mata': 1.50 } },
-    { name: 'Nasi Goreng USA', price: 15.00, categoryId: nasiGoreng!.id, stock: 30, minStock: 5, options: { 'Extra Spicy': 0, 'Telur Mata': 1.50 } },
-    { name: 'Mee Goreng Mamak', price: 9.00, categoryId: mee!.id, stock: 50, minStock: 10, options: { 'Extra Spicy': 0, 'Telur': 1.00, 'Ayam': 4.00 } },
-    { name: 'Kuey Teow Goreng', price: 9.50, categoryId: mee!.id, stock: 45, minStock: 10, options: { 'Extra Spicy': 0, 'Telur': 1.00 } },
-    { name: 'Maggi Goreng', price: 8.00, categoryId: mee!.id, stock: 60, minStock: 15, options: { 'Extra Spicy': 0, 'Telur': 1.00 } },
-    { name: 'Chicken Chop', price: 18.00, categoryId: western!.id, stock: 30, minStock: 5, options: { 'Black Pepper': 0, 'Mushroom': 0, 'Cheese': 2.00 } },
-    { name: 'Fish & Chips', price: 20.00, categoryId: western!.id, stock: 25, minStock: 5, options: { 'Tartar Sauce': 0, 'Cheese': 2.00 } },
-    { name: 'Lamb Grill', price: 28.00, categoryId: western!.id, stock: 15, minStock: 3, options: { 'Black Pepper': 0, 'Mint Sauce': 0 } },
-    { name: 'Teh O Ais', price: 3.00, categoryId: drinks!.id, stock: 100, minStock: 20, options: { 'Kurang Manis': 0, 'Tambah Manis': 0 } },
-    { name: 'Teh Tarik', price: 3.50, categoryId: drinks!.id, stock: 100, minStock: 20, options: { 'Kurang Manis': 0, 'Tambah Manis': 0 } },
-    { name: 'Milo Ais', price: 4.00, categoryId: drinks!.id, stock: 80, minStock: 15, options: { 'Kurang Manis': 0, 'Tambah Milo': 1.50 } },
-    { name: 'Air Mineral', price: 2.00, categoryId: drinks!.id, stock: 100, minStock: 20 },
-    { name: 'Fresh Orange', price: 5.00, categoryId: drinks!.id, stock: 30, minStock: 5 },
-    { name: 'Ais Kacang', price: 6.00, categoryId: dessert!.id, stock: 30, minStock: 5, options: { 'Extra Cendol': 1.00, 'Extra Kacang': 1.00 } },
-    { name: 'Cendol', price: 5.00, categoryId: dessert!.id, stock: 30, minStock: 5, options: { 'Extra Pulut': 1.50 } },
-    { name: 'Keropok Lekor', price: 5.00, categoryId: sides!.id, stock: 40, minStock: 10 },
-    { name: 'French Fries', price: 6.00, categoryId: sides!.id, stock: 50, minStock: 10, options: { 'Cheese Sauce': 1.50 } },
-    { name: 'Onion Rings', price: 7.00, categoryId: sides!.id, stock: 35, minStock: 5 },
+    {
+      name: 'Nasi Goreng Ayam',
+      price: 12.00,
+      categoryId: nasiGoreng!.id,
+      stock: 50,
+      minStock: 10,
+      options: convertOptions({ 'Extra Spicy': 0, 'Telur Mata': 1.50, 'Ayam Tambah': 5.00 }, 'Tambahan'),
+    },
+    {
+      name: 'Nasi Goreng Kampung',
+      price: 10.00,
+      categoryId: nasiGoreng!.id,
+      stock: 50,
+      minStock: 10,
+      options: convertOptions({ 'Extra Spicy': 0, 'Telur Mata': 1.50 }, 'Tambahan'),
+    },
+    {
+      name: 'Nasi Goreng Pattaya',
+      price: 11.00,
+      categoryId: nasiGoreng!.id,
+      stock: 40,
+      minStock: 10,
+      options: convertOptions({ 'Extra Spicy': 0, 'Telur Mata': 1.50 }, 'Tambahan'),
+    },
+    {
+      name: 'Nasi Goreng USA',
+      price: 15.00,
+      categoryId: nasiGoreng!.id,
+      stock: 30,
+      minStock: 5,
+      options: convertOptions({ 'Extra Spicy': 0, 'Telur Mata': 1.50 }, 'Tambahan'),
+    },
+    {
+      name: 'Mee Goreng Mamak',
+      price: 9.00,
+      categoryId: mee!.id,
+      stock: 50,
+      minStock: 10,
+      options: convertOptions({ 'Extra Spicy': 0, 'Telur': 1.00, 'Ayam': 4.00 }, 'Tambahan'),
+    },
+    {
+      name: 'Kuey Teow Goreng',
+      price: 9.50,
+      categoryId: mee!.id,
+      stock: 45,
+      minStock: 10,
+      options: convertOptions({ 'Extra Spicy': 0, 'Telur': 1.00 }, 'Tambahan'),
+    },
+    {
+      name: 'Maggi Goreng',
+      price: 8.00,
+      categoryId: mee!.id,
+      stock: 60,
+      minStock: 15,
+      options: convertOptions({ 'Extra Spicy': 0, 'Telur': 1.00 }, 'Tambahan'),
+    },
+    {
+      name: 'Chicken Chop',
+      price: 18.00,
+      categoryId: western!.id,
+      stock: 30,
+      minStock: 5,
+      options: convertOptions({ 'Black Pepper': 0, 'Mushroom': 0, 'Cheese': 2.00 }, 'Sauce'),
+    },
+    {
+      name: 'Fish & Chips',
+      price: 20.00,
+      categoryId: western!.id,
+      stock: 25,
+      minStock: 5,
+      options: convertOptions({ 'Tartar Sauce': 0, 'Cheese': 2.00 }, 'Extra'),
+    },
+    {
+      name: 'Lamb Grill',
+      price: 28.00,
+      categoryId: western!.id,
+      stock: 15,
+      minStock: 3,
+      options: convertOptions({ 'Black Pepper': 0, 'Mint Sauce': 0 }, 'Sauce'),
+    },
+    {
+      name: 'Teh O Ais',
+      price: 3.00,
+      categoryId: drinks!.id,
+      stock: 100,
+      minStock: 20,
+      options: convertOptions({ 'Kurang Manis': 0, 'Tambah Manis': 0 }, 'Manis'),
+    },
+    {
+      name: 'Teh Tarik',
+      price: 3.50,
+      categoryId: drinks!.id,
+      stock: 100,
+      minStock: 20,
+      options: convertOptions({ 'Kurang Manis': 0, 'Tambah Manis': 0 }, 'Manis'),
+    },
+    {
+      name: 'Milo Ais',
+      price: 4.00,
+      categoryId: drinks!.id,
+      stock: 80,
+      minStock: 15,
+      options: convertOptions({ 'Kurang Manis': 0, 'Tambah Milo': 1.50 }, 'Pekat'),
+    },
+    {
+      name: 'Air Mineral',
+      price: 2.00,
+      categoryId: drinks!.id,
+      stock: 100,
+      minStock: 20,
+    },
+    {
+      name: 'Fresh Orange',
+      price: 5.00,
+      categoryId: drinks!.id,
+      stock: 30,
+      minStock: 5,
+    },
+    {
+      name: 'Ais Kacang',
+      price: 6.00,
+      categoryId: dessert!.id,
+      stock: 30,
+      minStock: 5,
+      options: convertOptions({ 'Extra Cendol': 1.00, 'Extra Kacang': 1.00 }, 'Extra'),
+    },
+    {
+      name: 'Cendol',
+      price: 5.00,
+      categoryId: dessert!.id,
+      stock: 30,
+      minStock: 5,
+      options: convertOptions({ 'Extra Pulut': 1.50 }, 'Extra'),
+    },
+    {
+      name: 'Keropok Lekor',
+      price: 5.00,
+      categoryId: sides!.id,
+      stock: 40,
+      minStock: 10,
+    },
+    {
+      name: 'French Fries',
+      price: 6.00,
+      categoryId: sides!.id,
+      stock: 50,
+      minStock: 10,
+      options: convertOptions({ 'Cheese Sauce': 1.50 }, 'Sauce'),
+    },
+    {
+      name: 'Onion Rings',
+      price: 7.00,
+      categoryId: sides!.id,
+      stock: 35,
+      minStock: 5,
+    },
   ];
 
   for (const item of menuItems) {
@@ -140,7 +298,7 @@ async function main() {
       create: item,
     });
   }
-  console.log('✅ Menu items seeded');
+  console.log('✅ Menu items seeded (MenuItemOption[] format)');
 
   // ==================== INVENTORY ITEMS - LOW STOCK ENABLED ====================
   const inventoryItems = [
@@ -269,16 +427,16 @@ async function main() {
 
   // ==================== STAFF ====================
   const staffData = [
-    { name: 'Ahmad', pin: '1234', role: Role.ADMIN, employmentType: EmploymentType.MONTHLY_SALARIED, monthlySalary: 3500, hourlyRate: null },
-    { name: 'Siti', pin: '2345', role: Role.MANAGER, employmentType: EmploymentType.MONTHLY_SALARIED, monthlySalary: 2800, hourlyRate: null },
-    { name: 'Ali', pin: '3456', role: Role.CASHIER, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 8 },
-    { name: 'Muthu', pin: '4567', role: Role.CASHIER, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 8 },
-    { name: 'Lisa', pin: '5678', role: Role.KITCHEN, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 9 },
-    { name: 'Raj', pin: '6789', role: Role.KITCHEN, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 9 },
-    { name: 'Nina', pin: '7890', role: Role.CASHIER, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 8 },
-    { name: 'Kumar', pin: '8901', role: Role.KITCHEN, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 9 },
-    { name: 'Farah', pin: '9012', role: Role.CASHIER, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 8 },
-    { name: 'Hafiz', pin: '0123', role: Role.KITCHEN, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 9 },
+    { name: 'Ahmad', email: 'ahmad@restaurant.com', password: 'password123', pin: '1234', role: Role.ADMIN, employmentType: EmploymentType.MONTHLY_SALARIED, monthlySalary: 3500, hourlyRate: null },
+    { name: 'Siti', email: 'siti@restaurant.com', password: 'password123', pin: '2345', role: Role.MANAGER, employmentType: EmploymentType.MONTHLY_SALARIED, monthlySalary: 2800, hourlyRate: null },
+    { name: 'Ali', email: 'ali@restaurant.com', password: 'password123', pin: '3456', role: Role.CASHIER, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 8 },
+    { name: 'Muthu', email: 'muthu@restaurant.com', password: 'password123', pin: '4567', role: Role.CASHIER, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 8 },
+    { name: 'Lisa', email: 'lisa@restaurant.com', password: 'password123', pin: '5678', role: Role.KITCHEN, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 9 },
+    { name: 'Raj', email: 'raj@restaurant.com', password: 'password123', pin: '6789', role: Role.KITCHEN, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 9 },
+    { name: 'Nina', email: 'nina@restaurant.com', password: 'password123', pin: '7890', role: Role.CASHIER, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 8 },
+    { name: 'Kumar', email: 'kumar@restaurant.com', password: 'password123', pin: '8901', role: Role.KITCHEN, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 9 },
+    { name: 'Farah', email: 'farah@restaurant.com', password: 'password123', pin: '9012', role: Role.CASHIER, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 8 },
+    { name: 'Hafiz', email: 'hafiz@restaurant.com', password: 'password123', pin: '0123', role: Role.KITCHEN, employmentType: EmploymentType.HOURLY_PART_TIME, monthlySalary: null, hourlyRate: 9 },
   ];
 
   for (const s of staffData) {

@@ -1,7 +1,7 @@
 // apps/qr-menu/src/pages/CartPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, Plus, Minus, Trash2 } from 'lucide-react';
 import type { OrderType, OrderItemInput, OrderView } from '@mat-ai/types';
 import { sendFallback } from '@mat-ai/sync';
 
@@ -54,7 +54,30 @@ export const CartPage: React.FC = () => {
     }
   }, [tableId]);
 
+  // Auto-save cart to localStorage
+  useEffect(() => {
+    localStorage.setItem('mat-qr-cart', JSON.stringify(cart));
+  }, [cart]);
+
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
+
+  // Update quantity (+ / -)
+  const updateQty = (idx: number, delta: number) => {
+    setCart(prev => {
+      const updated = prev.map((item, i) => {
+        if (i !== idx) return item;
+        const newQty = Math.max(1, item.qty + delta);
+        return { ...item, qty: newQty };
+      });
+      return updated;
+    });
+  };
+
+  // Remove item from cart
+  const removeItem = (idx: number) => {
+    setCart(prev => prev.filter((_, i) => i !== idx));
+  };
 
   const handleSubmit = async () => {
     if (cart.length === 0) {
@@ -84,6 +107,7 @@ export const CartPage: React.FC = () => {
     }));
 
     const orderData = {
+      orderNumber: `QR-${Date.now()}`,
       type: orderType,
       source: 'QR_MENU' as const,
       totalAmount: cartTotal,
@@ -235,6 +259,7 @@ export const CartPage: React.FC = () => {
             <ArrowLeft className="w-6 h-6" />
           </button>
           <h1 className="font-bold text-lg">Your Order</h1>
+          <span className="ml-auto text-sm text-gray-500">{cartCount} items</span>
         </div>
       </header>
 
@@ -262,19 +287,52 @@ export const CartPage: React.FC = () => {
         {/* Cart Items */}
         <div className="bg-white rounded-2xl border overflow-hidden mb-4">
           {cart.map((item, idx) => (
-            <div key={idx} className="p-4 border-b last:border-b-0 flex justify-between items-start">
-              <div>
-                <p className="font-medium text-sm">{item.name}</p>
-                {item.modifiers.length > 0 && (
-                  <p className="text-xs text-gray-500">{item.modifiers.join(', ')}</p>
-                )}
-                <p className="text-sm text-gray-500">x{item.qty}</p>
+            <div key={idx} className="p-4 border-b last:border-b-0">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{item.name}</p>
+                  {item.modifiers.length > 0 && (
+                    <p className="text-xs text-gray-500">{item.modifiers.join(', ')}</p>
+                  )}
+                  <p className="text-sm text-primary-600 font-semibold">
+                    RM{item.price.toFixed(2)} each
+                  </p>
+                </div>
+                <button
+                  onClick={() => removeItem(idx)}
+                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Remove item"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              <p className="font-semibold text-sm">RM{(item.price * item.qty).toFixed(2)}</p>
+
+              {/* Quantity Controls */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => updateQty(idx, -1)}
+                    disabled={item.qty <= 1}
+                    className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="w-8 text-center font-semibold text-sm">{item.qty}</span>
+                  <button
+                    onClick={() => updateQty(idx, 1)}
+                    className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="font-bold text-sm text-primary-600">
+                  RM{(item.price * item.qty).toFixed(2)}
+                </p>
+              </div>
             </div>
           ))}
           <div className="p-4 bg-gray-50 flex justify-between items-center">
-            <span className="font-bold">Total</span>
+            <span className="font-bold">Total ({cartCount} items)</span>
             <span className="font-bold text-lg text-primary-600">RM{cartTotal.toFixed(2)}</span>
           </div>
         </div>
@@ -292,7 +350,7 @@ export const CartPage: React.FC = () => {
           ) : (
             <>
               <Send className="w-5 h-5" />
-              <span>Place Order</span>
+              <span>Place Order • RM{cartTotal.toFixed(2)}</span>
             </>
           )}
         </button>

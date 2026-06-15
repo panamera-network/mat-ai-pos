@@ -72,6 +72,8 @@ export interface ReceiptCustomerInfo {
 // ============ STAFF ============
 export interface Staff extends BaseEntity {
   name: string;
+  email?: string;      // <-- ADD
+  password?: string;   // <-- ADD
   pin: string;
   role: Role;
   isActive: boolean;

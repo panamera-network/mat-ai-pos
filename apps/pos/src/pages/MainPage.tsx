@@ -1,40 +1,49 @@
-// apps/pos/src/pages/MainPage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, LogIn, Delete, Store } from 'lucide-react';
-import { usePOSStore } from '../stores/posStore';
-import type { Staff } from '@mat-ai/types';
+import { useAuthStore } from '@mat-ai/backoffice';
 
 export const MainPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, currentStaff } = usePOSStore();
+  const { login, staff, isAuthenticated, isLoading, error, clearError } = useAuthStore();
+
   const [action, setAction] = useState<'pos' | 'timecard' | null>(null);
   const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [localError, setLocalError] = useState('');
 
+  // Redirect if already logged in
   useEffect(() => {
-    if (currentStaff) navigate('/dashboard');
-  }, [currentStaff, navigate]);
+    if (isAuthenticated && staff) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, staff, navigate]);
+
+  // Clear errors when action changes
+  useEffect(() => {
+    clearError();
+    setLocalError('');
+  }, [action, clearError]);
 
   const handlePinPress = useCallback(
     (digit: string) => {
       if (!action || pin.length >= 4) return;
       setPin((prev) => prev + digit);
-      setError('');
+      setLocalError('');
+      clearError();
     },
-    [action, pin.length]
+    [action, pin.length, clearError]
   );
 
   const handleClear = useCallback(() => {
     setPin('');
-    setError('');
-  }, []);
+    setLocalError('');
+    clearError();
+  }, [clearError]);
 
   const handleBackspace = useCallback(() => {
     setPin((prev) => prev.slice(0, -1));
-    setError('');
+    setLocalError('');
   }, []);
 
   const triggerShake = useCallback(() => {
@@ -45,46 +54,26 @@ export const MainPage: React.FC = () => {
   const handleSubmit = useCallback(async () => {
     if (!action) return;
     if (pin.length !== 4) {
-      setError('Enter 4 digits');
+      setLocalError('Enter 4 digits');
       triggerShake();
       return;
     }
 
-    setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    const now = new Date().toISOString();
-    const demoStaffs: Staff[] = [
-      { id: '1', name: 'Ahmad', pin: '1234', role: 'CASHIER', isActive: true, employmentType: 'HOURLY_PART_TIME', joinDate: now, createdAt: now, updatedAt: now },
-      { id: '2', name: 'Sarah', pin: '5678', role: 'ADMIN', isActive: true, employmentType: 'MONTHLY_SALARIED', joinDate: now, createdAt: now, updatedAt: now },
-      { id: '3', name: 'Ali', pin: '0000', role: 'ADMIN', isActive: true, employmentType: 'MONTHLY_SALARIED', joinDate: now, createdAt: now, updatedAt: now },
-    ];
-
-    const staff = demoStaffs.find((s) => s.pin === pin);
-    if (!staff) {
-      setError('Invalid PIN');
-      triggerShake();
-      setPin('');
-      setLoading(false);
-      return;
-    }
-
-    if (action === 'pos') {
-      login(staff);
+    const success = await login(pin);
+    if (success) {
       navigate('/dashboard');
     } else {
-      alert(`Time Card: ${staff.name} at ${new Date().toLocaleTimeString()}`);
+      triggerShake();
       setPin('');
-      setLoading(false);
     }
   }, [pin, action, login, navigate, triggerShake]);
 
   // Auto-submit on 4 digits
   useEffect(() => {
-    if (pin.length === 4 && action && !loading) {
+    if (pin.length === 4 && action && !isLoading) {
       handleSubmit();
     }
-  }, [pin, action, loading, handleSubmit]);
+  }, [pin, action, isLoading, handleSubmit]);
 
   // Keyboard support
   useEffect(() => {
@@ -102,7 +91,8 @@ export const MainPage: React.FC = () => {
   const selectAction = (a: 'pos' | 'timecard') => {
     setAction(a);
     setPin('');
-    setError('');
+    setLocalError('');
+    clearError();
   };
 
   const isPos = action === 'pos';
@@ -110,6 +100,8 @@ export const MainPage: React.FC = () => {
   const activeColor = isPos ? 'bg-primary-600' : 'bg-emerald-600';
   const activeHover = isPos ? 'hover:bg-primary-700' : 'hover:bg-emerald-700';
   const dotColor = isPos ? 'bg-primary-600' : 'bg-emerald-600';
+
+  const displayError = error || localError;
 
   return (
     <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-primary-50 to-primary-100 p-6">
@@ -168,10 +160,17 @@ export const MainPage: React.FC = () => {
 
         {/* Error */}
         <div className="h-6 mb-2 flex items-center justify-center">
-          {error && (
-            <p className="text-sm text-danger font-medium animate-pulse">{error}</p>
+          {displayError && (
+            <p className="text-sm text-danger font-medium animate-pulse">{displayError}</p>
           )}
         </div>
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="flex justify-center mb-3">
+            <div className="w-5 h-5 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
 
         {/* Keypad */}
         <div className="grid grid-cols-3 gap-3 mb-4">
@@ -179,10 +178,10 @@ export const MainPage: React.FC = () => {
             <button
               key={digit}
               onClick={() => handlePinPress(digit)}
-              disabled={!action || loading}
+              disabled={!action || isLoading}
               className={`aspect-square rounded-xl text-2xl font-semibold transition-all duration-150 shadow-sm
                 ${
-                  action && !loading
+                  action && !isLoading
                     ? 'bg-gray-100 text-gray-800 hover:bg-primary-100 hover:text-primary-700 active:bg-primary-200 active:scale-95'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
                 }`}
@@ -192,10 +191,10 @@ export const MainPage: React.FC = () => {
           ))}
           <button
             onClick={handleClear}
-            disabled={!action || loading}
+            disabled={!action || isLoading}
             className={`aspect-square rounded-xl transition-all duration-150 shadow-sm flex items-center justify-center
               ${
-                action && !loading
+                action && !isLoading
                   ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
               }`}
@@ -204,10 +203,10 @@ export const MainPage: React.FC = () => {
           </button>
           <button
             onClick={() => handlePinPress('0')}
-            disabled={!action || loading}
+            disabled={!action || isLoading}
             className={`aspect-square rounded-xl text-2xl font-semibold transition-all duration-150 shadow-sm
               ${
-                action && !loading
+                action && !isLoading
                   ? 'bg-gray-100 text-gray-800 hover:bg-primary-100 hover:text-primary-700 active:bg-primary-200 active:scale-95'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
               }`}
@@ -216,10 +215,10 @@ export const MainPage: React.FC = () => {
           </button>
           <button
             onClick={handleBackspace}
-            disabled={!action || loading}
+            disabled={!action || isLoading}
             className={`aspect-square rounded-xl transition-all duration-150 shadow-sm flex items-center justify-center
               ${
-                action && !loading
+                action && !isLoading
                   ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 active:bg-gray-400 active:scale-95'
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
               }`}
@@ -231,14 +230,14 @@ export const MainPage: React.FC = () => {
         {/* Submit Button */}
         <button
           onClick={handleSubmit}
-          disabled={!action || loading || pin.length !== 4}
+          disabled={!action || isLoading || pin.length !== 4}
           className={`w-full py-4 rounded-xl font-semibold text-lg text-white
             active:scale-[0.98] transition-all shadow-md
             disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
             flex items-center justify-center gap-2
             ${action ? `${activeColor} ${activeHover}` : 'bg-gray-400'}`}
         >
-          {loading ? (
+          {isLoading ? (
             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : !action ? (
             <span>Select Option</span>
@@ -255,7 +254,7 @@ export const MainPage: React.FC = () => {
       </div>
 
       {/* Version */}
-      <p className="mt-6 text-xs text-gray-500">v1.0.0 | MAT.ai POS</p>
+      <p className="mt-6 text-xs text-gray-500">v2.0.0 | MAT.ai POS</p>
     </div>
   );
 };

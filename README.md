@@ -46,6 +46,7 @@ mat-ai-pos/
 │   ├── db/           # Database layer (Dexie + Prisma adapters)
 │   ├── ws/           # WebSocket client/server
 │   ├── sync/         # Cloud sync logic
+│   ├── backoffice/   # backoffice 
 │   └── ai/           # AI module (planned)
 └── tooling/
     ├── eslint-config/

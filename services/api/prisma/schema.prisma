@@ -185,7 +185,9 @@ model OrderItem {
 model Staff {
   id              String         @id @default(cuid())
   name            String         @unique
-  pin             String
+  email           String?        @unique    // <-- optional
+  password        String?                   // <-- optional
+  pin             String?
   role            Role           @default(CASHIER)
   isActive        Boolean        @default(true)
   employmentType  EmploymentType @default(HOURLY_PART_TIME)

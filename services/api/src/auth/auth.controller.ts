@@ -7,7 +7,10 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  login(@Body() dto: { pin: string }) {
-    return this.authService.login(dto.pin);
+  async login(@Body() body: { pin?: string; email?: string; password?: string }) {
+    if (body.email && body.password) {
+      return this.authService.loginWithEmail(body.email, body.password);
+    }
+    return this.authService.login(body.pin);
   }
 }

@@ -14,7 +14,7 @@ import type { Order, KitchenStatus } from '@mat-ai/types';
 // ============================================================
 // WS TYPES — Use ws package types, NOT DOM WebSocket
 // ============================================================
-import type { WebSocket as WsWebSocket, WebSocketServer } from 'ws';
+import type { WebSocket as WsWebSocket } from 'ws';
 
 export interface ConnectedStation {
   id: string;
@@ -36,7 +36,7 @@ export interface WSServerOptions {
 }
 
 export class MATaiWSServer {
-  private server: WebSocketServer | null = null;
+  private server: any = null;
   private stations: Map<string, ConnectedStation> = new Map();
   private options: WSServerOptions;
   private stationCounter = 0;
@@ -46,22 +46,22 @@ export class MATaiWSServer {
   }
 
   async start(): Promise<void> {
-    const { WebSocketServer } = await import('ws');
-
-    this.server = new WebSocketServer({ port: this.options.port });
-
-    // Null check
-    if (!this.server) {
-      throw new Error('[WSS] Failed to create WebSocket server');
+    const ws = require('ws');
+    const WSServer = ws.WebSocketServer || ws.Server;
+    
+    if (!WSServer) {
+      throw new Error('[WSS] WebSocketServer not found in ws module');
     }
 
-    this.server.on('connection', (ws) => {
+    this.server = new WSServer({ port: this.options.port });
+
+    this.server.on('connection', (ws: WsWebSocket) => {
       const tempId = `temp-${Date.now()}`;
 
       ws.on('message', (data: Buffer) => {
         try {
           const msg: WSMessage = JSON.parse(data.toString());
-          this.handleMessage(tempId, ws as any, msg);  // Cast ws untuk avoid type conflict
+          this.handleMessage(tempId, ws, msg);
         } catch (err) {
           console.error('[WSS] Invalid message:', err);
         }
@@ -133,7 +133,7 @@ export class MATaiWSServer {
           name: payload.stationName,
           categories: payload.categories,
           deviceType: payload.deviceType,
-          ws,  // ← ws is WsWebSocket (ws package type)
+          ws,
           connectedAt: new Date().toISOString(),
         };
 

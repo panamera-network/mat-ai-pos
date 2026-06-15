@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "files": ["react.json", "base.json", "node.json"],
   "exports": {
+    "./base.json": "./base.json",
     "./react.json": "./react.json",
     "./node.json": "./node.json"
   }

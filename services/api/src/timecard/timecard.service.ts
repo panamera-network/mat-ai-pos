@@ -60,6 +60,21 @@ export class TimecardService {
     });
   }
 
+  async findAll(options?: { from?: Date; to?: Date }) {
+  const where: Prisma.TimecardWhereInput = {};
+  if (options?.from || options?.to) {
+    where.clockIn = {};
+    if (options.from) where.clockIn.gte = options.from;
+    if (options.to) where.clockIn.lte = options.to;
+  }
+
+  return this.prisma.timecard.findMany({
+    where,
+    include: { staff: { select: { name: true } } },
+    orderBy: { clockIn: 'desc' },
+  });
+}
+
   async verify(id: string, verifiedBy: string) {
     return this.prisma.timecard.update({
       where: { id },

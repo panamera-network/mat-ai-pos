@@ -24,8 +24,8 @@ pnpm install
 
 ### 3. Setup database
 ```bash
-pnpm dlx prisma@6.6.0 migrate dev --name init
-pnpm dlx prisma@6.6.0 generate
+pnpm dlx prisma@6.19.2 migrate dev --name init
+pnpm dlx prisma@6.19.2 generate
 pnpm run db:seed
 
 ```
@@ -35,10 +35,10 @@ pnpm run db:seed
 # Development
 pnpm start:dev
 
-npx prisma@6.6.0 studio --schema=services/api/prisma/schema.prisma
+npx prisma@6.19.2 studio --schema=services/api/prisma/schema.prisma
 /
 cd services/api
-npx prisma@6.6.0 studio --schema=prisma/schema.prisma
+npx prisma@6.19.2 studio --schema=prisma/schema.prisma
 
 # Production
 pnpm run build

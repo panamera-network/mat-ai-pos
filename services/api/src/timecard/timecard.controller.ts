@@ -40,4 +40,16 @@ export class TimecardController {
   ) {
     return this.timecardService.getWeeklyHours(staffId, new Date(weekStart));
   }
+
+  @Get()
+  findAll(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.timecardService.findAll({
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+    });
+  }
+
 }
