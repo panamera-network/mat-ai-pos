@@ -17,11 +17,13 @@ export const useAuthStore = create<AuthStore>()(
 
       // Actions
       login: async (pinOrEmail: string, password?: string) => {
-        const body = password 
-          ? { email: pinOrEmail, password }   // Back Office
-          : { pin: pinOrEmail };;
+        set({ isLoading: true, error: null });
 
         try {
+          const body = password 
+            ? { email: pinOrEmail, password }   // Back Office
+            : { pin: pinOrEmail };             // POS
+
           const res = await fetch(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

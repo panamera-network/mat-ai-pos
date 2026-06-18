@@ -95,6 +95,22 @@ enum PayrollStatus {
   PAID
 }
 
+// ==================== OUTLET ====================
+
+model Outlet {
+  id              String          @id @default(cuid())
+  name            String
+  address         String
+  phone           String?
+  isActive        Boolean         @default(true)
+  orders          Order[]
+  staff           Staff[]
+  inventoryItems  InventoryItem[]
+  settings        Setting[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
 // ==================== CORE ====================
 
 model Category {
@@ -109,21 +125,23 @@ model Category {
 }
 
 model MenuItem {
-  id          String               @id @default(cuid())
-  name        String               @unique
-  price       Decimal
-  categoryId  String
-  category    Category             @relation(fields: [categoryId], references: [id])
-  imageUrl    String?
-  isAvailable Boolean              @default(true)
-  stock       Int                  @default(0)
-  minStock    Int                  @default(0)
-  options     Json?
-  ingredients MenuItemIngredient[]
-  stockLogs   StockLog[]
-  orderItems  OrderItem[]
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  id            String               @id @default(cuid())
+  name          String               @unique
+  price         Decimal
+  categoryId    String
+  category      Category             @relation(fields: [categoryId], references: [id])
+  imageUrl      String?
+  isAvailable   Boolean              @default(true)
+  stock         Int                  @default(0)
+  minStock      Int                  @default(0)
+  options       Json?
+  ingredients   MenuItemIngredient[]
+  cost          Float?               @default(0)
+  profitMargin  Float?               @default(0)
+  stockLogs     StockLog[]
+  orderItems    OrderItem[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 }
 
 model DiningTable {
@@ -156,11 +174,15 @@ model Order {
   pax             Int?
   reservationTime DateTime?
   notes           String?
+  outletId        String?
+  outlet          Outlet?        @relation(fields: [outletId], references: [id])
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   completedAt     DateTime?
   items           OrderItem[]
   receipt         Receipt?
+
+  @@index([outletId])
 }
 
 model OrderItem {
@@ -196,6 +218,8 @@ model Staff {
   joinDate        DateTime       @default(now())
   customEpfRate   Decimal?
   customSocsoRate Decimal?
+  outletId        String?        
+  outlet          Outlet?        @relation(fields: [outletId], references: [id])
   timecards       Timecard[]
   receipts        Receipt[]
   stockLogs       StockLog[]
@@ -204,6 +228,8 @@ model Staff {
   advances        StaffAdvance[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  @@index([outletId])
 }
 
 model Timecard {
@@ -343,30 +369,41 @@ model StockLog {
 // ==================== INVENTORY (Raw Material) ====================
 
 model InventoryItem {
-  id            String             @id @default(cuid())
-  name          String             @unique
-  category      String
-  unit          String             @default("g")
-  weight        Float?
-  currentStock  Float              @default(0)
-  minStock      Float              @default(0)
-  costPerUnit   Float?
-  supplier      String?
-  isActive      Boolean            @default(true)
-  ingredients   MenuItemIngredient[]
-  stockLogs     StockLog[]
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id              String             @id @default(cuid())
+  name            String             @unique
+  category        String
+  unit            String             @default("g")
+  weight          Float?
+  currentStock    Float              @default(0)
+  minStock        Float              @default(0)
+  costPerUnit     Float?
+  supplier        String?
+  isActive        Boolean            @default(true)
+  outletId        String?            
+  outlet          Outlet?            @relation(fields: [outletId], references: [id])
+  ingredients     MenuItemIngredient[]
+  unitPrice       Float?             @default(0)
+  unitOfMeasure   String?            @default("g") // g, kg, ml, l, pcs
+  stockLogs       StockLog[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([outletId])
 }
 
 model MenuItemIngredient {
   id              String        @id @default(cuid())
   inventoryItemId String
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
   menuItemId      String
-  menuItem        MenuItem      @relation(fields: [menuItemId], references: [id])
+  menuItem        MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   quantityUsed    Float
   createdAt       DateTime      @default(now())
+  updatedAt       DateTime?      @updatedAt
+
+  @@unique([menuItemId, inventoryItemId])
+  @@index([menuItemId])
+  @@index([inventoryItemId])
 }
 
 // ==================== SETTINGS ====================
@@ -377,5 +414,9 @@ model Setting {
   value       String
   description String?
   updatedBy   String?
+  outletId    String?  
+  outlet      Outlet?  @relation(fields: [outletId], references: [id])
   updatedAt   DateTime @updatedAt
+
+  @@unique([key, outletId], name: "key_outletId")
 }

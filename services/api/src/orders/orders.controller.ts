@@ -15,9 +15,13 @@ export class OrdersController {
   }
 
   @Get()
-  findAll(@Query('status') status?: OrderStatus) {
-    return this.ordersService.findAll(status);
+  findAll(
+    @Query('status') status?: OrderStatus,
+    @Query('outletId') outletId?: string,
+  ) {
+    return this.ordersService.findAll(status, outletId);
   }
+  
 
   @Get(':id')
   findOne(@Param('id') id: string) {

@@ -19,6 +19,8 @@ import { AdvanceModule } from './advance/advance.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { ReportsModule } from './reports/reports.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { OutletModule } from './outlet/outlet.module';
+import { CostingModule } from './costing/costing.module';
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { GatewayModule } from './gateway/gateway.module';
     PayrollModule,
     ReportsModule,
     GatewayModule,
+    OutletModule,
+    CostingModule,
   ],
   providers: [
     {

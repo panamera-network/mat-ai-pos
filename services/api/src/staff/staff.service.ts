@@ -7,7 +7,10 @@ import { Role, EmploymentType } from '@prisma/client';
 export class StaffService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(outletId?: string) {  // ← TAMBAH parameter
+    const where: any = { isActive: true };
+    if (outletId) where.outletId = outletId;  // ← TAMBAH
+
     return this.prisma.staff.findMany({
       where: { isActive: true },
       select: {
@@ -22,6 +25,7 @@ export class StaffService {
         joinDate: true,
         customEpfRate: true,
         customSocsoRate: true,
+         outletId: true,
         createdAt: true,
         updatedAt: true,
         // ❌ Exclude heavy relations

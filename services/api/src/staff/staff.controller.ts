@@ -1,5 +1,5 @@
 // src/staff/staff.controller.ts
-import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
 import { StaffService } from './staff.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
@@ -9,8 +9,8 @@ export class StaffController {
   constructor(private readonly staffService: StaffService) {}
 
   @Get()
-  findAll() {
-    return this.staffService.findAll();
+  findAll(@Query('outletId') outletId?: string) {  // ← TAMBAH
+    return this.staffService.findAll(outletId);
   }
 
   @Get(':id')

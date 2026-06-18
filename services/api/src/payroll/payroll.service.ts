@@ -79,9 +79,12 @@ export class PayrollService {
     });
   }
 
-  async findAll(options?: { staffId?: string; from?: Date; to?: Date }) {
+  async findAll(options?: { staffId?: string; from?: Date; to?: Date; outletId?: string }) {  // ← TAMBAH outletId
     const where: Record<string, unknown> = {};
     if (options?.staffId) where.staffId = options.staffId;
+    if (options?.outletId) {
+      where.staff = { outletId: options.outletId };  // ← TAMBAH filter through Staff
+    }
     if (options?.from || options?.to) {
       where.periodStart = {};
       if (options.from) (where.periodStart as Record<string, Date>).gte = options.from;
@@ -90,11 +93,11 @@ export class PayrollService {
 
     return this.prisma.payroll.findMany({
       where,
-      include: { staff: { select: { name: true, employmentType: true } } },
+      include: { staff: { select: { name: true, employmentType: true, outletId: true } } },  // ← TAMBAH outletId
       orderBy: { periodStart: 'desc' },
     });
   }
-
+  
   async findOne(id: string) {
     const payroll = await this.prisma.payroll.findUnique({
       where: { id },

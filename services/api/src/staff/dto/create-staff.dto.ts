@@ -38,4 +38,8 @@ export class CreateStaffDto {
   @IsOptional()
   @IsNumber()
   customSocsoRate?: number;
+
+  @IsString() 
+  @IsOptional() 
+  outletId?: string;
 }

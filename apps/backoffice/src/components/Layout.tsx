@@ -5,7 +5,7 @@ import { useAuthStore } from '@mat-ai/backoffice';
 import {
   LayoutDashboard, Receipt, Users, DollarSign, UtensilsCrossed,
   Package, Settings, Store, LogOut, ChevronLeft, ChevronRight,
-  Bell, Search, Building2
+  Bell, Search, Building2, UserCircle, HelpCircle
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -17,10 +17,15 @@ const navItems = [
   { path: '/sales', label: 'Sales Report', icon: Receipt, roles: ['MANAGER', 'ADMIN'] },
   { path: '/staff', label: 'Staff', icon: Users, roles: ['MANAGER', 'ADMIN'] },
   { path: '/payroll', label: 'Payroll', icon: DollarSign, roles: ['ADMIN'] },
-  { path: '/menu', label: 'Menu', icon: UtensilsCrossed, roles: ['MANAGER', 'ADMIN'] },
+  { path: '/menu', label: 'Item', icon: UtensilsCrossed, roles: ['MANAGER', 'ADMIN'] },
   { path: '/inventory', label: 'Inventory', icon: Package, roles: ['MANAGER', 'ADMIN'] },
   { path: '/outlets', label: 'Outlets', icon: Building2, roles: ['ADMIN', 'SUPER_ADMIN'] },
+  { path: '/customers', label: 'Customer', icon: UserCircle, roles: ['MANAGER', 'ADMIN'] },
   { path: '/settings', label: 'Settings', icon: Settings, roles: ['ADMIN'] },
+];
+
+const bottomNavItems = [
+  { path: '/help', label: 'Help', icon: HelpCircle, roles: ['CASHIER', 'MANAGER', 'ADMIN'] },
 ];
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
@@ -35,6 +40,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const visibleNav = navItems.filter(item =>
+    staff?.role && item.roles.includes(staff.role)
+  );
+
+  const visibleBottomNav = bottomNavItems.filter(item =>
     staff?.role && item.roles.includes(staff.role)
   );
 
@@ -65,7 +74,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-4 px-2 space-y-1">
+        <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
           {visibleNav.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -85,6 +94,28 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             );
           })}
         </nav>
+
+        {/* Bottom Nav */}
+        <div className="px-2 pb-2 space-y-1">
+          {visibleBottomNav.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+                title={collapsed ? item.label : undefined}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </button>
+            );
+          })}
+        </div>
 
         {/* User */}
         <div className="p-3 border-t border-gray-200">
@@ -115,16 +146,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Topbar */}
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="relative max-w-md w-full">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
+          {/* Left: Logo + Nama Restaurant */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Store className="w-5 h-5 text-white" />
             </div>
+            <span className="text-lg font-bold text-gray-900">MAT.ai Restaurant</span>
           </div>
+
+          {/* Right: Notification + Online */}
           <div className="flex items-center gap-3">
             <button className="relative p-2 hover:bg-gray-100 rounded-lg">
               <Bell className="w-5 h-5 text-gray-600" />

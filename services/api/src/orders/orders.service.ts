@@ -53,6 +53,7 @@ export class OrdersService {
           ? new Date(createOrderDto.reservationTime) 
           : undefined,
         notes: createOrderDto.notes || undefined,
+        outletId: createOrderDto.outletId || undefined,
         items: {
           create: items,
         },
@@ -81,9 +82,13 @@ export class OrdersService {
     return order;
   }
 
-  async findAll(status?: OrderStatus) {
+  async findAll(status?: OrderStatus, outletId?: string) {  // ← TAMBAH outletId
+    const where: any = {};
+    if (status) where.status = status;
+    if (outletId) where.outletId = outletId;  // ← TAMBAH
+
     return this.prisma.order.findMany({
-      where: status ? { status } : undefined,
+      where: Object.keys(where).length > 0 ? where : undefined,
       include: { items: true, table: true },
       orderBy: { createdAt: 'desc' },
     });

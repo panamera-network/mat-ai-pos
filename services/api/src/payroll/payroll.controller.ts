@@ -27,11 +27,13 @@ export class PayrollController {
     @Query('staffId') staffId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('outletId') outletId?: string,  // ← TAMBAH
   ) {
     return this.payrollService.findAll({
       staffId,
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
+      outletId,  // ← TAMBAH
     });
   }
 

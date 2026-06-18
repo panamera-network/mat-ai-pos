@@ -6,6 +6,9 @@ import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
 
 @Injectable()
 export class InventoryService {
+  update(id: string, arg1: { unitPrice: number; }) {
+    throw new Error('Method not implemented.');
+  }
   constructor(private prisma: PrismaService) {}
 
   // ─── RAW MATERIAL ───
@@ -16,15 +19,23 @@ export class InventoryService {
   });
 }
 
-  async getInventoryItems(category?: string) {
+  async getInventoryItems(category?: string, outletId?: string) {  // ← TAMBAH outletId
+    const where: any = {};
+    if (category) where.category = category;
+    if (outletId) where.outletId = outletId;  // ← TAMBAH
+
     return this.prisma.inventoryItem.findMany({
-      where: category ? { category } : undefined,
+      where: Object.keys(where).length > 0 ? where : undefined,
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
   }
 
-  async getLowStockInventory() {
+  async getLowStockInventory(outletId?: string) {  // ← TAMBAH parameter
+    const where: any = {};
+    if (outletId) where.outletId = outletId;  // ← TAMBAH
+
     const items = await this.prisma.inventoryItem.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       orderBy: [{ currentStock: 'asc' }],
     });
     return items.filter(item => item.currentStock <= item.minStock);
@@ -205,10 +216,11 @@ export class InventoryService {
 
   // ─── LOGS ───
 
-  async getLogs(options?: { inventoryItemId?: string; menuItemId?: string; from?: Date; to?: Date }) {
+  async getLogs(options?: { inventoryItemId?: string; menuItemId?: string; from?: Date; to?: Date; outletId?: string }) {  // ← TAMBAH outletId
     const where: any = {};
     if (options?.inventoryItemId) where.inventoryItemId = options.inventoryItemId;
     if (options?.menuItemId) where.menuItemId = options.menuItemId;
+    if (options?.outletId) where.outletId = options.outletId;  // ← TAMBAH
     if (options?.from || options?.to) {
       where.createdAt = {};
       if (options.from) where.createdAt.gte = options.from;

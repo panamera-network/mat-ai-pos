@@ -35,4 +35,8 @@ export class CreateInventoryItemDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsString() 
+  @IsOptional() 
+  outletId?: string;
 }

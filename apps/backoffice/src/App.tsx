@@ -9,9 +9,10 @@ import { SalesReportPage } from './pages/SalesReportPage';
 import { StaffPage } from './pages/StaffPage';
 import { PayrollPage } from './pages/PayrollPage';
 import { MenuPage } from './pages/MenuPage';
-import { InventoryPage } from './pages/InventoryPage';
+import { InventoryPage } from './pages/inventory/InventoryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { OutletManagementPage } from './pages/OutletManagementPage';
+import { CustomerPage } from './pages/CustomerPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -36,10 +37,11 @@ const App: React.FC = () => {
                 <Route path="/menu" element={<MenuPage />} />
                 <Route path="/inventory" element={<InventoryPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/customers" element={<CustomerPage />} />
                 <Route
                   path="/outlets"
                   element={
-                    <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
                       <OutletManagementPage />
                     </RoleGuard>
                   }

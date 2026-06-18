@@ -1,16 +1,19 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useApi, useStaffCache } from '@mat-ai/backoffice';
+import type { Staff, DynamicRole, Department, PermissionDefinition } from '@mat-ai/types';
+import { DEFAULT_PERMISSIONS } from '@mat-ai/types';
 import {
-  Plus, Search, RefreshCw, Users, Clock, DollarSign,
-  Edit3, Trash2, X, Check, Filter
+  Plus, Search, RefreshCw, Users, Clock, Shield,
+  Edit3, Trash2, X, Check, Filter, Building2
 } from 'lucide-react';
 
-type StaffTab = 'staff' | 'attendance' | 'payroll';
+type StaffTab = 'staff' | 'attendance' | 'roles' | 'departments';
 
 interface StaffFormData {
   name: string;
   email: string;
   role: string;
+  department: string;
   employmentType: string;
   hourlyRate: string;
   monthlySalary: string;
@@ -23,38 +26,56 @@ export const StaffPage: React.FC = () => {
 
   const cached = cache.getData();
   const [activeTab, setActiveTab] = useState<StaffTab>('staff');
-  const [staffList, setStaffList] = useState<any[]>(cached?.staffList || []);
+  const [staffList, setStaffList] = useState<Staff[]>(cached?.staffList || []);
   const [timecards, setTimecards] = useState<any[]>(cached?.timecards || []);
-  const [payrolls, setPayrolls] = useState<any[]>(cached?.payrolls || []);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [editingStaff, setEditingStaff] = useState<any>(null);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [formData, setFormData] = useState<StaffFormData>({
-    name: '', email: '', role: 'CASHIER', employmentType: 'FULL_TIME',
+    name: '', email: '', role: 'CASHIER', department: '', employmentType: 'FULL_TIME',
     hourlyRate: '', monthlySalary: '', phone: ''
   });
   const [lastRefresh, setLastRefresh] = useState<Date | null>(
     cache.timestamp > 0 ? new Date(cache.timestamp) : null
   );
 
+  // Roles state - using centralized DynamicRole type
+  const [roles, setRoles] = useState<DynamicRole[]>([
+    { id: '1', name: 'ADMIN', isSystem: true, permissions: Object.fromEntries(DEFAULT_PERMISSIONS.map(p => [p.key, true])) },
+    { id: '2', name: 'MANAGER', isSystem: true, permissions: Object.fromEntries(DEFAULT_PERMISSIONS.map(p => [p.key, ['dashboard', 'sales', 'staff', 'menu', 'inventory', 'customers'].includes(p.key)])) },
+    { id: '3', name: 'CASHIER', isSystem: true, permissions: Object.fromEntries(DEFAULT_PERMISSIONS.map(p => [p.key, p.key === 'dashboard'])) },
+  ]);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [editingRole, setEditingRole] = useState<DynamicRole | null>(null);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [rolePermissions, setRolePermissions] = useState<Record<string, boolean>>({});
+
+  // Departments state - using centralized Department type
+  const [departments, setDepartments] = useState<Department[]>([
+    { id: '1', name: 'Kitchen', isActive: true },
+    { id: '2', name: 'Service', isActive: true },
+    { id: '3', name: 'Management', isActive: true },
+    { id: '4', name: 'Security', isActive: true },
+  ]);
+  const [showDeptModal, setShowDeptModal] = useState(false);
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [newDeptName, setNewDeptName] = useState('');
+
   const fetchData = useCallback(async (isManual = false) => {
     if (!isManual) setLoading(true);
     try {
-      const [staffRes, timeRes, payrollRes] = await Promise.all([
+      const [staffRes, timeRes] = await Promise.all([
         get('/staff'),
         get('/timecard'),
-        get('/payroll'),
       ]);
 
-      const newStaff = (staffRes.ok ? staffRes.data : []) as any[];
+      const newStaff = (staffRes.ok ? staffRes.data : []) as Staff[];
       const newTimecards = (timeRes.ok ? timeRes.data : []) as any[];
-      const newPayrolls = (payrollRes.ok ? payrollRes.data : []) as any[];
 
       setStaffList(newStaff);
       setTimecards(newTimecards);
-      setPayrolls(newPayrolls);
-      cache.setData(newStaff, newTimecards, newPayrolls);
+      cache.setData(newStaff, newTimecards, []);
       setLastRefresh(new Date());
     } catch (err) {
       console.error('Staff fetch error:', err);
@@ -83,7 +104,7 @@ export const StaffPage: React.FC = () => {
     }
     setShowModal(false);
     setEditingStaff(null);
-    setFormData({ name: '', email: '', role: 'CASHIER', employmentType: 'FULL_TIME', hourlyRate: '', monthlySalary: '', phone: '' });
+    setFormData({ name: '', email: '', role: 'CASHIER', department: '', employmentType: 'FULL_TIME', hourlyRate: '', monthlySalary: '', phone: '' });
     fetchData(true);
   };
 
@@ -93,24 +114,84 @@ export const StaffPage: React.FC = () => {
     fetchData(true);
   };
 
-  const openEdit = (staff: any) => {
+  const openEdit = (staff: Staff) => {
     setEditingStaff(staff);
     setFormData({
       name: staff.name || '',
       email: staff.email || '',
       role: staff.role || 'CASHIER',
+      department: (staff as any).department || '',
       employmentType: staff.employmentType || 'FULL_TIME',
       hourlyRate: staff.hourlyRate?.toString() || '',
       monthlySalary: staff.monthlySalary?.toString() || '',
-      phone: staff.phone || '',
+      phone: (staff as any).phone || '',
     });
     setShowModal(true);
+  };
+
+  // Role handlers
+  const openRoleEdit = (role: DynamicRole) => {
+    setEditingRole(role);
+    setNewRoleName(role.name);
+    setRolePermissions({ ...role.permissions });
+    setShowRoleModal(true);
+  };
+
+  const openRoleCreate = () => {
+    setEditingRole(null);
+    setNewRoleName('');
+    setRolePermissions(Object.fromEntries(DEFAULT_PERMISSIONS.map(p => [p.key, false])));
+    setShowRoleModal(true);
+  };
+
+  const saveRole = () => {
+    if (!newRoleName.trim()) return;
+    if (editingRole) {
+      setRoles(roles.map(r => r.id === editingRole.id ? { ...r, name: newRoleName.trim().toUpperCase(), permissions: rolePermissions } : r));
+    } else {
+      setRoles([...roles, { id: Date.now().toString(), name: newRoleName.trim().toUpperCase(), permissions: rolePermissions }]);
+    }
+    setShowRoleModal(false);
+  };
+
+  const deleteRole = (id: string) => {
+    if (!confirm('Delete this role?')) return;
+    setRoles(roles.filter(r => r.id !== id));
+  };
+
+  // Department handlers
+  const openDeptEdit = (dept: Department) => {
+    setEditingDept(dept);
+    setNewDeptName(dept.name);
+    setShowDeptModal(true);
+  };
+
+  const openDeptCreate = () => {
+    setEditingDept(null);
+    setNewDeptName('');
+    setShowDeptModal(true);
+  };
+
+  const saveDept = () => {
+    if (!newDeptName.trim()) return;
+    if (editingDept) {
+      setDepartments(departments.map(d => d.id === editingDept.id ? { ...d, name: newDeptName.trim() } : d));
+    } else {
+      setDepartments([...departments, { id: Date.now().toString(), name: newDeptName.trim(), isActive: true }]);
+    }
+    setShowDeptModal(false);
+  };
+
+  const deleteDept = (id: string) => {
+    if (!confirm('Delete this department?')) return;
+    setDepartments(departments.filter(d => d.id !== id));
   };
 
   const filteredStaff = staffList.filter(s =>
     s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.role?.toLowerCase().includes(searchQuery.toLowerCase())
+    s.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s as any).department?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const timeAgo = () => {
@@ -121,13 +202,20 @@ export const StaffPage: React.FC = () => {
     return lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const tabs = [
+    { id: 'staff' as StaffTab, label: 'Staff', icon: Users },
+    { id: 'attendance' as StaffTab, label: 'Attendance', icon: Clock },
+    { id: 'roles' as StaffTab, label: 'Roles', icon: Shield },
+    { id: 'departments' as StaffTab, label: 'Departments', icon: Building2 },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Staff Management</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage staff, attendance, and payroll</p>
+          <p className="text-sm text-gray-500 mt-1">Manage staff, attendance, roles and departments</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -138,41 +226,59 @@ export const StaffPage: React.FC = () => {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Loading...' : timeAgo()}
           </button>
-          <button
-            onClick={() => { setEditingStaff(null); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" />
-            Add Staff
-          </button>
+          {activeTab === 'staff' && (
+            <button
+              onClick={() => { setEditingStaff(null); setShowModal(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              Add Staff
+            </button>
+          )}
+          {activeTab === 'roles' && (
+            <button
+              onClick={openRoleCreate}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              Add Role
+            </button>
+          )}
+          {activeTab === 'departments' && (
+            <button
+              onClick={openDeptCreate}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              Add Department
+            </button>
+          )}
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-white border rounded-lg p-1 w-fit">
-        {(['staff', 'attendance', 'payroll'] as StaffTab[]).map((t) => (
+        {tabs.map((t) => (
           <button
-            key={t}
-            onClick={() => setActiveTab(t)}
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === t ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              activeTab === t.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
-            {t === 'staff' && <Users className="w-4 h-4" />}
-            {t === 'attendance' && <Clock className="w-4 h-4" />}
-            {t === 'payroll' && <DollarSign className="w-4 h-4" />}
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            <t.icon className="w-4 h-4" />
+            {t.label}
           </button>
         ))}
       </div>
 
-      {/* Search */}
+      {/* Search - Staff tab only */}
       {activeTab === 'staff' && (
         <div className="relative max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search staff by name, email, or role..."
+            placeholder="Search staff by name, email, role or department..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
@@ -189,6 +295,7 @@ export const StaffPage: React.FC = () => {
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Name</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Email</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Role</th>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Department</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Type</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Rate</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
@@ -205,7 +312,7 @@ export const StaffPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">{staff.name}</p>
-                        <p className="text-xs text-gray-500">{staff.phone || '-'}</p>
+                        <p className="text-xs text-gray-500">{(staff as any).phone || '-'}</p>
                       </div>
                     </div>
                   </td>
@@ -219,6 +326,7 @@ export const StaffPage: React.FC = () => {
                       {staff.role}
                     </span>
                   </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{(staff as any).department || '-'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{staff.employmentType?.replace('_', ' ')}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {staff.hourlyRate ? `RM${staff.hourlyRate}/hr` : staff.monthlySalary ? `RM${staff.monthlySalary}/mo` : '-'}
@@ -242,7 +350,7 @@ export const StaffPage: React.FC = () => {
               ))}
               {filteredStaff.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={8} className="px-6 py-12 text-center text-gray-400">
                     <Users className="w-8 h-8 mx-auto mb-2" />
                     <p>No staff found</p>
                   </td>
@@ -260,6 +368,7 @@ export const StaffPage: React.FC = () => {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Staff</th>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Department</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Clock In</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Clock Out</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Hours</th>
@@ -270,6 +379,7 @@ export const StaffPage: React.FC = () => {
               {timecards.map((tc) => (
                 <tr key={tc.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{tc.staff?.name || 'Unknown'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{tc.staff?.department || '-'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{new Date(tc.clockIn).toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{tc.clockOut ? new Date(tc.clockOut).toLocaleString() : '-'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{tc.totalHours || '-'}</td>
@@ -282,7 +392,7 @@ export const StaffPage: React.FC = () => {
               ))}
               {timecards.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                     <Clock className="w-8 h-8 mx-auto mb-2" />
                     <p>No attendance records</p>
                   </td>
@@ -293,49 +403,97 @@ export const StaffPage: React.FC = () => {
         </div>
       )}
 
-      {/* Payroll Tab */}
-      {activeTab === 'payroll' && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Staff</th>
-                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Period</th>
-                <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Basic</th>
-                <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Deductions</th>
-                <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Net Pay</th>
-                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {payrolls.map((pr) => (
-                <tr key={pr.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{pr.staff?.name || 'Unknown'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(pr.periodStart).toLocaleDateString()} - {new Date(pr.periodEnd).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-right">RM{Number(pr.basicPay).toFixed(2)}</td>
-                  <td className="px-6 py-4 text-sm text-red-600 text-right">RM{Number(pr.totalDeductions).toFixed(2)}</td>
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">RM{Number(pr.nettPay).toFixed(2)}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium ${pr.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                      {pr.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {payrolls.length === 0 && !loading && (
+      {/* Roles Tab */}
+      {activeTab === 'roles' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
-                    <DollarSign className="w-8 h-8 mx-auto mb-2" />
-                    <p>No payroll records</p>
-                  </td>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Role Name</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Staff Count</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Permissions</th>
+                  <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {roles.map((role) => (
+                  <tr key={role.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="inline-flex px-3 py-1 rounded-lg text-sm font-medium bg-blue-50 text-blue-700">
+                        {role.name}
+                      </span>
+                      {role.isSystem && <span className="ml-2 text-xs text-gray-400">(system)</span>}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {staffList.filter(s => s.role === role.name).length} staff
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {DEFAULT_PERMISSIONS.filter(p => role.permissions[p.key]).map(p => (
+                          <span key={p.key} className="inline-flex px-2 py-0.5 rounded text-xs bg-green-50 text-green-700">
+                            {p.label}
+                          </span>
+                        ))}
+                        {DEFAULT_PERMISSIONS.filter(p => !role.permissions[p.key]).length > 0 && (
+                          <span className="inline-flex px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-500">
+                            +{DEFAULT_PERMISSIONS.filter(p => !role.permissions[p.key]).length} restricted
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openRoleEdit(role)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-blue-600">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        {!role.isSystem && (
+                          <button onClick={() => deleteRole(role.id)} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* Add/Edit Modal */}
+      {/* Departments Tab */}
+      {activeTab === 'departments' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {departments.map((dept) => (
+              <div key={dept.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Building2 className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{dept.name}</p>
+                      <p className="text-xs text-gray-500">{staffList.filter(s => (s as any).department === dept.name).length} staff</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => openDeptEdit(dept)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-blue-600">
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => deleteDept(dept.id)} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Staff Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
@@ -360,11 +518,18 @@ export const StaffPage: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                   <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">
-                    <option value="CASHIER">Cashier</option>
-                    <option value="MANAGER">Manager</option>
-                    <option value="ADMIN">Admin</option>
+                    {roles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">
+                    <option value="">Select department</option>
+                    {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type</label>
                   <select value={formData.employmentType} onChange={e => setFormData({...formData, employmentType: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">
@@ -372,6 +537,10 @@ export const StaffPage: React.FC = () => {
                     <option value="PART_TIME">Part Time</option>
                     <option value="CONTRACT">Contract</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -384,14 +553,86 @@ export const StaffPage: React.FC = () => {
                   <input type="number" value={formData.monthlySalary} onChange={e => setFormData({...formData, monthlySalary: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
-              </div>
             </div>
             <div className="flex justify-end gap-2 px-6 py-4 border-t">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
               <button onClick={handleSaveStaff} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Role Modal */}
+      {showRoleModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="font-semibold text-gray-900">{editingRole ? 'Edit Role' : 'Add New Role'}</h3>
+              <button onClick={() => setShowRoleModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role Name</label>
+                <input 
+                  value={newRoleName} 
+                  onChange={e => setNewRoleName(e.target.value)} 
+                  placeholder="e.g. SECURITY_GUARD"
+                  className="w-full px-3 py-2 border rounded-lg text-sm" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+                <div className="space-y-2">
+                  {DEFAULT_PERMISSIONS.map((perm) => (
+                    <label key={perm.key} className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                      <div>
+                        <span className="text-sm text-gray-700">{perm.label}</span>
+                        <span className="text-xs text-gray-400 ml-2">({perm.category})</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={rolePermissions[perm.key] || false}
+                        onChange={(e) => setRolePermissions({...rolePermissions, [perm.key]: e.target.checked})}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t">
+              <button onClick={() => setShowRoleModal(false)} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={saveRole} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save Role</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Department Modal */}
+      {showDeptModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="font-semibold text-gray-900">{editingDept ? 'Edit Department' : 'Add New Department'}</h3>
+              <button onClick={() => setShowDeptModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Department Name</label>
+              <input 
+                value={newDeptName} 
+                onChange={e => setNewDeptName(e.target.value)} 
+                placeholder="e.g. Security"
+                onKeyDown={(e) => e.key === 'Enter' && saveDept()}
+                className="w-full px-3 py-2 border rounded-lg text-sm" 
+              />
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t">
+              <button onClick={() => setShowDeptModal(false)} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={saveDept} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
             </div>
           </div>
         </div>

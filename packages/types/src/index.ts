@@ -6,7 +6,7 @@
 // ============================================================
 
 // ============ PRISMA-ALIGNED ENUMS (Database Source of Truth) ============
-export type Role = 'ADMIN' | 'MANAGER' | 'CASHIER' | 'KITCHEN';
+export type Role = 'SUPER_ADMIN' |'ADMIN' | 'MANAGER' | 'CASHIER' | 'KITCHEN';
 export type EmploymentType = 'HOURLY_PART_TIME' | 'MONTHLY_SALARIED';
 export type OrderStatus = 'PENDING' | 'PAID' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
 export type ItemStatus = 'PENDING' | 'PREPARING' | 'READY' | 'SERVED';
@@ -35,6 +35,21 @@ export interface BaseEntity {
 export interface BaseEntityNoUpdatedAt {
   id: string;
   createdAt: string;
+}
+
+// ============ OUTLET ============
+export interface Outlet extends BaseEntity {
+  id: string;
+  name: string;
+  address: string;
+  phone?: string;
+  isActive: boolean;
+  staffCount: number;
+  monthlyRevenue: number;
+  status: 'active' | 'inactive';
+  orders?: Order[];
+  staff?: Staff[];
+  inventoryItems?: InventoryItem[];
 }
 
 // ============ MENU ITEM OPTIONS (Replaces `any` in MenuItem.options / OrderItem.options) ============
@@ -83,6 +98,8 @@ export interface Staff extends BaseEntity {
   joinDate: string;
   customEpfRate?: number;
   customSocsoRate?: number;
+  outletId?: string;        // ← TAMBAH
+  outlet?: Outlet;          // ← TAMBAH
 }
 
 export interface StaffView extends Staff {
@@ -287,6 +304,8 @@ export interface Order extends BaseEntity {
   completedAt?: string;
   items: OrderItem[];
   receipt?: Receipt;
+  outletId?: string;        // ← TAMBAH
+  outlet?: Outlet;          // ← TAMBAH
 }
 
 export interface OrderView extends Order {
@@ -489,6 +508,8 @@ export interface InventoryItem extends BaseEntity {
   costPerUnit?: number;
   supplier?: string;
   isActive: boolean;
+  outletId?: string;        // ← TAMBAH
+  outlet?: Outlet;          // ← TAMBAH
 }
 
 export interface MenuItemIngredient {
@@ -539,6 +560,8 @@ export interface Setting extends BaseEntity {
   value: string;
   description?: string;
   updatedBy?: string;
+  outletId?: string;        // ← TAMBAH
+  outlet?: Outlet;          // ← TAMBAH
 }
 
 export interface AppSettings {
@@ -571,6 +594,8 @@ export interface AppSettings {
   telegramBotToken?: string;
   telegramChatId?: string;
   smsApiKey?: string;
+  outletId?: string;        // ← TAMBAH — current outlet identifier
+  outletName?: string;      // ← TAMBAH
 }
 
 // ============ API DTOs / Helpers ============
@@ -589,4 +614,82 @@ export interface CreateOrderPayload {
   reservationTime?: string;
   notes?: string;
   items: OrderItemInput[];
+  outletId?: string;
 }
+
+// ============ DYNAMIC CONFIGURATION (Back Office Settings) ============
+
+export interface DynamicRole {
+  id: string;
+  name: string;
+  permissions: Record<string, boolean>;
+  isSystem?: boolean;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface PaymentType {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder?: number;
+}
+
+export interface SalesSummary {
+  total: number;
+  count: number;
+  avg: number;
+  totalItems?: number;
+  totalDiscounts?: number;
+}
+
+export interface TaxRate {
+  id: string;
+  name: string;
+  rate: number;
+  isActive: boolean;
+}
+
+export interface Device {
+  id: string;
+  name: string;
+  outlet: string;
+  status: 'active' | 'inactive';
+  lastSeen?: string;
+  deviceType?: 'pos' | 'kds' | 'printer' | 'tablet';
+}
+
+export interface StockAdjustment {
+  id: string;
+  itemId: string;
+  itemName: string;
+  type: 'add' | 'remove' | 'adjust';
+  quantity: number;
+  reason: string;
+  date: string;
+  staffId?: string;
+  staffName?: string;
+}
+
+export interface PermissionDefinition {
+  key: string;
+  label: string;
+  category: string;
+}
+
+export const DEFAULT_PERMISSIONS: PermissionDefinition[] = [
+  { key: 'dashboard', label: 'Dashboard', category: 'General' },
+  { key: 'sales', label: 'Sales Report', category: 'General' },
+  { key: 'staff', label: 'Staff Management', category: 'Staff' },
+  { key: 'payroll', label: 'Payroll', category: 'Staff' },
+  { key: 'menu', label: 'Item Management', category: 'Menu' },
+  { key: 'inventory', label: 'Inventory', category: 'Inventory' },
+  { key: 'outlets', label: 'Outlets', category: 'General' },
+  { key: 'customers', label: 'Customers', category: 'General' },
+  { key: 'settings', label: 'Settings', category: 'Admin' },
+];
