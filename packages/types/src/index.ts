@@ -682,6 +682,158 @@ export interface PermissionDefinition {
   category: string;
 }
 
+// ============ CRM / QR MENU LANDING PAGE ============
+
+export type PromotionType = 'BANNER' | 'POPUP' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED' | 'FREE_ITEM' | 'BUNDLE';
+export type PromotionTarget = 'ALL' | 'NEW_CUSTOMER' | 'RETURNING' | 'VIP';
+
+export interface Customer extends BaseEntity {
+  name: string;
+  phone: string;
+  email?: string;
+  visits: number;
+  points: number;
+  totalSpent: number;
+  lastVisit?: string;
+  isVip: boolean;
+  orders?: Order[];
+  redemptions?: Redemption[];
+}
+
+export interface Redemption extends BaseEntityNoUpdatedAt {
+  customerId: string;
+  customer?: Customer;
+  pointsUsed: number;
+  reward: string;
+  orderId?: string;
+}
+
+export interface Promotion {
+  id: string;
+  title: string;
+  description?: string;
+  type: PromotionType;
+  bannerUrl?: string;
+  discount?: number;
+  minSpend?: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  outletId: string;
+  target: PromotionTarget;
+  priority: number;
+  createdAt: string;
+}
+
+export interface CreateCustomerPayload {
+  name: string;
+  phone: string;
+  email?: string;
+}
+
+export interface UpdateCustomerPayload {
+  name?: string;
+  email?: string;
+  points?: number;
+  isVip?: boolean;
+}
+
+export interface CreatePromotionPayload {
+  title: string;
+  description?: string;
+  type: PromotionType;
+  bannerUrl?: string;
+  discount?: number;
+  minSpend?: number;
+  startDate: string;
+  endDate: string;
+  isActive?: boolean;
+  outletId: string;
+  target?: PromotionTarget;
+  priority?: number;
+}
+
+export interface UpdatePromotionPayload {
+  title?: string;
+  description?: string;
+  type?: PromotionType;
+  bannerUrl?: string;
+  discount?: number;
+  minSpend?: number;
+  startDate?: string;
+  endDate?: string;
+  isActive?: boolean;
+  target?: PromotionTarget;
+  priority?: number;
+}
+
+export interface LoyaltyRedeemOption {
+  points: number;
+  value: number;
+  label: string;
+}
+
+export interface LoyaltyRedeemPayload {
+  points: number;
+  reward: string;
+  orderId?: string;
+}
+
+// Add to packages/types/src/index.ts
+
+// ============ LANDING PAGE CMS ============
+
+export interface LandingPageContent extends BaseEntity {
+  section: string;
+  key: string;
+  content: Record<string, any>;
+  sortOrder: number;
+  isActive: boolean;
+  outletId?: string;
+}
+
+export interface LandingPageContentInput {
+  section: string;
+  key: string;
+  content: Record<string, any>;
+  sortOrder?: number;
+  isActive?: boolean;
+  outletId?: string;
+}
+
+export interface LandingPageContentUpdate {
+  content?: Record<string, any>;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface LandingPagePublicData {
+  [section: string]: Array<{
+    key: string;
+    content: Record<string, any>;
+    sortOrder: number;
+  }>;
+}
+
+export interface HeroContent {
+  title: string;
+  tagline: string;
+  subtitle: string;
+  ctaText: string;
+  gradient: string;
+}
+
+export interface FeatureContent {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface FooterContent {
+  text: string;
+  showLogo: boolean;
+}
+
 export const DEFAULT_PERMISSIONS: PermissionDefinition[] = [
   { key: 'dashboard', label: 'Dashboard', category: 'General' },
   { key: 'sales', label: 'Sales Report', category: 'General' },

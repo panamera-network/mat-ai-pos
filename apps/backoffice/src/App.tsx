@@ -1,6 +1,6 @@
 //apps/backoffice/src/App.tsx
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore, RoleGuard } from '@mat-ai/backoffice';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
@@ -13,45 +13,88 @@ import { InventoryPage } from './pages/inventory/InventoryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { OutletManagementPage } from './pages/OutletManagementPage';
 import { CustomerPage } from './pages/CustomerPage';
+import { CostingCalculatorPage } from './pages/costing/CostingCalculatorPage';
+import { MenuItemsWithCostPage } from './pages/costing/MenuItemsWithCostPage';
+import { CostingPage } from './pages/costing/CostingPage';
+import { RecipeBuilderPage } from './pages/costing/RecipeBuilderPage';
+import { CustomersPage } from './pages/CustomersPage';
+import { PromotionsPage } from './pages/PromotionsPage';
+import { LandingPageCMS } from './pages/LandingPageCMS'
 
+// ============ AUTH GUARD ============
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
+// ============ LAYOUT WRAPPER ============
+// Uses <Outlet /> for nested routes — proper React Router v6 pattern
+const AppLayout: React.FC = () => {
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  );
+};
+
 const App: React.FC = () => {
   return (
     <Routes>
+      {/* Public route */}
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Protected routes with Layout */}
       <Route
-        path="/*"
         element={
           <ProtectedRoute>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/sales" element={<SalesReportPage />} />
-                <Route path="/staff" element={<StaffPage />} />
-                <Route path="/payroll" element={<PayrollPage />} />
-                <Route path="/menu" element={<MenuPage />} />
-                <Route path="/inventory" element={<InventoryPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/customers" element={<CustomerPage />} />
-                <Route
-                  path="/outlets"
-                  element={
-                    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                      <OutletManagementPage />
-                    </RoleGuard>
-                  }
-                />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-            </Layout>
+            <AppLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        {/* Dashboard */}
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+
+        {/* Sales & Reports */}
+        <Route path="/sales" element={<SalesReportPage />} />
+
+        {/* Staff Management */}
+        <Route path="/staff" element={<StaffPage />} />
+        <Route path="/payroll" element={<PayrollPage />} />
+
+        {/* Menu & Inventory */}
+        <Route path="/menu" element={<MenuPage />} />
+        <Route path="/inventory" element={<InventoryPage />} />
+
+        {/* Costing Engine */}
+        <Route path="/costing" element={<CostingPage />} />
+        <Route path="/costing/recipes" element={<MenuItemsWithCostPage />} />
+        <Route path="/costing/recipes/:menuItemId" element={<RecipeBuilderPage />} />
+        <Route path="/costing/calculator" element={<CostingCalculatorPage />} />
+
+        {/* Customers & Promotions */}
+        <Route path="/customers" element={<CustomersPage />} />
+        
+        {/* QR Menu Management */}
+        <Route path="/promotions" element={<PromotionsPage />} />
+        <Route path="/landing-page" element={<LandingPageCMS />} />
+
+        {/* Settings */}
+        <Route path="/settings" element={<SettingsPage />} />
+
+        {/* Outlets — Admin only */}
+        <Route
+          path="/outlets"
+          element={
+            <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+              <OutletManagementPage />
+            </RoleGuard>
+          }
+        />
+
+        {/* Catch-all redirect */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
     </Routes>
   );
 };

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMenuItemIngredientDto } from './dto/create-menu-item-ingredient.dto';
 import { UpdateMenuItemIngredientDto } from './dto/update-menu-item-ingredient.dto';
-import { MarkupCalculatorDto, MarkupCalculatorResponseDto } from './dto/markup-calculator.dto';
+import { MarkupCalculatorDto, MarkupCalculatorResponseDto, PricingMethod } from './dto/markup-calculator.dto';
 import { RecipeCostResponseDto, IngredientCostDto } from './dto/recipe-cost-response.dto';
 import { ProfitabilityQueryDto, ProfitabilitySortBy, ProfitabilitySortOrder } from './dto/profitability-query.dto';
 import { CostImpactResponseDto, CostImpactItemDto } from './dto/cost-impact-response.dto';
@@ -41,14 +41,12 @@ export class CostingService {
         },
       },
       update: {
-        quantity: dto.quantity,
-        unit: dto.unit || 'g',
+        quantityUsed: dto.quantity,
       },
       create: {
         menuItemId,
         inventoryItemId: dto.inventoryItemId,
-        quantity: dto.quantity,
-        unit: dto.unit || 'g',
+        quantityUsed: dto.quantity,
       },
       include: {
         inventoryItem: true,
@@ -74,8 +72,7 @@ export class CostingService {
         },
       },
       data: {
-        quantity: dto.quantity,
-        unit: dto.unit,
+        quantityUsed: dto.quantity,
       },
       include: {
         inventoryItem: true,
@@ -104,7 +101,7 @@ export class CostingService {
     const menuItem = await this.prisma.menuItem.findUnique({
       where: { id: menuItemId },
       include: {
-        menuItemIngredients: {
+        ingredients: {
           include: {
             inventoryItem: true,
           },
@@ -116,28 +113,29 @@ export class CostingService {
       throw new NotFoundException(`Menu item with ID ${menuItemId} not found`);
     }
 
-    const ingredients: IngredientCostDto[] = menuItem.menuItemIngredients.map((mi) => {
+    const ingredients: IngredientCostDto[] = menuItem.ingredients.map((mi) => {
       const unitPrice = mi.inventoryItem.unitPrice || 0;
-      const totalCost = unitPrice * mi.quantity;
+      const totalCost = unitPrice * mi.quantityUsed;
       return {
         inventoryItemId: mi.inventoryItemId,
         inventoryItemName: mi.inventoryItem.name,
-        quantity: mi.quantity,
-        unit: mi.unit,
+        quantity: mi.quantityUsed,
+        unit: mi.inventoryItem.unitOfMeasure || 'g',
         unitPrice,
         totalCost: Math.round(totalCost * 100) / 100,
       };
     });
 
     const totalCost = ingredients.reduce((sum, ing) => sum + ing.totalCost, 0);
-    const profit = menuItem.price - totalCost;
-    const marginPercent = menuItem.price > 0 ? (profit / menuItem.price) * 100 : 0;
+    const price = Number(menuItem.price);
+    const profit = price - totalCost;
+    const marginPercent = price > 0 ? (profit / price) * 100 : 0;
 
     return {
       menuItemId: menuItem.id,
       menuItemName: menuItem.name,
       totalCost: Math.round(totalCost * 100) / 100,
-      sellingPrice: menuItem.price,
+      sellingPrice: price,
       profit: Math.round(profit * 100) / 100,
       marginPercent: Math.round(marginPercent * 100) / 100,
       ingredients,
@@ -152,7 +150,7 @@ export class CostingService {
     const recipe = await this.prisma.menuItem.findUnique({
       where: { id: menuItemId },
       include: {
-        menuItemIngredients: {
+        ingredients: {
           include: {
             inventoryItem: true,
           },
@@ -162,13 +160,14 @@ export class CostingService {
 
     if (!recipe) return;
 
-    const totalCost = recipe.menuItemIngredients.reduce((sum, mi) => {
+    const totalCost = recipe.ingredients.reduce((sum, mi) => {
       const unitPrice = mi.inventoryItem.unitPrice || 0;
-      return sum + (unitPrice * mi.quantity);
+      return sum + (unitPrice * mi.quantityUsed);
     }, 0);
 
-    const profit = recipe.price - totalCost;
-    const marginPercent = recipe.price > 0 ? (profit / recipe.price) * 100 : 0;
+    const price = Number(recipe.price);
+    const profit = price - totalCost;
+    const marginPercent = price > 0 ? (profit / price) * 100 : 0;
 
     await this.prisma.menuItem.update({
       where: { id: menuItemId },
@@ -190,7 +189,6 @@ export class CostingService {
 
     return { updated: menuItems.length };
   }
-
 
   // ==========================================
   // MARKUP CALCULATOR (Updated with Food Cost %)
@@ -300,7 +298,7 @@ export class CostingService {
     const menuItems = await this.prisma.menuItem.findMany({
       where,
       include: {
-        menuItemIngredients: {
+        ingredients: {
           include: {
             inventoryItem: true,
           },
@@ -309,27 +307,28 @@ export class CostingService {
     });
 
     const results: RecipeCostResponseDto[] = menuItems.map((menuItem) => {
-      const ingredients: IngredientCostDto[] = menuItem.menuItemIngredients.map((mi) => {
+      const ingredients: IngredientCostDto[] = menuItem.ingredients.map((mi) => {
         const unitPrice = mi.inventoryItem.unitPrice || 0;
         return {
           inventoryItemId: mi.inventoryItemId,
           inventoryItemName: mi.inventoryItem.name,
-          quantity: mi.quantity,
-          unit: mi.unit,
+          quantity: mi.quantityUsed,
+          unit: mi.inventoryItem.unitOfMeasure || 'g',
           unitPrice,
-          totalCost: Math.round(unitPrice * mi.quantity * 100) / 100,
+          totalCost: Math.round(unitPrice * mi.quantityUsed * 100) / 100,
         };
       });
 
       const totalCost = ingredients.reduce((sum, ing) => sum + ing.totalCost, 0);
-      const profit = menuItem.price - totalCost;
-      const marginPercent = menuItem.price > 0 ? (profit / menuItem.price) * 100 : 0;
+      const price = Number(menuItem.price);
+      const profit = price - totalCost;
+      const marginPercent = price > 0 ? (profit / price) * 100 : 0;
 
       return {
         menuItemId: menuItem.id,
         menuItemName: menuItem.name,
         totalCost: Math.round(totalCost * 100) / 100,
-        sellingPrice: menuItem.price,
+        sellingPrice: price,
         profit: Math.round(profit * 100) / 100,
         marginPercent: Math.round(marginPercent * 100) / 100,
         ingredients,
@@ -389,11 +388,11 @@ export class CostingService {
     const inventoryItem = await this.prisma.inventoryItem.findUnique({
       where: { id: inventoryItemId },
       include: {
-        menuItemIngredients: {
+        ingredients: {
           include: {
             menuItem: {
               include: {
-                menuItemIngredients: {
+                ingredients: {
                   include: {
                     inventoryItem: true,
                   },
@@ -410,25 +409,24 @@ export class CostingService {
     }
 
     const currentUnitPrice = inventoryItem.unitPrice || 0;
-    const priceDifference = newUnitPrice - currentUnitPrice;
 
-    const affectedMenus: CostImpactItemDto[] = inventoryItem.menuItemIngredients.map((mi) => {
+    const affectedMenus: CostImpactItemDto[] = inventoryItem.ingredients.map((mi) => {
       const menuItem = mi.menuItem;
 
       // Calculate current cost
-      const currentCost = menuItem.menuItemIngredients.reduce((sum, ingredient) => {
+      const currentCost = menuItem.ingredients.reduce((sum, ingredient) => {
         const price = ingredient.inventoryItemId === inventoryItemId
           ? currentUnitPrice
           : (ingredient.inventoryItem.unitPrice || 0);
-        return sum + (price * ingredient.quantity);
+        return sum + (price * ingredient.quantityUsed);
       }, 0);
 
       // Calculate new cost with updated price
-      const newCost = menuItem.menuItemIngredients.reduce((sum, ingredient) => {
+      const newCost = menuItem.ingredients.reduce((sum, ingredient) => {
         const price = ingredient.inventoryItemId === inventoryItemId
           ? newUnitPrice
           : (ingredient.inventoryItem.unitPrice || 0);
-        return sum + (price * ingredient.quantity);
+        return sum + (price * ingredient.quantityUsed);
       }, 0);
 
       const costDifference = newCost - currentCost;
@@ -473,7 +471,7 @@ export class CostingService {
       this.prisma.menuItemIngredient.count(),
       this.prisma.inventoryItem.count({
         where: {
-          quantity: { lte: 50 }, // Assuming minStock or threshold
+          currentStock: { lte: 50 },
         },
       }),
       this.prisma.menuItem.aggregate({

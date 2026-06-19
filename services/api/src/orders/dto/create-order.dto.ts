@@ -1,5 +1,4 @@
-// src/orders/dto/create-order.dto.ts
-import { IsString, IsNumber, IsOptional, IsEnum, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsArray, ValidateNested, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OrderType, OrderSource, PaymentMethod } from '@prisma/client';
 
@@ -27,9 +26,6 @@ class OrderItemDto {
 }
 
 export class CreateOrderDto {
-  @IsString()
-  orderNumber: string;
-
   @IsEnum(OrderType)
   type: OrderType;
 
@@ -58,6 +54,10 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  customerId?: string;  // <-- NEW: link to existing customer
+
+  @IsOptional()
+  @IsString()
   tableId?: string;
 
   @IsOptional()
@@ -65,20 +65,22 @@ export class CreateOrderDto {
   pax?: number;
 
   @IsOptional()
-  @IsString()
   reservationTime?: string;
 
   @IsOptional()
   @IsString()
   notes?: string;
 
+  @IsOptional()
+  @IsString()
+  outletId?: string;
+
+  @IsOptional()
+  @IsString()
+  orderNumber?: string;
+
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
-
-  @IsString() 
-  @IsOptional() 
-  outletId?: string;
 }

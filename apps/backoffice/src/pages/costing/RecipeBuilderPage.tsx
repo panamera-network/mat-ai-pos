@@ -3,7 +3,7 @@ import { useApi } from '@mat-ai/backoffice';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ChefHat, Plus, X, Save, ArrowLeft, Calculator,
-  DollarSign, Package, AlertCircle, Trash2
+  DollarSign, Package, AlertCircle, Trash2, Loader2
 } from 'lucide-react';
 
 interface MenuItem {
@@ -32,10 +32,20 @@ interface RecipeIngredient {
   totalCost: number;
 }
 
+interface RecipeData {
+  menuItemId: string;
+  menuItemName: string;
+  totalCost: number;
+  sellingPrice: number;
+  profit: number;
+  marginPercent: number;
+  ingredients: RecipeIngredient[];
+}
+
 export const RecipeBuilderPage: React.FC = () => {
   const { menuItemId } = useParams<{ menuItemId: string }>();
   const navigate = useNavigate();
-  const { get, post, put, del } = useApi();
+  const { get, post, patch, del } = useApi();
 
   const [menuItem, setMenuItem] = useState<MenuItem | null>(null);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -58,10 +68,34 @@ export const RecipeBuilderPage: React.FC = () => {
         get(`/costing/menu-items/${menuItemId}/recipe`),
       ]);
 
-      if (menuRes.ok) setMenuItem(menuRes.data);
-      if (invRes.ok) setInventory(invRes.data || []);
-      if (recipeRes.ok) {
-        setRecipe(recipeRes.data?.ingredients || []);
+      if (menuRes.ok && menuRes.data) {
+        const data = menuRes.data as any;
+        setMenuItem({
+          id: data.id,
+          name: data.name,
+          category: typeof data.category === 'string' ? data.category : (data.category?.name || 'uncategorized'),
+          price: Number(data.price) || 0,
+          cost: Number(data.cost) || 0,
+          profitMargin: Number(data.profitMargin) || 0,
+        });
+      }
+
+      if (invRes.ok && invRes.data) {
+        const invData = invRes.data as any[];
+        setInventory(invData.map(item => ({
+          id: item.id,
+          name: item.name,
+          category: item.category || 'uncategorized',
+          unitPrice: Number(item.unitPrice) || 0,
+          unitOfMeasure: item.unitOfMeasure || 'g',
+        })));
+      }
+
+      if (recipeRes.ok && recipeRes.data) {
+        const recipeData = recipeRes.data as RecipeData;
+        setRecipe(recipeData.ingredients || []);
+      } else {
+        setRecipe([]);
       }
     } catch (err) {
       console.error('Recipe fetch error:', err);
@@ -75,8 +109,9 @@ export const RecipeBuilderPage: React.FC = () => {
   }, [fetchData]);
 
   const totalCost = recipe.reduce((sum, ing) => sum + ing.totalCost, 0);
-  const profit = (menuItem?.price || 0) - totalCost;
-  const margin = menuItem?.price ? (profit / menuItem.price) * 100 : 0;
+  const price = menuItem?.price || 0;
+  const profit = price - totalCost;
+  const margin = price > 0 ? (profit / price) * 100 : 0;
 
   const handleAddIngredient = async () => {
     if (!menuItemId || !selectedIngredient || !quantity) return;
@@ -101,7 +136,8 @@ export const RecipeBuilderPage: React.FC = () => {
   const handleUpdateIngredient = async (inventoryItemId: string, newQuantity: number) => {
     if (!menuItemId) return;
     try {
-      await put(`/costing/menu-items/${menuItemId}/ingredients/${inventoryItemId}`, {
+      // Use patch instead of put (useApi doesn't have put)
+      await patch(`/costing/menu-items/${menuItemId}/ingredients/${inventoryItemId}`, {
         quantity: newQuantity,
         unit,
       });
@@ -125,7 +161,7 @@ export const RecipeBuilderPage: React.FC = () => {
   const handleRecalculate = async () => {
     if (!menuItemId) return;
     try {
-      await post(`/costing/menu-items/${menuItemId}/recalculate`);
+      await post(`/costing/menu-items/${menuItemId}/recalculate`, {});
       fetchData();
     } catch (err) {
       console.error('Recalculate error:', err);
@@ -135,7 +171,7 @@ export const RecipeBuilderPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
   }
@@ -145,7 +181,7 @@ export const RecipeBuilderPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate('/costing')}
+          onClick={() => navigate('/costing/recipes')}
           className="p-2 hover:bg-gray-100 rounded-lg"
         >
           <ArrowLeft className="w-5 h-5 text-gray-600" />
@@ -165,7 +201,7 @@ export const RecipeBuilderPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <p className="text-sm text-gray-500">Selling Price</p>
-          <p className="text-2xl font-bold text-gray-900">RM {menuItem?.price.toFixed(2) || '0.00'}</p>
+          <p className="text-2xl font-bold text-gray-900">RM {price.toFixed(2)}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <p className="text-sm text-gray-500">Total Cost</p>

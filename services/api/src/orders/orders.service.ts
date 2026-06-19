@@ -36,6 +36,38 @@ export class OrdersService {
 
     const orderNumber = createOrderDto.orderNumber || `ORD-${Date.now()}`;
 
+    // ============================================================
+    // CUSTOMER HANDLING (NEW)
+    // ============================================================
+    let customerId: string | undefined = undefined;
+
+    // If customerId provided (from QR Menu with logged-in customer)
+    if (createOrderDto.customerId) {
+      customerId = createOrderDto.customerId;
+    } 
+    // If customerPhone provided (from POS or QR without login), try find/create customer
+    else if (createOrderDto.customerPhone) {
+      const existingCustomer = await this.prisma.customer.findUnique({
+        where: { phone: createOrderDto.customerPhone },
+      });
+
+      if (existingCustomer) {
+        customerId = existingCustomer.id;
+      } else if (createOrderDto.customerName) {
+        // Auto-create customer from order data
+        const newCustomer = await this.prisma.customer.create({
+          data: {
+            name: createOrderDto.customerName,
+            phone: createOrderDto.customerPhone,
+            visits: 1,
+            totalSpent: Number(createOrderDto.totalAmount),
+            lastVisit: new Date(),
+          },
+        });
+        customerId = newCustomer.id;
+      }
+    }
+
     const order = await this.prisma.order.create({
       data: {
         orderNumber,
@@ -47,6 +79,7 @@ export class OrdersService {
         customerName: createOrderDto.customerName || undefined,
         customerPhone: createOrderDto.customerPhone || undefined,
         customerAddress: createOrderDto.customerAddress || undefined,
+        customerId: customerId,  // <-- NEW: link to Customer
         tableId,
         pax: createOrderDto.pax || undefined,
         reservationTime: createOrderDto.reservationTime 
@@ -61,8 +94,21 @@ export class OrdersService {
       include: {
         items: true,
         table: true,
+        customer: true,  // <-- NEW: include customer in response
       },
     });
+
+    // Update customer stats if linked
+    if (customerId) {
+      await this.prisma.customer.update({
+        where: { id: customerId },
+        data: {
+          visits: { increment: 1 },
+          totalSpent: { increment: Number(createOrderDto.totalAmount) },
+          lastVisit: new Date(),
+        },
+      });
+    }
 
     try {
       for (const item of order.items) {
@@ -82,14 +128,14 @@ export class OrdersService {
     return order;
   }
 
-  async findAll(status?: OrderStatus, outletId?: string) {  // ← TAMBAH outletId
+  async findAll(status?: OrderStatus, outletId?: string) {
     const where: any = {};
     if (status) where.status = status;
-    if (outletId) where.outletId = outletId;  // ← TAMBAH
+    if (outletId) where.outletId = outletId;
 
     return this.prisma.order.findMany({
       where: Object.keys(where).length > 0 ? where : undefined,
-      include: { items: true, table: true },
+      include: { items: true, table: true, customer: true },  // <-- NEW: include customer
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -97,7 +143,7 @@ export class OrdersService {
   async findOne(id: string) {
     return this.prisma.order.findUnique({
       where: { id },
-      include: { items: true, table: true },
+      include: { items: true, table: true, customer: true },  // <-- NEW: include customer
     });
   }
 
@@ -110,8 +156,21 @@ export class OrdersService {
         paymentMethod: updateOrderDto.paymentMethod,
         completedAt: updateOrderDto.status === OrderStatus.PAID ? new Date() : undefined,
       },
-      include: { items: true, table: true },
+      include: { items: true, table: true, customer: true },  // <-- NEW: include customer
     });
+
+    // ============================================================
+    // ADD LOYALTY POINTS WHEN ORDER PAID (NEW)
+    // ============================================================
+    if (updateOrderDto.status === OrderStatus.PAID && order.customerId) {
+      const pointsEarned = Math.floor(Number(order.totalAmount));
+      await this.prisma.customer.update({
+        where: { id: order.customerId },
+        data: {
+          points: { increment: pointsEarned },
+        },
+      });
+    }
 
     this.ordersGateway.broadcastOrderUpdated(order);
     if (updateOrderDto.status === OrderStatus.PAID) {
@@ -151,6 +210,7 @@ export class OrdersService {
           },
         },
         table: true,
+        customer: true,  // <-- NEW: include customer
       },
       orderBy: { createdAt: 'asc' },
     });

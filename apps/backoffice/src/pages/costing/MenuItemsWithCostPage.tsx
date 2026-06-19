@@ -3,7 +3,7 @@ import { useApi } from '@mat-ai/backoffice';
 import { useNavigate } from 'react-router-dom';
 import {
   ChefHat, Search, Plus, Edit3, ArrowRight, TrendingUp,
-  TrendingDown, AlertTriangle, DollarSign
+  TrendingDown, AlertTriangle, DollarSign, Tag
 } from 'lucide-react';
 
 interface MenuWithCost {
@@ -30,15 +30,27 @@ export const MenuItemsWithCostPage: React.FC = () => {
       const res = await get('/menu-items');
       if (res.ok) {
         const data = (res.data as any[]) || [];
-        setMenus(data.map(item => ({
-          id: item.id,
-          name: item.name,
-          category: item.category || 'uncategorized',
-          price: item.price || 0,
-          cost: item.cost || 0,
-          profitMargin: item.profitMargin || 0,
-          hasRecipe: (item.menuItemIngredients?.length || 0) > 0,
-        })));
+        setMenus(data.map(item => {
+          // FIX: Handle category as object or string
+          let categoryName = 'uncategorized';
+          if (item.category) {
+            if (typeof item.category === 'string') {
+              categoryName = item.category;
+            } else if (typeof item.category === 'object' && item.category !== null) {
+              categoryName = item.category.name || item.category.id || 'uncategorized';
+            }
+          }
+
+          return {
+            id: item.id,
+            name: item.name,
+            category: categoryName,
+            price: item.price ? Number(item.price) : 0,
+            cost: item.cost ? Number(item.cost) : 0,
+            profitMargin: item.profitMargin ? Number(item.profitMargin) : 0,
+            hasRecipe: (item.menuItemIngredients?.length || item.ingredients?.length || 0) > 0,
+          };
+        }));
       }
     } catch (err) {
       console.error('Menu fetch error:', err);
@@ -143,7 +155,8 @@ export const MenuItemsWithCostPage: React.FC = () => {
                 <tr key={menu.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{menu.name}</td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700">
+                      <Tag className="w-3 h-3" />
                       {menu.category}
                     </span>
                   </td>
@@ -175,7 +188,7 @@ export const MenuItemsWithCostPage: React.FC = () => {
                     {menu.hasRecipe ? (
                       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-green-100 text-green-700">
                         <DollarSign className="w-3 h-3" />
-                        {menu.cost > 0 ? 'Active' : 'Pending'}
+                        Active
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-500">

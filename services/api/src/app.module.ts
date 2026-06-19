@@ -21,6 +21,11 @@ import { ReportsModule } from './reports/reports.module';
 import { GatewayModule } from './gateway/gateway.module';
 import { OutletModule } from './outlet/outlet.module';
 import { CostingModule } from './costing/costing.module';
+import { CustomerModule } from './customer/customer.module';
+import { PromotionModule } from './promotion/promotion.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
+import { LandingPageModule } from './landing-page/landing-page.module';
+
 
 @Module({
   imports: [
@@ -43,6 +48,11 @@ import { CostingModule } from './costing/costing.module';
     GatewayModule,
     OutletModule,
     CostingModule,
+    CustomerModule,
+    PromotionModule,
+    LoyaltyModule,
+    LandingPageModule,
+
   ],
   providers: [
     {

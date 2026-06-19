@@ -95,20 +95,37 @@ enum PayrollStatus {
   PAID
 }
 
+enum PromotionType {
+  BANNER
+  POPUP
+  DISCOUNT_PERCENT
+  DISCOUNT_FIXED
+  FREE_ITEM
+  BUNDLE
+}
+
+enum PromotionTarget {
+  ALL
+  NEW_CUSTOMER
+  RETURNING
+  VIP
+}
+
 // ==================== OUTLET ====================
 
 model Outlet {
-  id              String          @id @default(cuid())
-  name            String
-  address         String
-  phone           String?
-  isActive        Boolean         @default(true)
-  orders          Order[]
-  staff           Staff[]
-  inventoryItems  InventoryItem[]
-  settings        Setting[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id                  String          @id @default(cuid())
+  name                String
+  address             String
+  phone               String?
+  isActive            Boolean         @default(true)
+  orders              Order[]
+  staff               Staff[]
+  inventoryItems      InventoryItem[]
+  settings            Setting[]
+  landingPageContents LandingPageContent[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 }
 
 // ==================== CORE ====================
@@ -154,6 +171,81 @@ model DiningTable {
   updatedAt DateTime         @updatedAt
 }
 
+// ==================== CUSTOMER ====================
+
+model Customer {
+  id          String       @id @default(cuid())
+  name        String
+  phone       String       @unique
+  email       String?
+  visits      Int          @default(0)
+  points      Int          @default(0)
+  totalSpent  Float        @default(0) @map("total_spent")
+  lastVisit   DateTime?    @map("last_visit")
+  isVip       Boolean      @default(false) @map("is_vip")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  orders      Order[]
+  redemptions Redemption[]
+
+  @@map("customers")
+}
+
+model Redemption {
+  id          String   @id @default(cuid())
+  customerId  String   @map("customer_id")
+  pointsUsed  Int      @map("points_used")
+  reward      String
+  orderId     String?  @map("order_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  customer    Customer @relation(fields: [customerId], references: [id])
+
+  @@map("redemptions")
+}
+
+// ==================== PROMOTION ====================
+
+model Promotion {
+  id          String          @id @default(cuid())
+  title       String
+  description String?
+  type        PromotionType
+  bannerUrl   String?         @map("banner_url")
+  discount    Float?          // percentage or fixed amount
+  minSpend    Float?          @map("min_spend")
+  startDate   DateTime        @map("start_date")
+  endDate     DateTime        @map("end_date")
+  isActive    Boolean         @default(true) @map("is_active")
+  outletId    String          @map("outlet_id")
+  target      PromotionTarget @default(ALL)
+  priority    Int             @default(0)
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@map("promotions")
+}
+
+// ==================== LANDING PAGE CMS ====================
+
+model LandingPageContent {
+  id          String      @id @default(cuid())
+  section     String
+  key         String
+  content     Json
+  sortOrder   Int         @default(0) @map("sort_order")
+  isActive    Boolean     @default(true) @map("is_active")
+  outletId    String?     @map("outlet_id")
+  outlet      Outlet?     @relation(fields: [outletId], references: [id])
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@unique([section, key, outletId], name: "section_key_outlet")
+  @@index([outletId])
+  @@index([section, isActive])
+  @@map("landing_page_contents")
+}
+
 // ==================== ORDERS ====================
 
 model Order {
@@ -169,6 +261,8 @@ model Order {
   customerName    String?
   customerPhone   String?
   customerAddress String?
+  customerId      String?        @map("customer_id")
+  customer        Customer?      @relation(fields: [customerId], references: [id])
   tableId         String?
   table           DiningTable?   @relation(fields: [tableId], references: [id])
   pax             Int?
@@ -183,6 +277,7 @@ model Order {
   receipt         Receipt?
 
   @@index([outletId])
+  @@index([customerId])
 }
 
 model OrderItem {
@@ -207,8 +302,8 @@ model OrderItem {
 model Staff {
   id              String         @id @default(cuid())
   name            String         @unique
-  email           String?        @unique    // <-- optional
-  password        String?                   // <-- optional
+  email           String?        @unique
+  password        String?
   pin             String?
   role            Role           @default(CASHIER)
   isActive        Boolean        @default(true)
@@ -383,7 +478,7 @@ model InventoryItem {
   outlet          Outlet?            @relation(fields: [outletId], references: [id])
   ingredients     MenuItemIngredient[]
   unitPrice       Float?             @default(0)
-  unitOfMeasure   String?            @default("g") // g, kg, ml, l, pcs
+  unitOfMeasure   String?            @default("g")
   stockLogs       StockLog[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt

@@ -1,17 +1,19 @@
-//
+// apps/backoffice/src/components/Layout.tsx
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@mat-ai/backoffice';
 import {
   LayoutDashboard, Receipt, Users, DollarSign, UtensilsCrossed,
   Package, Settings, Store, LogOut, ChevronLeft, ChevronRight,
-  Bell, Search, Building2, UserCircle, HelpCircle
+  Bell, Search, Building2, UserCircle, HelpCircle,
+  Calculator, ChefHat, TrendingUp, BarChart3, Tag, Star
 } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
+// Main navigation items
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['CASHIER', 'MANAGER', 'ADMIN'] },
   { path: '/sales', label: 'Sales Report', icon: Receipt, roles: ['MANAGER', 'ADMIN'] },
@@ -19,11 +21,19 @@ const navItems = [
   { path: '/payroll', label: 'Payroll', icon: DollarSign, roles: ['ADMIN'] },
   { path: '/menu', label: 'Item', icon: UtensilsCrossed, roles: ['MANAGER', 'ADMIN'] },
   { path: '/inventory', label: 'Inventory', icon: Package, roles: ['MANAGER', 'ADMIN'] },
+
+  // Costing section
+  { path: '/costing', label: 'Costing', icon: Calculator, roles: ['MANAGER', 'ADMIN'] },
+  { path: '/costing/recipes', label: 'Recipes', icon: ChefHat, roles: ['MANAGER', 'ADMIN'] },
+
   { path: '/outlets', label: 'Outlets', icon: Building2, roles: ['ADMIN', 'SUPER_ADMIN'] },
   { path: '/customers', label: 'Customer', icon: UserCircle, roles: ['MANAGER', 'ADMIN'] },
+  { path: '/promotions', label: 'Promotions', icon: Tag, roles: ['MANAGER', 'ADMIN'] },
+  { path: '/landing-page', label: 'Landing Page', icon: Tag, roles: ['MANAGER', 'ADMIN'] },
   { path: '/settings', label: 'Settings', icon: Settings, roles: ['ADMIN'] },
 ];
 
+// Bottom navigation items
 const bottomNavItems = [
   { path: '/help', label: 'Help', icon: HelpCircle, roles: ['CASHIER', 'MANAGER', 'ADMIN'] },
 ];
@@ -39,6 +49,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
+  // Filter nav items by role
   const visibleNav = navItems.filter(item =>
     staff?.role && item.roles.includes(staff.role)
   );
@@ -46,6 +57,21 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const visibleBottomNav = bottomNavItems.filter(item =>
     staff?.role && item.roles.includes(staff.role)
   );
+
+  // Check if path is active (exact match or starts with for nested routes)
+  const isActivePath = (path: string) => {
+    if (path === '/costing') {
+      return location.pathname === '/costing' || location.pathname === '/costing/calculator';
+    }
+    // Exact match for /promotion
+    if (path === '/promotion') {
+      return location.pathname === '/promotion';
+    }
+    if (path === '/landing-page') {
+    return location.pathname === '/landing-page';
+  }
+    return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -76,7 +102,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Nav */}
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
           {visibleNav.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = isActivePath(item.path);
             return (
               <button
                 key={item.path}
@@ -146,7 +172,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Topbar */}
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-          {/* Left: Logo + Nama Restaurant */}
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
               <Store className="w-5 h-5 text-white" />
@@ -154,7 +179,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span className="text-lg font-bold text-gray-900">MAT.ai Restaurant</span>
           </div>
 
-          {/* Right: Notification + Online */}
           <div className="flex items-center gap-3">
             <button className="relative p-2 hover:bg-gray-100 rounded-lg">
               <Bell className="w-5 h-5 text-gray-600" />
