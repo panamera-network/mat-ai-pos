@@ -1,4 +1,3 @@
-// src/staff/staff.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role, EmploymentType } from '@prisma/client';
@@ -7,29 +6,18 @@ import { Role, EmploymentType } from '@prisma/client';
 export class StaffService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(outletId?: string) {  // ← TAMBAH parameter
-    const where: any = { isActive: true };
-    if (outletId) where.outletId = outletId;  // ← TAMBAH
+  async findAll(outletId?: string) {
+    const where: any = {};
+    if (outletId) where.outletId = outletId;
 
     return this.prisma.staff.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        name: true,
-        pin: true,
+      where,
+      include: {
         role: true,
-        isActive: true,
-        employmentType: true,
-        hourlyRate: true,
-        monthlySalary: true,
-        joinDate: true,
-        customEpfRate: true,
-        customSocsoRate: true,
-         outletId: true,
-        createdAt: true,
-        updatedAt: true,
-        // ❌ Exclude heavy relations
+        department: true,    // ← TAMBAH
+        outlet: true,        // ← TAMBAH
       },
+      orderBy: { name: 'asc' },
     });
   }
 
@@ -37,6 +25,8 @@ export class StaffService {
     const staff = await this.prisma.staff.findUnique({
       where: { id },
       include: {
+        department: true,    // ← TAMBAH
+        outlet: true,        // ← TAMBAH
         timecards: { take: 10, orderBy: { clockIn: 'desc' } },
         payrolls: { take: 5, orderBy: { periodStart: 'desc' } },
         leaveRequests: { take: 5, orderBy: { createdAt: 'desc' } },
@@ -53,10 +43,29 @@ export class StaffService {
       select: {
         id: true,
         name: true,
+        email: true,           // ← TAMBAH
         pin: true,
         role: true,
+        isSuperAdmin: true,    // ← TAMBAH
         isActive: true,
-        employmentType: true,  // ← FIXED: was missing
+        employmentType: true,
+        outletId: true,        // ← TAMBAH
+      },
+    });
+  }
+
+  async findByEmail(email: string) {
+    return this.prisma.staff.findFirst({
+      where: { email, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        password: true,        // ← untuk auth comparison
+        role: true,
+        isSuperAdmin: true,
+        isActive: true,
+        outletId: true,
       },
     });
   }
@@ -64,28 +73,71 @@ export class StaffService {
   async create(data: {
     name: string;
     pin: string;
-    role?: Role;
-    employmentType?: EmploymentType;
+    email?: string;
+    password?: string;
+    phone?: string;            
+    roleId?: string;
+    isSuperAdmin?: boolean;    
+    isActive?: boolean;
+    employmentType?: string;
     hourlyRate?: number;
     monthlySalary?: number;
+    customEpfRate?: number;
+    customSocsoRate?: number;
+    departmentId?: string;     
+    outletId?: string;         
   }) {
-    return this.prisma.staff.create({ data });
+    const { outletId, departmentId, roleId, ...rest } = data;
+    
+    return this.prisma.staff.create({
+      data: {
+        ...rest,
+        outlet: outletId ? { connect: { id: outletId } } : undefined,
+        department: departmentId ? { connect: { id: departmentId } } : undefined,
+        role: roleId ? { connect: { id: roleId } } : undefined,
+      } as any,  // cast untuk bypass type check sementara
+    });
   }
 
   async update(id: string, data: Partial<{
     name: string;
     pin: string;
-    role: Role;
-    employmentType: EmploymentType;
+    email?: string;
+    password?: string;
+    phone?: string;
+    roleId?: string;
+    isSuperAdmin: boolean;
+    isActive: boolean;
+    employmentType: string;
     hourlyRate: number;
     monthlySalary: number;
     customEpfRate: number;
     customSocsoRate: number;
-    isActive: boolean;
+    departmentId: string;
+    outletId: string;
   }>) {
+    const { outletId, departmentId, roleId, ...rest } = data;
+    
     return this.prisma.staff.update({
       where: { id },
-      data,
+      data: {
+        ...rest,
+        outlet: outletId 
+          ? { connect: { id: outletId } } 
+          : outletId === null 
+            ? { disconnect: true } 
+            : undefined,
+        department: departmentId 
+          ? { connect: { id: departmentId } } 
+          : departmentId === null 
+            ? { disconnect: true } 
+            : undefined,
+        role: roleId 
+          ? { connect: { id: roleId } } 
+          : roleId === null 
+            ? { disconnect: true } 
+            : undefined,
+      } as any,
     });
   }
 

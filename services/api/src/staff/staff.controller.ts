@@ -32,4 +32,11 @@ export class StaffController {
   delete(@Param('id') id: string) {
     return this.staffService.delete(id);
   }
+
+  @Get('by-email/:email')
+  findByEmail(@Param('email') email: string) {
+    return this.staffService.findByEmail(email);
+  }
+
 }
+

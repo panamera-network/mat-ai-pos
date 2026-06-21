@@ -1,0 +1,5 @@
+id,name,isActive
+dept-kitchen,Kitchen,true
+dept-service,Service,true
+dept-management,Management,true
+dept-security,Security,true

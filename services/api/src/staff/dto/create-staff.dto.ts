@@ -1,6 +1,4 @@
-// src/staff/dto/create-staff.dto.ts
-import { IsString, IsEnum, IsOptional, IsNumber, IsBoolean, IsDateString } from 'class-validator';
-import { Role, EmploymentType } from '@prisma/client';
+import { IsString, IsOptional, IsNumber, IsBoolean, IsDateString } from 'class-validator';
 
 export class CreateStaffDto {
   @IsString()
@@ -9,15 +7,32 @@ export class CreateStaffDto {
   @IsString()
   pin: string;
 
-  @IsEnum(Role)
-  role: Role;
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  roleId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isSuperAdmin?: boolean;
 
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
-  @IsEnum(EmploymentType)
-  employmentType: EmploymentType;
+  @IsString()
+  employmentType: string;
 
   @IsOptional()
   @IsNumber()
@@ -39,7 +54,11 @@ export class CreateStaffDto {
   @IsNumber()
   customSocsoRate?: number;
 
-  @IsString() 
-  @IsOptional() 
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @IsOptional()
+  @IsString()
   outletId?: string;
 }

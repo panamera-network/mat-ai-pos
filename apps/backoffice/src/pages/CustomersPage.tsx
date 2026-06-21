@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Phone, Star, ShoppingBag, Crown, Calendar } from 'lucide-react';
 import { Customer } from '@mat-ai/types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 const OUTLET_ID = import.meta.env.VITE_OUTLET_ID || 'default-outlet';
 
 export const CustomersPage: React.FC = () => {

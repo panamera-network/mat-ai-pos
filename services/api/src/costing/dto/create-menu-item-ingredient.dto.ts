@@ -2,8 +2,12 @@ import { IsString, IsNumber, IsOptional, IsNotEmpty } from 'class-validator';
 
 export class CreateMenuItemIngredientDto {
   @IsString()
-  @IsNotEmpty()
-  inventoryItemId: string;
+  @IsOptional()
+  inventoryItemId?: string;
+
+  @IsString()
+  @IsOptional()
+  preCookId?: string;
 
   @IsNumber()
   quantity: number;

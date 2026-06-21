@@ -1,4 +1,3 @@
-// src/inventory/dto/create-inventory-item.dto.ts
 import { IsString, IsNumber, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateInventoryItemDto {
@@ -39,4 +38,33 @@ export class CreateInventoryItemDto {
   @IsString() 
   @IsOptional() 
   outletId?: string;
+
+  // NEW FIELDS
+  @IsOptional()
+  @IsNumber()
+  unitPrice?: number;
+
+  @IsOptional()
+  @IsString()
+  unitOfMeasure?: string;
+
+  @IsOptional()
+  @IsNumber()
+  openStock?: number;
+
+  @IsOptional()
+  @IsNumber()
+  stockIn?: number;
+
+  @IsOptional()
+  @IsNumber()
+  stockOut?: number;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsNumber()
+  packPrice?: number;
 }

@@ -1,24 +1,14 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useApi, useSalesCache } from '@mat-ai/backoffice';
-import type {
-  Order,
-  OrderView,
-  OrderStatus,
-  OrderType,
-  PaymentMethod,
-  AppliedDiscount,
-  DiscountType,
-  SalesSummary,
-  OrderItem,  // ← tambah ni dalam global types
-} from '@mat-ai/types';
+import { useApi } from '@mat-ai/backoffice';
+import type { Order } from '@mat-ai/types';
 import {
   Download, TrendingUp, Calendar, RefreshCw, FileSpreadsheet,
-  Filter, ChevronDown, ArrowUpDown
+  Filter, ChevronDown, ArrowUpDown,
 } from 'lucide-react';
-import { ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, 
-  BarChart,
-  AreaChart} from 'recharts';
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer,
+} from 'recharts';
 
 type Period = 'today' | 'week' | 'month' | 'custom';
 type SortField = 'date' | 'item' | 'category' | 'paymentType' | 'receipt' | 'discount';
@@ -29,113 +19,150 @@ interface SortConfig {
   dir: SortDir;
 }
 
-// Helper type untuk API response
-type ApiOrder = Order & {
-  discountAmount?: number;
-  discount?: AppliedDiscount;
-  items?: OrderItem[];
-};
+interface SalesSummary {
+  period: { from: string; to: string };
+  summary: {
+    totalSales: number;
+    totalTax: number;
+    orderCount: number;
+    averageOrder: number;
+  };
+  orders: Order[];
+}
+
+interface ItemSales {
+  name: string;
+  quantity: number;
+  revenue: number;
+}
+
+interface CategorySales {
+  category: string;
+  quantity: number;
+  revenue: number;
+}
+
+interface PaymentSales {
+  method: string;
+  count: number;
+  total: number;
+}
+
+interface HourlyBreakdown {
+  hour: number;
+  count: number;
+  total: number;
+}
 
 export const SalesReportPage: React.FC = () => {
   const { get } = useApi();
-  const cache = useSalesCache();
 
-  const [period, setPeriod] = useState<Period>('today');
+  const [period, setPeriod] = useState<Period>('month');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const cached = cache.getData();
-  const [sales, setSales] = useState<ApiOrder[]>(cached?.orders || []);
-  const [summary, setSummary] = useState<SalesSummary>(
-    cached?.summary || { total: 0, count: 0, avg: 0 }
-  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(
-    cache.timestamp > 0 ? new Date(cache.timestamp) : null
-  );
+
+  // Data states
+  const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
+  const [salesByItem, setSalesByItem] = useState<ItemSales[]>([]);
+  const [salesByCategory, setSalesByCategory] = useState<CategorySales[]>([]);
+  const [salesByPayment, setSalesByPayment] = useState<PaymentSales[]>([]);
+  const [hourlyData, setHourlyData] = useState<HourlyBreakdown[]>([]);
 
   const [sort, setSort] = useState<SortConfig>({ field: 'date', dir: 'desc' });
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  // Mock discounts — guna AppliedDiscount type
-  const [discounts] = useState<AppliedDiscount[]>([
-    { type: 'percentage', value: 10, reason: 'Early Bird', amount: 0 },
-    { type: 'percentage', value: 5, reason: 'Member Discount', amount: 0 },
-    { type: 'fixed', value: 5, reason: 'Weekend Special', amount: 5 },
-  ]);
+  const [chartType, setChartType] = useState<'area' | 'bar'>('area');
 
-  const fetchSales = useCallback(async (isManual = false) => {
+  // ── Resolve date range ──
+  const resolveDates = useCallback(() => {
+    const now = new Date();
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+    let start = new Date(now);
+
+    if (period === 'today') {
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'week') {
+      start.setDate(start.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'month') {
+      start.setMonth(start.getMonth() - 1);
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'custom' && dateRange.start && dateRange.end) {
+      start = new Date(dateRange.start);
+      start.setHours(0, 0, 0, 0);
+      end.setTime(new Date(dateRange.end).getTime());
+      end.setHours(23, 59, 59, 999);
+    }
+
+    return { start, end };
+  }, [period, dateRange]);
+
+  // ── Fetch all reports ──
+  const fetchReports = useCallback(async (isManual = false) => {
     if (!isManual) setLoading(true);
     setError('');
+    
+    const { start, end } = resolveDates();
+    const from = start.toISOString();
+    const to = end.toISOString();
+
     try {
-      const res = await get('/orders');
-      if (!res.ok) {
-        setError(`Failed to load: ${res.status}`);
-        setLoading(false);
-        return;
-      }
-      const orders = (res.data || []) as ApiOrder[];
+      const [
+        summaryRes,
+        itemRes,
+        catRes,
+        paymentRes,
+        hourlyRes,
+      ] = await Promise.all([
+        get(`/reports/sales?from=${from}&to=${to}`),
+        get(`/reports/sales/by-item?from=${from}&to=${to}`),
+        get(`/reports/sales/by-category?from=${from}&to=${to}`),
+        get(`/reports/sales/by-payment?from=${from}&to=${to}`),
+        get(`/reports/sales/by-hour?from=${from}&to=${to}`),
+      ]);
 
-      const now = new Date();
-      let filtered: ApiOrder[] = orders;
+      if (summaryRes.ok) setSalesSummary(summaryRes.data as SalesSummary);
+      if (itemRes.ok) setSalesByItem((itemRes.data as ItemSales[]) || []);
+      if (catRes.ok) setSalesByCategory((catRes.data as CategorySales[]) || []);
+      if (paymentRes.ok) setSalesByPayment((paymentRes.data as PaymentSales[]) || []);
+      if (hourlyRes.ok) setHourlyData((hourlyRes.data as HourlyBreakdown[]) || []);
 
-      if (period === 'today') {
-        const today = now.toISOString().split('T')[0];
-        filtered = orders.filter((o) => o.createdAt?.startsWith(today));
-      } else if (period === 'week') {
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        filtered = orders.filter((o) => new Date(o.createdAt) >= weekAgo);
-      } else if (period === 'month') {
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        filtered = orders.filter((o) => new Date(o.createdAt) >= monthAgo);
-      } else if (period === 'custom' && dateRange.start && dateRange.end) {
-        filtered = orders.filter((o) => {
-          const d = new Date(o.createdAt);
-          return d >= new Date(dateRange.start) && d <= new Date(dateRange.end);
-        });
-      }
-
-      const paidOrders = filtered.filter((o) => o.status === 'PAID');
-      const total = paidOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
-      const newSummary: SalesSummary = {
-        total,
-        count: paidOrders.length,
-        avg: paidOrders.length > 0 ? total / paidOrders.length : 0,
-      };
-
-      setSales(paidOrders);
-      setSummary(newSummary);
-      cache.setData(paidOrders, newSummary, period);
       setLastRefresh(new Date());
     } catch (err) {
-      setError('Network error');
+      setError('Failed to load reports. Please try again.');
+      console.error('Reports fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }, [period, dateRange, get, cache]);
+  }, [get, resolveDates]);
 
   useEffect(() => {
-    if (cache.isExpired() || cached?.period !== period) {
-      fetchSales();
-    }
-  }, [period, fetchSales, cache, cached]);
+    fetchReports();
+  }, [period, dateRange]);
 
-  // Sorting logic — dah typed
-  const sortedSales = useMemo(() => {
-    const data = [...sales];
+  // ── Chart data ──
+  const chartData = useMemo(() => {
+    return hourlyData.map(h => ({
+      date: `${h.hour}:00`,
+      revenue: h.total,
+      orders: h.count,
+    }));
+  }, [hourlyData]);
+
+  // ── Sorting ──
+  const sortedOrders = useMemo(() => {
+    if (!salesSummary?.orders) return [];
+    const data = [...salesSummary.orders];
+    
     data.sort((a, b) => {
       let valA: string | number, valB: string | number;
       switch (sort.field) {
         case 'date':
           valA = new Date(a.createdAt).getTime();
           valB = new Date(b.createdAt).getTime();
-          break;
-        case 'item':
-          valA = a.items?.[0]?.name || '';
-          valB = b.items?.[0]?.name || '';
-          break;
-        case 'category':
-          valA = a.items?.[0]?.menuItem?.category?.name || '';
-          valB = b.items?.[0]?.menuItem?.category?.name || '';
           break;
         case 'paymentType':
           valA = a.paymentMethod || '';
@@ -145,13 +172,9 @@ export const SalesReportPage: React.FC = () => {
           valA = a.orderNumber || '';
           valB = b.orderNumber || '';
           break;
-        case 'discount':
-          valA = a.discountAmount || a.discount?.amount || 0;
-          valB = b.discountAmount || b.discount?.amount || 0;
-          break;
         default:
-          valA = a.createdAt;
-          valB = b.createdAt;
+          valA = new Date(a.createdAt).getTime();
+          valB = new Date(b.createdAt).getTime();
       }
       if (typeof valA === 'string') {
         return sort.dir === 'asc'
@@ -163,7 +186,7 @@ export const SalesReportPage: React.FC = () => {
         : (valB as number) - (valA as number);
     });
     return data;
-  }, [sales, sort]);
+  }, [salesSummary?.orders, sort]);
 
   const toggleSort = (field: SortField) => {
     setSort((prev) => ({
@@ -182,53 +205,28 @@ export const SalesReportPage: React.FC = () => {
     discount: 'Discount',
   };
 
-  // Generate chart data dari sales
-  const [chartType, setChartType] = useState<'area' | 'bar'>('area');
-  const chartData = useMemo(() => {
-    // Group by date
-    const grouped = new Map<string, { date: string; revenue: number; orders: number }>();
+  // ── Export CSV via backend ──
+  const handleExportCSV = async () => {
+    const { start, end } = resolveDates();
+    const from = start.toISOString();
+    const to = end.toISOString();
     
-    sortedSales.forEach((order) => {
-      const date = new Date(order.createdAt).toLocaleDateString('en-MY', { 
-        day: 'numeric', 
-        month: 'short' 
-      });
-      const existing = grouped.get(date);
-      if (existing) {
-        existing.revenue += Number(order.totalAmount);
-        existing.orders += 1;
-      } else {
-        grouped.set(date, { date, revenue: Number(order.totalAmount), orders: 1 });
+    try {
+      const res = await get(`/reports/sales/export?from=${from}&to=${to}`);
+      if (res.ok && res.data) {
+        // If backend returns string directly
+        const blob = new Blob([res.data as string], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sales-report-${period}-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
       }
-    });
-
-    // Convert to array, sort by date
-    return Array.from(grouped.values()).sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
-      return dateA.getTime() - dateB.getTime();
-    });
-  }, [sortedSales]);
-
-  const handleExportCSV = () => {
-    const headers = ['Order #', 'Date', 'Type', 'Items', 'Total', 'Payment Method', 'Discount'];
-    const rows = sortedSales.map((o) => [
-      o.orderNumber,
-      new Date(o.createdAt).toLocaleString(),
-      o.type,
-      o.items?.length || 0,
-      o.totalAmount,
-      o.paymentMethod || '-',
-      o.discountAmount || o.discount?.amount || 0,
-    ]);
-    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sales-report-${period}-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error:', err);
+      setError('Failed to export CSV');
+    }
   };
 
   const timeAgo = () => {
@@ -238,6 +236,8 @@ export const SalesReportPage: React.FC = () => {
     if (diff < 60) return `${diff} min ago`;
     return lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  const summary = salesSummary?.summary;
 
   return (
     <div className="space-y-6">
@@ -249,7 +249,7 @@ export const SalesReportPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => fetchSales(true)}
+            onClick={() => fetchReports(true)}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-2 bg-white border rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
           >
@@ -258,7 +258,8 @@ export const SalesReportPage: React.FC = () => {
           </button>
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
             <FileSpreadsheet className="w-4 h-4" />
             Export CSV
@@ -297,7 +298,7 @@ export const SalesReportPage: React.FC = () => {
               className="px-3 py-2 border rounded-lg text-sm"
             />
             <button
-              onClick={() => fetchSales(true)}
+              onClick={() => fetchReports(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
             >
               Apply
@@ -313,83 +314,95 @@ export const SalesReportPage: React.FC = () => {
             <TrendingUp className="w-4 h-4 text-blue-600" />
             <span className="text-sm text-gray-500">Total Revenue</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">RM{summary.total.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {summary ? `RM ${summary.totalSales.toFixed(2)}` : '—'}
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-2">
             <Calendar className="w-4 h-4 text-green-600" />
             <span className="text-sm text-gray-500">Total Orders</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{summary.count}</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {summary ? summary.orderCount : '—'}
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-4 h-4 text-orange-600" />
             <span className="text-sm text-gray-500">Average Order</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">RM{summary.avg.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {summary ? `RM ${summary.averageOrder.toFixed(2)}` : '—'}
+          </p>
         </div>
       </div>
 
-      {/* Sort Dropdown */}
-      <div className="flex items-center justify-between">
-        <div className="relative">
-          <button
-            onClick={() => setShowSortDropdown(!showSortDropdown)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-          >
-            <ArrowUpDown className="w-4 h-4" />
-            Sort by: {sortLabels[sort.field]} ({sort.dir === 'asc' ? 'A-Z' : 'Z-A'})
-            <ChevronDown className={`w-4 h-4 transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
-          </button>
-          {showSortDropdown && (
-            <div className="absolute left-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-50 p-2">
-              {(Object.keys(sortLabels) as SortField[]).map((field) => (
-                <button
-                  key={field}
-                  onClick={() => toggleSort(field)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    sort.field === field ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>{sortLabels[field]}</span>
-                    {sort.field === field && (
-                      <span className="text-xs text-blue-600">{sort.dir === 'asc' ? '↑' : '↓'}</span>
-                    )}
+      {/* Sales by Category & Payment Side-by-Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="font-semibold text-gray-900 mb-4">Sales by Category</h3>
+          {salesByCategory.length > 0 ? (
+            <div className="space-y-3">
+              {salesByCategory.map((cat) => (
+                <div key={cat.category} className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">{cat.category}</span>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-gray-500">{cat.quantity} sold</span>
+                    <span className="text-sm font-medium text-gray-900">RM {cat.revenue.toFixed(2)}</span>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
+          ) : (
+            <p className="text-gray-400 text-sm">No data</p>
           )}
         </div>
-        <span className="text-sm text-gray-500">{sortedSales.length} orders</span>
-      </div>
 
-      {/* Sales Trend Chart */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-900">Sales Trend</h3>
-        <div className="flex bg-gray-100 rounded-lg p-1">
-          <button
-            onClick={() => setChartType('area')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              chartType === 'area' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Area
-          </button>
-          <button
-            onClick={() => setChartType('bar')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              chartType === 'bar' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Bar
-          </button>
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="font-semibold text-gray-900 mb-4">Sales by Payment Method</h3>
+          {salesByPayment.length > 0 ? (
+            <div className="space-y-3">
+              {salesByPayment.map((p) => (
+                <div key={p.method} className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">{p.method}</span>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-gray-500">{p.count} txns</span>
+                    <span className="text-sm font-medium text-gray-900">RM {p.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">No data</p>
+          )}
         </div>
       </div>
 
-        {sortedSales.length > 0 ? (
+      {/* Chart */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-900">Sales Trend</h3>
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setChartType('area')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                chartType === 'area' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'
+              }`}
+            >
+              Area
+            </button>
+            <button
+              onClick={() => setChartType('bar')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                chartType === 'bar' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'
+              }`}
+            >
+              Bar
+            </button>
+          </div>
+        </div>
+        {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={280}>
             {chartType === 'area' ? (
               <AreaChart data={chartData}>
@@ -426,10 +439,39 @@ export const SalesReportPage: React.FC = () => {
             <p className="text-gray-400">No data to display</p>
           </div>
         )}
-      
+      </div>
+
+      {/* Top Items */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="font-semibold text-gray-900 mb-4">Top Selling Items</h3>
+        {salesByItem.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Item</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Quantity</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Revenue</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {salesByItem.map((item) => (
+                  <tr key={item.name} className="hover:bg-gray-50">
+                    <td className="px-6 py-3 text-sm text-gray-900">{item.name}</td>
+                    <td className="px-6 py-3 text-sm text-gray-500 text-right">{item.quantity}</td>
+                    <td className="px-6 py-3 text-sm font-medium text-gray-900 text-right">RM {item.revenue.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-gray-400 text-sm">No data</p>
+        )}
+      </div>
 
       {/* Orders Table */}
-      {loading && sales.length === 0 && (
+      {loading && !salesSummary && (
         <div className="text-center py-12 text-gray-400 bg-white rounded-xl border border-gray-200">
           <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
           <p>Loading sales data...</p>
@@ -439,19 +481,40 @@ export const SalesReportPage: React.FC = () => {
       {error && (
         <div className="text-center py-8 text-red-500 bg-red-50 rounded-xl border border-red-200">
           <p>{error}</p>
-          <button onClick={() => fetchSales(true)} className="mt-2 text-sm underline">Retry</button>
+          <button onClick={() => fetchReports(true)} className="mt-2 text-sm underline">Retry</button>
         </div>
       )}
 
-      {!loading && !error && sales.length === 0 && (
-        <div className="text-center py-12 text-gray-400 bg-white rounded-xl border border-gray-200">
-          <Calendar className="w-8 h-8 mx-auto mb-2" />
-          <p>No sales data for this period</p>
-        </div>
-      )}
-
-      {sortedSales.length > 0 && (
+      {!loading && !error && salesSummary?.orders && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900">Orders</h3>
+            <div className="relative">
+              <button
+                onClick={() => setShowSortDropdown(!showSortDropdown)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 hover:bg-gray-200"
+              >
+                <ArrowUpDown className="w-4 h-4" />
+                Sort: {sortLabels[sort.field]}
+                <ChevronDown className={`w-4 h-4 transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              {showSortDropdown && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 p-2">
+                  {(Object.keys(sortLabels) as SortField[]).map((field) => (
+                    <button
+                      key={field}
+                      onClick={() => toggleSort(field)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
+                        sort.field === field ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {sortLabels[field]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -462,27 +525,23 @@ export const SalesReportPage: React.FC = () => {
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Items</th>
                   <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Total</th>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Payment</th>
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Discount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {sortedSales.map((order: any) => (
+                {sortedOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{order.orderNumber}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{new Date(order.createdAt).toLocaleString()}</td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex px-2 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700">{order.type}</span>
+                      <span className="inline-flex px-2 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700">
+                        {order.type}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{order.items?.length || 0} items</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">RM{Number(order.totalAmount).toFixed(2)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{(order as any).items?.length || 0} items</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
+                      RM{Number(order.totalAmount).toFixed(2)}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-500">{order.paymentMethod || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-right">
-                      {order.discountAmount ? (
-                        <span className="text-green-600 font-medium">-RM{Number(order.discountAmount).toFixed(2)}</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>

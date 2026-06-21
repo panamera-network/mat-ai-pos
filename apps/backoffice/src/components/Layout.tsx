@@ -2,46 +2,44 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@mat-ai/backoffice';
+import { usePermission } from '../hooks/usePermission';
 import {
   LayoutDashboard, Receipt, Users, DollarSign, UtensilsCrossed,
   Package, Settings, Store, LogOut, ChevronLeft, ChevronRight,
-  Bell, Search, Building2, UserCircle, HelpCircle,
-  Calculator, ChefHat, TrendingUp, BarChart3, Tag, Star
+  Bell, Building2, UserCircle, HelpCircle,
+  Calculator, ChefHat, Tag
 } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-// Main navigation items
+// Main navigation items with permission keys
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['CASHIER', 'MANAGER', 'ADMIN'] },
-  { path: '/sales', label: 'Sales Report', icon: Receipt, roles: ['MANAGER', 'ADMIN'] },
-  { path: '/staff', label: 'Staff', icon: Users, roles: ['MANAGER', 'ADMIN'] },
-  { path: '/payroll', label: 'Payroll', icon: DollarSign, roles: ['ADMIN'] },
-  { path: '/menu', label: 'Item', icon: UtensilsCrossed, roles: ['MANAGER', 'ADMIN'] },
-  { path: '/inventory', label: 'Inventory', icon: Package, roles: ['MANAGER', 'ADMIN'] },
-
-  // Costing section
-  { path: '/costing', label: 'Costing', icon: Calculator, roles: ['MANAGER', 'ADMIN'] },
-  { path: '/costing/recipes', label: 'Recipes', icon: ChefHat, roles: ['MANAGER', 'ADMIN'] },
-
-  { path: '/outlets', label: 'Outlets', icon: Building2, roles: ['ADMIN', 'SUPER_ADMIN'] },
-  { path: '/customers', label: 'Customer', icon: UserCircle, roles: ['MANAGER', 'ADMIN'] },
-  { path: '/promotions', label: 'Promotions', icon: Tag, roles: ['MANAGER', 'ADMIN'] },
-  { path: '/landing-page', label: 'Landing Page', icon: Tag, roles: ['MANAGER', 'ADMIN'] },
-  { path: '/settings', label: 'Settings', icon: Settings, roles: ['ADMIN'] },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard' },
+  { path: '/sales', label: 'Sales Report', icon: Receipt, permission: 'sales' },
+  { path: '/staff', label: 'Staff', icon: Users, permission: 'staff' },
+  { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'payroll' },
+  { path: '/menu', label: 'Item', icon: UtensilsCrossed, permission: 'menu' },
+  { path: '/inventory', label: 'Inventory', icon: Package, permission: 'inventory' },
+  { path: '/costing', label: 'Costing', icon: Calculator, permission: 'costing' },
+  { path: '/costing/recipes', label: 'Recipes', icon: ChefHat, permission: 'recipes' },
+  { path: '/outlets', label: 'Outlets', icon: Building2, permission: 'outlets' },
+  { path: '/customers', label: 'Customer', icon: UserCircle, permission: 'customers' },
+  { path: '/promotions', label: 'Promotions', icon: Tag, permission: 'promotions' },
+  { path: '/landing-page', label: 'Landing Page', icon: Tag, permission: 'landing_page' },
+  { path: '/settings', label: 'Settings', icon: Settings, permission: 'settings' },
 ];
 
-// Bottom navigation items
 const bottomNavItems = [
-  { path: '/help', label: 'Help', icon: HelpCircle, roles: ['CASHIER', 'MANAGER', 'ADMIN'] },
+  { path: '/help', label: 'Help', icon: HelpCircle, permission: 'dashboard' },
 ];
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { staff, logout } = useAuthStore();
+  const { can, isSuperAdmin } = usePermission();
   const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = () => {
@@ -49,27 +47,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
-  // Filter nav items by role
-  const visibleNav = navItems.filter(item =>
-    staff?.role && item.roles.includes(staff.role)
-  );
+  // Filter by permission
+  const visibleNav = navItems.filter(item => can(item.permission));
+  const visibleBottomNav = bottomNavItems.filter(item => can(item.permission));
 
-  const visibleBottomNav = bottomNavItems.filter(item =>
-    staff?.role && item.roles.includes(staff.role)
-  );
-
-  // Check if path is active (exact match or starts with for nested routes)
   const isActivePath = (path: string) => {
     if (path === '/costing') {
       return location.pathname === '/costing' || location.pathname === '/costing/calculator';
     }
-    // Exact match for /promotion
     if (path === '/promotion') {
       return location.pathname === '/promotion';
     }
     if (path === '/landing-page') {
-    return location.pathname === '/landing-page';
-  }
+      return location.pathname === '/landing-page';
+    }
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
@@ -143,18 +134,26 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           })}
         </div>
 
-        {/* User */}
+        {/* User — Super Admin Badge */}
         <div className="p-3 border-t border-gray-200">
           <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
-            <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-bold text-blue-700">
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+              isSuperAdmin ? 'bg-purple-100' : 'bg-blue-100'
+            }`}>
+              <span className={`text-sm font-bold ${
+                isSuperAdmin ? 'text-purple-700' : 'text-blue-700'
+              }`}>
                 {staff?.name?.charAt(0) || 'U'}
               </span>
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">{staff?.name || 'User'}</p>
-                <p className="text-xs text-gray-500">{staff?.role || 'Staff'}</p>
+                <p className={`text-xs ${
+                  isSuperAdmin ? 'text-purple-600 font-medium' : 'text-gray-500'
+                }`}>
+                  {isSuperAdmin ? '👑 SUPER ADMIN' : staff?.roleName || 'Staff'}
+                </p>
               </div>
             )}
             <button

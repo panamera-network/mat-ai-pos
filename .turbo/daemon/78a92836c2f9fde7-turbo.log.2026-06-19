@@ -70,3 +70,239 @@
 2026-06-19T03:28:40.971806Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie"), AnchoredSystemPathBuf(".turbo\\cookies\\.turbo-cookie"), AnchoredSystemPathBuf(".turbo")}
 2026-06-19T03:28:40.971845Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
 2026-06-19T03:28:41.024594Z  WARN daemon_server: turborepo_lib::commands::daemon: daemon already running
+2026-06-19T03:28:41.763969Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo"), AnchoredSystemPathBuf(".turbo\\daemon\\78a92836c2f9fde7-turbo.log.2026-06-19")}
+2026-06-19T03:28:41.763989Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T03:28:43.074025Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\vite.config.ts.timestamp-1781839723051-98052c8474a75.mjs"), AnchoredSystemPathBuf("apps\\kitchen"), AnchoredSystemPathBuf("apps\\admin\\vite.config.ts.timestamp-1781839723018-a721785b65422.mjs"), AnchoredSystemPathBuf("apps\\kitchen\\vite.config.ts.timestamp-1781839723042-e1e70b3d6a67d.mjs"), AnchoredSystemPathBuf("apps\\qr-menu\\vite.config.ts.timestamp-1781839723022-47c03dcde2d91.mjs")}
+2026-06-19T03:28:43.074050Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/kitchen"), path: AnchoredSystemPathBuf("apps\\kitchen") }, WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }, WorkspacePackage { name: Other("@mat-ai/qr-menu"), path: AnchoredSystemPathBuf("apps\\qr-menu") }, WorkspacePackage { name: Other("@mat-ai/admin"), path: AnchoredSystemPathBuf("apps\\admin") }}))
+2026-06-19T03:28:43.686345Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\admin\\vite.config.ts.timestamp-1781839723018-a721785b65422.mjs"), AnchoredSystemPathBuf("apps\\backoffice\\vite.config.ts.timestamp-1781839723051-98052c8474a75.mjs"), AnchoredSystemPathBuf("apps\\pos"), AnchoredSystemPathBuf("apps\\pos\\vite.config.ts.timestamp-1781839723185-ae4b81c824415.mjs"), AnchoredSystemPathBuf("apps\\kitchen"), AnchoredSystemPathBuf("apps\\admin"), AnchoredSystemPathBuf("apps\\backoffice"), AnchoredSystemPathBuf("apps\\qr-menu")}
+2026-06-19T03:28:43.686370Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/admin"), path: AnchoredSystemPathBuf("apps\\admin") }, WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }, WorkspacePackage { name: Other("@mat-ai/qr-menu"), path: AnchoredSystemPathBuf("apps\\qr-menu") }, WorkspacePackage { name: Other("@mat-ai/pos"), path: AnchoredSystemPathBuf("apps\\pos") }, WorkspacePackage { name: Other("@mat-ai/kitchen"), path: AnchoredSystemPathBuf("apps\\kitchen") }}))
+2026-06-19T03:28:43.686439Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T03:28:43.686486Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T03:28:43.686525Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T03:28:43.806336Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T03:28:44.067660Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist"), AnchoredSystemPathBuf("services\\api")}
+2026-06-19T03:28:44.067686Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T03:28:50.766058Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api"), AnchoredSystemPathBuf("services\\api\\dist")}
+2026-06-19T03:28:50.766082Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T03:28:53.549166Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T03:28:53.550650Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist")}
+2026-06-19T03:28:53.550665Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T03:28:53.550759Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T03:33:55.769050Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\components\\Layout.tsx")}
+2026-06-19T03:33:55.769073Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T03:34:33.773087Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\components\\Layout.tsx")}
+2026-06-19T03:34:33.773110Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T03:41:42.467548Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\components\\Layout.tsx")}
+2026-06-19T03:41:42.467651Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T03:44:02.164519Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\daemon\\78a92836c2f9fde7-turbo.log.2026-06-19")}
+2026-06-19T03:44:02.164542Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T03:57:47.064589Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\App.tsx")}
+2026-06-19T03:57:47.064614Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T03:59:08.371834Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\CustomersPage.tsx")}
+2026-06-19T03:59:08.371857Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T03:59:44.472800Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\LandingPageCMS.tsx")}
+2026-06-19T03:59:44.472818Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T04:00:22.362458Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\PromotionsPage.tsx")}
+2026-06-19T04:00:22.362505Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:30:21.627007Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie"), AnchoredSystemPathBuf(".turbo\\cookies")}
+2026-06-19T16:30:21.627051Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T16:30:21.719747Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies\\.turbo-cookie"), AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie")}
+2026-06-19T16:30:21.719769Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T16:30:21.834656Z  WARN daemon_server: turborepo_lib::commands::daemon: daemon already running
+2026-06-19T16:30:22.517461Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo")}
+2026-06-19T16:30:22.517483Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T16:30:22.923894Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\daemon\\78a92836c2f9fde7-turbo.log.2026-06-19")}
+2026-06-19T16:30:22.923913Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T16:30:24.621640Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist")}
+2026-06-19T16:30:24.621663Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T16:30:24.760400Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api")}
+2026-06-19T16:30:24.760422Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T16:30:24.760527Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:30:25.119765Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\kitchen"), AnchoredSystemPathBuf("apps\\backoffice\\vite.config.ts.timestamp-1781886625064-ead1912c69d38.mjs"), AnchoredSystemPathBuf("apps\\admin\\vite.config.ts.timestamp-1781886625049-c29b984cfa55c.mjs"), AnchoredSystemPathBuf("apps\\qr-menu"), AnchoredSystemPathBuf("apps\\qr-menu\\vite.config.ts.timestamp-1781886625049-680ccb53b26c4.mjs"), AnchoredSystemPathBuf("apps\\kitchen\\vite.config.ts.timestamp-1781886625050-8f152f7ec8eaa.mjs"), AnchoredSystemPathBuf("apps\\pos"), AnchoredSystemPathBuf("apps\\admin"), AnchoredSystemPathBuf("apps\\pos\\vite.config.ts.timestamp-1781886625049-fe11cdf8fef6d.mjs")}
+2026-06-19T16:30:25.119793Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }, WorkspacePackage { name: Other("@mat-ai/kitchen"), path: AnchoredSystemPathBuf("apps\\kitchen") }, WorkspacePackage { name: Other("@mat-ai/qr-menu"), path: AnchoredSystemPathBuf("apps\\qr-menu") }, WorkspacePackage { name: Other("@mat-ai/pos"), path: AnchoredSystemPathBuf("apps\\pos") }, WorkspacePackage { name: Other("@mat-ai/admin"), path: AnchoredSystemPathBuf("apps\\admin") }}))
+2026-06-19T16:30:25.790051Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice"), AnchoredSystemPathBuf("apps\\qr-menu"), AnchoredSystemPathBuf("apps\\pos"), AnchoredSystemPathBuf("apps\\admin\\vite.config.ts.timestamp-1781886625049-c29b984cfa55c.mjs"), AnchoredSystemPathBuf("apps\\admin"), AnchoredSystemPathBuf("apps\\backoffice\\vite.config.ts.timestamp-1781886625064-ead1912c69d38.mjs"), AnchoredSystemPathBuf("apps\\pos\\vite.config.ts.timestamp-1781886625049-fe11cdf8fef6d.mjs")}
+2026-06-19T16:30:25.790073Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/pos"), path: AnchoredSystemPathBuf("apps\\pos") }, WorkspacePackage { name: Other("@mat-ai/admin"), path: AnchoredSystemPathBuf("apps\\admin") }, WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }, WorkspacePackage { name: Other("@mat-ai/qr-menu"), path: AnchoredSystemPathBuf("apps\\qr-menu") }}))
+2026-06-19T16:30:25.790105Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:30:25.790133Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:30:25.790168Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:30:25.790195Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:30:33.511005Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist")}
+2026-06-19T16:30:33.511027Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T16:30:37.028590Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:30:37.030392Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist"), AnchoredSystemPathBuf("services\\api")}
+2026-06-19T16:30:37.030408Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T16:30:37.030513Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:35:05.519174Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice"), AnchoredSystemPathBuf("apps\\backoffice\\vite.config.ts.timestamp-1781886905433-f42b92c2a6761.mjs")}
+2026-06-19T16:35:05.519235Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:35:05.588056Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:39:04.125199Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\LandingPageCMS.tsx")}
+2026-06-19T16:39:04.125224Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:39:12.614175Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\LandingPageCMS.tsx")}
+2026-06-19T16:39:12.614198Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:39:12.805760Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:42:48.313474Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\hook"), AnchoredSystemPathBuf("apps\\backoffice\\src")}
+2026-06-19T16:42:48.313501Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:42:48.427963Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:42:56.220571Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src"), AnchoredSystemPathBuf("apps\\backoffice\\src\\hook"), AnchoredSystemPathBuf("apps\\backoffice\\src\\hooks")}
+2026-06-19T16:42:56.220594Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:42:56.300276Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:43:37.918674Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\hooks\\useApi.ts"), AnchoredSystemPathBuf("apps\\backoffice\\src\\hooks")}
+2026-06-19T16:43:37.918695Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:43:41.716549Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\hooks\\useApi.ts")}
+2026-06-19T16:43:41.716620Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:48:09.027102Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\hooks\\useApi.ts")}
+2026-06-19T16:48:09.027130Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:48:09.140912Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T16:48:20.525567Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\LandingPageCMS.tsx")}
+2026-06-19T16:48:20.525631Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:50:37.425668Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\LandingPageCMS.tsx")}
+2026-06-19T16:50:37.425701Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:53:47.525137Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\LandingPageCMS.tsx")}
+2026-06-19T16:53:47.525201Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T16:54:54.119063Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\LandingPageCMS.tsx")}
+2026-06-19T16:54:54.119085Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T17:03:14.415524Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\vite.config.ts.timestamp-1781888594327-bc6c31a0d0d45.mjs"), AnchoredSystemPathBuf("apps\\backoffice")}
+2026-06-19T17:03:14.415580Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T17:03:14.519861Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T18:19:52.222052Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\prisma\\schema.prisma")}
+2026-06-19T18:19:52.222131Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T18:20:30.914374Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\types\\src\\index.ts")}
+2026-06-19T18:20:30.914393Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/types"), path: AnchoredSystemPathBuf("packages\\types") }}))
+2026-06-19T18:20:31.097611Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\types\\src\\index.ts")}
+2026-06-19T18:20:31.097629Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/types"), path: AnchoredSystemPathBuf("packages\\types") }}))
+2026-06-19T18:20:31.097650Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T18:21:10.713714Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\staff\\dto\\create-staff.dto.ts")}
+2026-06-19T18:21:10.713738Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T18:22:28.425912Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\prisma\\seed.ts")}
+2026-06-19T18:22:28.425952Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T18:23:15.918588Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\prisma\\seed.ts")}
+2026-06-19T18:23:15.918614Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T18:23:16.040540Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:02:45.817281Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie"), AnchoredSystemPathBuf(".turbo\\cookies\\.turbo-cookie"), AnchoredSystemPathBuf(".turbo"), AnchoredSystemPathBuf(".turbo\\cookies")}
+2026-06-19T19:02:45.817319Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T19:02:45.880066Z  WARN daemon_server: turborepo_lib::commands::daemon: daemon already running
+2026-06-19T19:02:46.624293Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo"), AnchoredSystemPathBuf(".turbo\\cookies")}
+2026-06-19T19:02:46.624312Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T19:02:46.921114Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\daemon\\78a92836c2f9fde7-turbo.log.2026-06-19")}
+2026-06-19T19:02:46.921298Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T19:02:48.628623Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api"), AnchoredSystemPathBuf("services\\api\\dist")}
+2026-06-19T19:02:48.628646Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:02:48.923393Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\admin\\vite.config.ts.timestamp-1781895768910-65362f793026d.mjs"), AnchoredSystemPathBuf("apps\\qr-menu\\vite.config.ts.timestamp-1781895768906-2b6a90c685d6d.mjs"), AnchoredSystemPathBuf("apps\\kitchen\\vite.config.ts.timestamp-1781895768903-73b981d89b70e.mjs"), AnchoredSystemPathBuf("apps\\backoffice\\vite.config.ts.timestamp-1781895768909-4f1040b4fb48c.mjs")}
+2026-06-19T19:02:48.923417Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/admin"), path: AnchoredSystemPathBuf("apps\\admin") }, WorkspacePackage { name: Other("@mat-ai/qr-menu"), path: AnchoredSystemPathBuf("apps\\qr-menu") }, WorkspacePackage { name: Other("@mat-ai/kitchen"), path: AnchoredSystemPathBuf("apps\\kitchen") }, WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T19:02:50.068069Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\qr-menu"), AnchoredSystemPathBuf("apps\\pos"), AnchoredSystemPathBuf("apps\\backoffice\\vite.config.ts.timestamp-1781895768909-4f1040b4fb48c.mjs"), AnchoredSystemPathBuf("apps\\qr-menu\\vite.config.ts.timestamp-1781895768906-2b6a90c685d6d.mjs"), AnchoredSystemPathBuf("apps\\backoffice"), AnchoredSystemPathBuf("apps\\pos\\vite.config.ts.timestamp-1781895768965-0eaa1e90152f5.mjs"), AnchoredSystemPathBuf("apps\\admin\\vite.config.ts.timestamp-1781895768910-65362f793026d.mjs"), AnchoredSystemPathBuf("apps\\kitchen\\vite.config.ts.timestamp-1781895768903-73b981d89b70e.mjs"), AnchoredSystemPathBuf("apps\\admin"), AnchoredSystemPathBuf("apps\\kitchen")}
+2026-06-19T19:02:50.068095Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/qr-menu"), path: AnchoredSystemPathBuf("apps\\qr-menu") }, WorkspacePackage { name: Other("@mat-ai/pos"), path: AnchoredSystemPathBuf("apps\\pos") }, WorkspacePackage { name: Other("@mat-ai/admin"), path: AnchoredSystemPathBuf("apps\\admin") }, WorkspacePackage { name: Other("@mat-ai/kitchen"), path: AnchoredSystemPathBuf("apps\\kitchen") }, WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T19:02:50.068157Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:02:50.068206Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:02:50.068237Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:02:50.068269Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:02:59.122588Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist"), AnchoredSystemPathBuf("services\\api")}
+2026-06-19T19:02:59.122611Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:03:02.572161Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:03:02.574753Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist")}
+2026-06-19T19:03:02.574769Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:03:02.574916Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:06:02.022489Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages"), AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\CustomerPage.tsx")}
+2026-06-19T19:06:02.022538Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T19:12:20.124559Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\prisma\\schema.prisma")}
+2026-06-19T19:12:20.124619Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:13:34.932707Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages\\types\\src\\index.ts")}
+2026-06-19T19:13:34.932731Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/types"), path: AnchoredSystemPathBuf("packages\\types") }}))
+2026-06-19T19:14:38.732293Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\staff\\dto\\create-staff.dto.ts")}
+2026-06-19T19:14:38.732330Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:19:09.431002Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department")}
+2026-06-19T19:19:09.431039Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:19:09.624957Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:19:09.625165Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src")}
+2026-06-19T19:19:09.625180Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:19:09.625279Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:19:22.132565Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department"), AnchoredSystemPathBuf("services\\api\\src\\department\\dto")}
+2026-06-19T19:19:22.132589Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:19:22.177622Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:19:37.718062Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\department.module.ts")}
+2026-06-19T19:19:37.718144Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:19:37.897504Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department")}
+2026-06-19T19:19:37.897523Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:19:37.897603Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:19:38.222366Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist")}
+2026-06-19T19:19:38.222389Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:19:38.436138Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:19:43.819056Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\department.module.ts")}
+2026-06-19T19:19:43.819079Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:19:53.018598Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\department.service.ts")}
+2026-06-19T19:19:53.018618Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:19:53.182945Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department")}
+2026-06-19T19:19:53.182968Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:19:53.183076Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:19:57.132742Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\department.service.ts")}
+2026-06-19T19:19:57.132819Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:07.423189Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\department.controller.ts")}
+2026-06-19T19:20:07.423212Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:07.576262Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department")}
+2026-06-19T19:20:07.576284Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:07.576588Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:20:17.321467Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\department.service.ts")}
+2026-06-19T19:20:17.321489Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:17.371552Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:20:18.417904Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\department.module.ts")}
+2026-06-19T19:20:18.417932Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:18.519702Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:20:19.219210Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\department.controller.ts")}
+2026-06-19T19:20:19.219255Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:33.122824Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\dto\\create-department.dto.ts")}
+2026-06-19T19:20:33.122858Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:33.297039Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\dto")}
+2026-06-19T19:20:33.297054Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:33.297134Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:20:37.130228Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\dto\\create-department.dto.ts")}
+2026-06-19T19:20:37.130252Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:47.628711Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\dto\\update-department.dto.ts")}
+2026-06-19T19:20:47.628795Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:47.789282Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\dto")}
+2026-06-19T19:20:47.789302Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:20:47.789410Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:20:52.728210Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\dto\\update-department.dto.ts")}
+2026-06-19T19:20:52.728253Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:24:59.221427Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\OutletManagementPage.tsx")}
+2026-06-19T19:24:59.221458Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T19:25:03.034776Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\LandingPageCMS.tsx")}
+2026-06-19T19:25:03.034796Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T19:25:03.192998Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:25:08.431536Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\department\\department.module.ts")}
+2026-06-19T19:25:08.431558Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:25:08.520296Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T19:25:13.918517Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\app.module.ts")}
+2026-06-19T19:25:13.918538Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:25:17.119698Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\pages\\StaffPage.tsx")}
+2026-06-19T19:25:17.119720Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T19:25:22.627177Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\prisma\\seed.ts")}
+2026-06-19T19:25:22.627197Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:26:33.519357Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\staff\\staff.service.ts")}
+2026-06-19T19:26:33.519426Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:27:47.221677Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\src\\staff\\staff.controller.ts")}
+2026-06-19T19:27:47.221705Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T19:35:33.023191Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\prisma\\seed.ts")}
+2026-06-19T19:35:33.023248Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T20:00:15.862070Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo"), AnchoredSystemPathBuf(".turbo\\cookies\\.turbo-cookie"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie"), AnchoredSystemPathBuf(".turbo\\cookies")}
+2026-06-19T20:00:15.862111Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T20:00:15.936472Z  WARN daemon_server: turborepo_lib::commands::daemon: daemon already running
+2026-06-19T20:00:16.653288Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies"), AnchoredSystemPathBuf(".turbo")}
+2026-06-19T20:00:16.653349Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T20:00:16.957985Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\daemon\\78a92836c2f9fde7-turbo.log.2026-06-19")}
+2026-06-19T20:00:16.958008Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-06-19T20:00:17.953439Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\kitchen\\vite.config.ts.timestamp-1781899217902-4b4ee62a4d97a.mjs"), AnchoredSystemPathBuf("apps\\pos\\vite.config.ts.timestamp-1781899217929-9bd42b16b89cb.mjs"), AnchoredSystemPathBuf("apps\\backoffice\\vite.config.ts.timestamp-1781899217900-9671e2daa7a9b.mjs"), AnchoredSystemPathBuf("apps\\backoffice")}
+2026-06-19T20:00:17.953463Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }, WorkspacePackage { name: Other("@mat-ai/kitchen"), path: AnchoredSystemPathBuf("apps\\kitchen") }, WorkspacePackage { name: Other("@mat-ai/pos"), path: AnchoredSystemPathBuf("apps\\pos") }}))
+2026-06-19T20:00:18.852119Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\admin"), AnchoredSystemPathBuf("apps\\admin\\vite.config.ts.timestamp-1781899217987-bc3bcbe667256.mjs"), AnchoredSystemPathBuf("apps\\kitchen"), AnchoredSystemPathBuf("apps\\pos"), AnchoredSystemPathBuf("apps\\pos\\vite.config.ts.timestamp-1781899217929-9bd42b16b89cb.mjs"), AnchoredSystemPathBuf("apps\\qr-menu"), AnchoredSystemPathBuf("apps\\backoffice"), AnchoredSystemPathBuf("apps\\qr-menu\\vite.config.ts.timestamp-1781899218147-1d60e929674ae.mjs"), AnchoredSystemPathBuf("apps\\backoffice\\vite.config.ts.timestamp-1781899217900-9671e2daa7a9b.mjs")}
+2026-06-19T20:00:18.852145Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/pos"), path: AnchoredSystemPathBuf("apps\\pos") }, WorkspacePackage { name: Other("@mat-ai/kitchen"), path: AnchoredSystemPathBuf("apps\\kitchen") }, WorkspacePackage { name: Other("@mat-ai/admin"), path: AnchoredSystemPathBuf("apps\\admin") }, WorkspacePackage { name: Other("@mat-ai/qr-menu"), path: AnchoredSystemPathBuf("apps\\qr-menu") }, WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))
+2026-06-19T20:00:18.852226Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T20:00:18.852277Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T20:00:18.862372Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T20:00:18.963702Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist"), AnchoredSystemPathBuf("services\\api")}
+2026-06-19T20:00:18.963724Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T20:00:26.153579Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist"), AnchoredSystemPathBuf("services\\api")}
+2026-06-19T20:00:26.153598Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T20:00:29.300591Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T20:00:29.302528Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("services\\api\\dist")}
+2026-06-19T20:00:29.302546Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backend"), path: AnchoredSystemPathBuf("services\\api") }}))
+2026-06-19T20:00:29.302645Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-06-19T20:07:40.167827Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backoffice\\src\\components\\Layout.tsx")}
+2026-06-19T20:07:40.167852Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@mat-ai/backoffice-app"), path: AnchoredSystemPathBuf("apps\\backoffice") }}))

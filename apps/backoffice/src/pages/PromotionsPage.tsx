@@ -3,7 +3,7 @@ import { Plus, Edit2, Trash2, Eye, EyeOff, Calendar, Percent, Tag } from 'lucide
 import { Modal } from '@mat-ai/ui';
 import { Promotion, PromotionType, PromotionTarget, CreatePromotionPayload } from '@mat-ai/types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 const OUTLET_ID = import.meta.env.VITE_OUTLET_ID || 'default-outlet';
 
 const PROMO_TYPES: { value: PromotionType; label: string; icon: React.ReactNode }[] = [

@@ -1,0 +1,16 @@
+key,value,description
+epf_employee_rate,11,EPF employee contribution %
+epf_employer_rate,13,EPF employer contribution %
+socso_employee_rate,0.5,SOCSO employee contribution %
+socso_employer_rate,1.75,SOCSO employer contribution %
+overtime_multiplier,1.5,Overtime rate multiplier
+weekly_pay_day,SUNDAY,Weekly payroll day
+monthly_pay_day,LAST_DAY,Monthly payroll day
+annual_leave_days,14,Annual leave days per year
+sick_leave_days,14,Sick leave days per year
+min_stock_alert,10,Minimum stock alert quantity
+tax_rate,8,SST tax rate %
+shop_name,MAT.ai Restaurant,Business name for receipts
+shop_address,123 Jalan Example KL,Business address
+shop_phone,012-3456789,Business phone
+receipt_footer,Thank you! Please come again.,Receipt footer text

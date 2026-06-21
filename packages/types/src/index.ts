@@ -1,12 +1,9 @@
 // packages/types/src/index.ts
 // ============================================================
-// FIXED — Fully synced with prisma/schema.prisma
-// Rule: Base interfaces = Database shape (Prisma source of truth)
-//       Frontend computed fields = Extended *View interfaces
+// FIXED — Dynamic Role System
 // ============================================================
 
-// ============ PRISMA-ALIGNED ENUMS (Database Source of Truth) ============
-export type Role = 'SUPER_ADMIN' |'ADMIN' | 'MANAGER' | 'CASHIER' | 'KITCHEN';
+// ============ PRISMA-ALIGNED ENUMS ============
 export type EmploymentType = 'HOURLY_PART_TIME' | 'MONTHLY_SALARIED';
 export type OrderStatus = 'PENDING' | 'PAID' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
 export type ItemStatus = 'PENDING' | 'PREPARING' | 'READY' | 'SERVED';
@@ -20,7 +17,7 @@ export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type PayrollPeriod = 'WEEKLY' | 'MONTHLY';
 export type PayrollStatus = 'DRAFT' | 'APPROVED' | 'PAID';
 
-// ============ FRONTEND-ONLY / LEGACY ENUMS (NOT in Prisma Schema) ============
+// ============ FRONTEND-ONLY / LEGACY ENUMS ============
 export type DiscountType = 'percentage' | 'fixed';
 export type ReservationStatus = 'confirmed' | 'arrived' | 'cancelled' | 'no-show';
 export type KitchenStatus = 'pending' | 'sent' | 'preparing' | 'done';
@@ -28,13 +25,22 @@ export type KitchenStatus = 'pending' | 'sent' | 'preparing' | 'done';
 // ============ BASE ============
 export interface BaseEntity {
   id: string;
-  createdAt: string; // ISO 8601
-  updatedAt: string; // ISO 8601
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BaseEntityNoUpdatedAt {
   id: string;
   createdAt: string;
+}
+
+// ============ ROLE (DYNAMIC) ============
+export interface Role extends BaseEntity {
+  name: string;
+  permissions: Record<string, boolean>;
+  isActive: boolean;
+  isSystem: boolean;
+  staffCount?: number;
 }
 
 // ============ OUTLET ============
@@ -52,8 +58,14 @@ export interface Outlet extends BaseEntity {
   inventoryItems?: InventoryItem[];
 }
 
-// ============ MENU ITEM OPTIONS (Replaces `any` in MenuItem.options / OrderItem.options) ============
+// ============ DEPARTMENT ============
+export interface Department extends BaseEntity {
+  name: string;
+  isActive: boolean;
+  staffCount?: number;
+}
 
+// ============ MENU ITEM OPTIONS ============
 export interface OptionChoice {
   id: string;
   name: string;
@@ -70,13 +82,9 @@ export interface MenuItemOption {
   choices: OptionChoice[];
 }
 
-/** Strict type for Prisma Json fields — menu item modifier configuration */
 export type MenuItemOptions = MenuItemOption[];
-
-/** Snapshot of order items stored in Receipt.itemsSnapshot (Prisma Json) */
 export type ReceiptItemsSnapshot = OrderItem[];
 
-/** Customer info stored in Receipt.customerInfo (Prisma Json) */
 export interface ReceiptCustomerInfo {
   name?: string;
   phone?: string;
@@ -87,10 +95,13 @@ export interface ReceiptCustomerInfo {
 // ============ STAFF ============
 export interface Staff extends BaseEntity {
   name: string;
-  email?: string;      // <-- ADD
-  password?: string;   // <-- ADD
+  email?: string;
+  password?: string;
   pin: string;
-  role: Role;
+  phone?: string;
+  roleId?: string;
+  role?: Role;
+  isSuperAdmin: boolean;
   isActive: boolean;
   employmentType: EmploymentType;
   hourlyRate?: number;
@@ -98,8 +109,10 @@ export interface Staff extends BaseEntity {
   joinDate: string;
   customEpfRate?: number;
   customSocsoRate?: number;
-  outletId?: string;        // ← TAMBAH
-  outlet?: Outlet;          // ← TAMBAH
+  departmentId?: string;
+  department?: Department;
+  outletId?: string;
+  outlet?: Outlet;
 }
 
 export interface StaffView extends Staff {
@@ -218,7 +231,7 @@ export interface SelectedModifier {
   price: number;
 }
 
-// ============ DINING TABLE (renamed from Table to avoid Dexie conflict) ============
+// ============ DINING TABLE ============
 export interface DiningTable extends BaseEntity {
   number: string;
   capacity: number;
@@ -231,7 +244,7 @@ export interface DiningTableView extends DiningTable {
   isActive?: boolean;
 }
 
-// ============ CUSTOMER (Cross-app reusable) ============
+// ============ CUSTOMER ============
 export interface CustomerInfo {
   name: string;
   phone: string;
@@ -239,7 +252,7 @@ export interface CustomerInfo {
   note?: string;
 }
 
-// ============ RESERVATION (Frontend-only — no Prisma model yet) ============
+// ============ RESERVATION ============
 export interface Reservation extends BaseEntity {
   name: string;
   phone: string;
@@ -252,7 +265,7 @@ export interface Reservation extends BaseEntity {
   reminderSent: boolean;
 }
 
-// ============ STATION (Frontend-only — no Prisma model yet) ============
+// ============ STATION ============
 export interface Station extends BaseEntity {
   name: string;
   ipAddress: string;
@@ -304,8 +317,8 @@ export interface Order extends BaseEntity {
   completedAt?: string;
   items: OrderItem[];
   receipt?: Receipt;
-  outletId?: string;        // ← TAMBAH
-  outlet?: Outlet;          // ← TAMBAH
+  outletId?: string;
+  outlet?: Outlet;
 }
 
 export interface OrderView extends Order {
@@ -407,7 +420,7 @@ export interface Receipt extends BaseEntityNoUpdatedAt {
   pdfUrl?: string;
   emailedTo?: string;
   emailSentAt?: string;
-  [key: string]: unknown; 
+  [key: string]: unknown;
 }
 
 export interface ReceiptView extends Receipt {
@@ -508,8 +521,8 @@ export interface InventoryItem extends BaseEntity {
   costPerUnit?: number;
   supplier?: string;
   isActive: boolean;
-  outletId?: string;        // ← TAMBAH
-  outlet?: Outlet;          // ← TAMBAH
+  outletId?: string;
+  outlet?: Outlet;
 }
 
 export interface MenuItemIngredient {
@@ -519,14 +532,6 @@ export interface MenuItemIngredient {
   menuItemId: string;
   menuItem?: MenuItem;
   quantityUsed: number;
-}
-
-// ============ INVENTORY API RESPONSES ============
-export interface StockInResponse {
-  item: InventoryItem;
-  log: StockLog;
-  previousStock: number;
-  newStock: number;
 }
 
 // ============ SYNC ============
@@ -560,8 +565,8 @@ export interface Setting extends BaseEntity {
   value: string;
   description?: string;
   updatedBy?: string;
-  outletId?: string;        // ← TAMBAH
-  outlet?: Outlet;          // ← TAMBAH
+  outletId?: string;
+  outlet?: Outlet;
 }
 
 export interface AppSettings {
@@ -590,15 +595,15 @@ export interface AppSettings {
   timeFormat: string;
   lastSyncAt?: string;
   fallbackChannel: 'whatsapp' | 'telegram' | 'sms' | 'none';
-  whatsappNumber: string;    // Admin/owner number
+  whatsappNumber: string;
   telegramBotToken?: string;
   telegramChatId?: string;
   smsApiKey?: string;
-  outletId?: string;        // ← TAMBAH — current outlet identifier
-  outletName?: string;      // ← TAMBAH
+  outletId?: string;
+  outletName?: string;
 }
 
-// ============ API DTOs / Helpers ============
+// ============ API DTOs ============
 export interface CreateOrderPayload {
   type: OrderType;
   source?: OrderSource;
@@ -617,15 +622,7 @@ export interface CreateOrderPayload {
   outletId?: string;
 }
 
-// ============ DYNAMIC CONFIGURATION (Back Office Settings) ============
-
-export interface DynamicRole {
-  id: string;
-  name: string;
-  permissions: Record<string, boolean>;
-  isSystem?: boolean;
-}
-
+// ============ DYNAMIC CONFIGURATION ============
 export interface Department {
   id: string;
   name: string;
@@ -676,14 +673,30 @@ export interface StockAdjustment {
   staffName?: string;
 }
 
+// ============ PERMISSIONS ============
 export interface PermissionDefinition {
   key: string;
   label: string;
   category: string;
 }
 
-// ============ CRM / QR MENU LANDING PAGE ============
+export const DEFAULT_PERMISSIONS: PermissionDefinition[] = [
+  { key: 'dashboard', label: 'Dashboard', category: 'General' },
+  { key: 'sales', label: 'Sales Report', category: 'General' },
+  { key: 'staff', label: 'Staff Management', category: 'Staff' },
+  { key: 'payroll', label: 'Payroll', category: 'Staff' },
+  { key: 'menu', label: 'Item Management', category: 'Menu' },
+  { key: 'inventory', label: 'Inventory', category: 'Inventory' },
+  { key: 'costing', label: 'Costing', category: 'Menu' },
+  { key: 'recipes', label: 'Recipes', category: 'Menu' },
+  { key: 'outlets', label: 'Outlets', category: 'General' },
+  { key: 'customers', label: 'Customers', category: 'General' },
+  { key: 'promotions', label: 'Promotions', category: 'General' },
+  { key: 'landing_page', label: 'Landing Page', category: 'General' },
+  { key: 'settings', label: 'Settings', category: 'Admin' },
+];
 
+// ============ CRM / QR MENU LANDING PAGE ============
 export type PromotionType = 'BANNER' | 'POPUP' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED' | 'FREE_ITEM' | 'BUNDLE';
 export type PromotionTarget = 'ALL' | 'NEW_CUSTOMER' | 'RETURNING' | 'VIP';
 
@@ -779,10 +792,7 @@ export interface LoyaltyRedeemPayload {
   orderId?: string;
 }
 
-// Add to packages/types/src/index.ts
-
 // ============ LANDING PAGE CMS ============
-
 export interface LandingPageContent extends BaseEntity {
   section: string;
   key: string;
@@ -833,15 +843,3 @@ export interface FooterContent {
   text: string;
   showLogo: boolean;
 }
-
-export const DEFAULT_PERMISSIONS: PermissionDefinition[] = [
-  { key: 'dashboard', label: 'Dashboard', category: 'General' },
-  { key: 'sales', label: 'Sales Report', category: 'General' },
-  { key: 'staff', label: 'Staff Management', category: 'Staff' },
-  { key: 'payroll', label: 'Payroll', category: 'Staff' },
-  { key: 'menu', label: 'Item Management', category: 'Menu' },
-  { key: 'inventory', label: 'Inventory', category: 'Inventory' },
-  { key: 'outlets', label: 'Outlets', category: 'General' },
-  { key: 'customers', label: 'Customers', category: 'General' },
-  { key: 'settings', label: 'Settings', category: 'Admin' },
-];

@@ -1,0 +1,11 @@
+name,email,password,pin,phone,roleId,isSuperAdmin,employmentType,monthlySalary,hourlyRate,departmentId,outletId
+Ahmad,ahmad@restaurant.com,password123,1234,+60 12-345 6789,,true,MONTHLY_SALARIED,3500,,,
+Siti,siti@restaurant.com,password123,2345,+60 13-456 7890,role-admin,false,MONTHLY_SALARIED,2800,,dept-management,outlet-hq
+Ali,ali@restaurant.com,password123,3456,+60 14-567 8901,,false,HOURLY_PART_TIME,,8,dept-service,outlet-hq
+Muthu,muthu@restaurant.com,password123,4567,+60 15-678 9012,,false,HOURLY_PART_TIME,,8,dept-service,outlet-hq
+Lisa,lisa@restaurant.com,password123,5678,+60 16-789 0123,,false,HOURLY_PART_TIME,,9,dept-kitchen,outlet-hq
+Raj,raj@restaurant.com,password123,6789,+60 17-890 1234,,false,HOURLY_PART_TIME,,9,dept-kitchen,outlet-hq
+Nina,nina@restaurant.com,password123,7890,+60 18-901 2345,,false,HOURLY_PART_TIME,,8,dept-service,outlet-hq
+Kumar,kumar@restaurant.com,password123,8901,+60 19-012 3456,,false,HOURLY_PART_TIME,,9,dept-kitchen,outlet-hq
+Farah,farah@restaurant.com,password123,9012,+60 10-123 4567,,false,HOURLY_PART_TIME,,8,dept-service,outlet-hq
+Hafiz,hafiz@restaurant.com,password123,0123,+60 11-234 5678,,false,HOURLY_PART_TIME,,9,dept-kitchen,outlet-hq

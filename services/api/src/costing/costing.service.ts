@@ -114,13 +114,13 @@ export class CostingService {
     }
 
     const ingredients: IngredientCostDto[] = menuItem.ingredients.map((mi) => {
-      const unitPrice = mi.inventoryItem.unitPrice || 0;
+      const unitPrice = mi.inventoryItem?.unitPrice || 0;  // ← null check
       const totalCost = unitPrice * mi.quantityUsed;
       return {
-        inventoryItemId: mi.inventoryItemId,
-        inventoryItemName: mi.inventoryItem.name,
+        inventoryItemId: mi.inventoryItemId || '',
+        inventoryItemName: mi.inventoryItem?.name || 'Unknown',  // ← null check
         quantity: mi.quantityUsed,
-        unit: mi.inventoryItem.unitOfMeasure || 'g',
+        unit: mi.inventoryItem?.unitOfMeasure || 'g',  // ← null check
         unitPrice,
         totalCost: Math.round(totalCost * 100) / 100,
       };
@@ -284,82 +284,82 @@ export class CostingService {
   // PROFITABILITY ANALYSIS
   // ==========================================
 
-  async getProfitability(query: ProfitabilityQueryDto): Promise<RecipeCostResponseDto[]> {
-    const where: any = {};
+  async getProfitability(query: ProfitabilityQueryDto = {}): Promise<RecipeCostResponseDto[]> {
+  const where: any = {};
 
-    if (query.category) {
-      where.category = query.category;
-    }
+  if (query.category) {
+    where.categoryId = query.category;  // ← FIX
+  }
 
-    if (query.search) {
-      where.name = { contains: query.search, mode: 'insensitive' };
-    }
+  if (query.search) {
+    where.name = { contains: query.search, mode: 'insensitive' };
+  }
 
-    const menuItems = await this.prisma.menuItem.findMany({
-      where,
-      include: {
-        ingredients: {
-          include: {
-            inventoryItem: true,
-          },
+  const menuItems = await this.prisma.menuItem.findMany({
+    where,
+    include: {
+      ingredients: {
+        include: {
+          inventoryItem: true,
         },
       },
-    });
+    },
+  });
 
-    const results: RecipeCostResponseDto[] = menuItems.map((menuItem) => {
-      const ingredients: IngredientCostDto[] = menuItem.ingredients.map((mi) => {
-        const unitPrice = mi.inventoryItem.unitPrice || 0;
-        return {
-          inventoryItemId: mi.inventoryItemId,
-          inventoryItemName: mi.inventoryItem.name,
-          quantity: mi.quantityUsed,
-          unit: mi.inventoryItem.unitOfMeasure || 'g',
-          unitPrice,
-          totalCost: Math.round(unitPrice * mi.quantityUsed * 100) / 100,
-        };
-      });
-
-      const totalCost = ingredients.reduce((sum, ing) => sum + ing.totalCost, 0);
-      const price = Number(menuItem.price);
-      const profit = price - totalCost;
-      const marginPercent = price > 0 ? (profit / price) * 100 : 0;
-
+  const results: RecipeCostResponseDto[] = menuItems.map((menuItem) => {
+    const ingredients: IngredientCostDto[] = menuItem.ingredients.map((mi) => {
+      const unitPrice = mi.inventoryItem?.unitPrice || 0;
       return {
-        menuItemId: menuItem.id,
-        menuItemName: menuItem.name,
-        totalCost: Math.round(totalCost * 100) / 100,
-        sellingPrice: price,
-        profit: Math.round(profit * 100) / 100,
-        marginPercent: Math.round(marginPercent * 100) / 100,
-        ingredients,
+        inventoryItemId: mi.inventoryItemId,
+        inventoryItemName: mi.inventoryItem?.name || 'Unknown',
+        quantity: mi.quantityUsed,
+        unit: mi.inventoryItem?.unitOfMeasure || 'g',
+        unitPrice,
+        totalCost: Math.round(unitPrice * mi.quantityUsed * 100) / 100,
       };
     });
 
-    // Sort results
-    const sortBy = query.sortBy || ProfitabilitySortBy.MARGIN;
-    const sortOrder = query.sortOrder || ProfitabilitySortOrder.DESC;
+    const totalCost = ingredients.reduce((sum, ing) => sum + ing.totalCost, 0);
+    const price = Number(menuItem.price);
+    const profit = price - totalCost;
+    const marginPercent = price > 0 ? (profit / price) * 100 : 0;
 
-    results.sort((a, b) => {
-      let comparison = 0;
-      switch (sortBy) {
-        case ProfitabilitySortBy.PROFIT:
-          comparison = a.profit - b.profit;
-          break;
-        case ProfitabilitySortBy.MARGIN:
-          comparison = a.marginPercent - b.marginPercent;
-          break;
-        case ProfitabilitySortBy.COST:
-          comparison = a.totalCost - b.totalCost;
-          break;
-        case ProfitabilitySortBy.PRICE:
-          comparison = a.sellingPrice - b.sellingPrice;
-          break;
-      }
-      return sortOrder === ProfitabilitySortOrder.ASC ? comparison : -comparison;
-    });
+    return {
+      menuItemId: menuItem.id,
+      menuItemName: menuItem.name,
+      totalCost: Math.round(totalCost * 100) / 100,
+      sellingPrice: price,
+      profit: Math.round(profit * 100) / 100,
+      marginPercent: Math.round(marginPercent * 100) / 100,
+      ingredients,
+    };
+  });
 
-    return results;
-  }
+  // Sort results
+  const sortBy = query.sortBy || ProfitabilitySortBy.MARGIN;
+  const sortOrder = query.sortOrder || ProfitabilitySortOrder.DESC;
+
+  results.sort((a, b) => {
+    let comparison = 0;
+    switch (sortBy) {
+      case ProfitabilitySortBy.PROFIT:
+        comparison = a.profit - b.profit;
+        break;
+      case ProfitabilitySortBy.MARGIN:
+        comparison = a.marginPercent - b.marginPercent;
+        break;
+      case ProfitabilitySortBy.COST:
+        comparison = a.totalCost - b.totalCost;
+        break;
+      case ProfitabilitySortBy.PRICE:
+        comparison = a.sellingPrice - b.sellingPrice;
+        break;
+    }
+    return sortOrder === ProfitabilitySortOrder.ASC ? comparison : -comparison;
+  });
+
+  return results;
+}
 
   async getTopProfitMenus(limit: number = 10): Promise<RecipeCostResponseDto[]> {
     const results = await this.getProfitability({
@@ -370,12 +370,12 @@ export class CostingService {
   }
 
   async getLowMarginMenus(threshold: number = 30): Promise<RecipeCostResponseDto[]> {
-    const allMenus = await this.getProfitability({
-      sortBy: ProfitabilitySortBy.MARGIN,
-      sortOrder: ProfitabilitySortOrder.ASC,
-    });
-    return allMenus.filter((menu) => menu.marginPercent < threshold);
-  }
+  const allMenus = await this.getProfitability({
+    sortBy: ProfitabilitySortBy.MARGIN,
+    sortOrder: ProfitabilitySortOrder.ASC,
+  });
+  return allMenus.filter((menu) => menu.marginPercent < threshold);
+}
 
   // ==========================================
   // COST IMPACT ANALYSIS
@@ -457,40 +457,43 @@ export class CostingService {
   // ==========================================
 
   async getCostingDashboard() {
-    const [
+  const [
+    totalMenuItems,
+    totalInventoryItems,
+    totalRecipes,
+    avgMargin,
+  ] = await Promise.all([
+    this.prisma.menuItem.count(),
+    this.prisma.inventoryItem.count(),
+    this.prisma.menuItemIngredient.count(),
+    this.prisma.menuItem.aggregate({
+      _avg: { profitMargin: true },
+    }),
+  ]);
+
+  // Manual query for low stock (compare currentStock <= minStock)
+  const inventoryItems = await this.prisma.inventoryItem.findMany({
+    select: { currentStock: true, minStock: true },
+  });
+  const lowStockItems = inventoryItems.filter(
+    item => item.currentStock <= item.minStock
+  ).length;
+
+  const [topProfitMenus, lowMarginMenus] = await Promise.all([
+    this.getTopProfitMenus(5).catch(() => []),
+    this.getLowMarginMenus(30).catch(() => []),
+  ]);
+
+  return {
+    summary: {
       totalMenuItems,
       totalInventoryItems,
       totalRecipes,
       lowStockItems,
-      avgMargin,
-      topProfitMenus,
-      lowMarginMenus,
-    ] = await Promise.all([
-      this.prisma.menuItem.count(),
-      this.prisma.inventoryItem.count(),
-      this.prisma.menuItemIngredient.count(),
-      this.prisma.inventoryItem.count({
-        where: {
-          currentStock: { lte: 50 },
-        },
-      }),
-      this.prisma.menuItem.aggregate({
-        _avg: { profitMargin: true },
-      }),
-      this.getTopProfitMenus(5),
-      this.getLowMarginMenus(30),
-    ]);
-
-    return {
-      summary: {
-        totalMenuItems,
-        totalInventoryItems,
-        totalRecipes,
-        lowStockItems,
-        averageMargin: Math.round((avgMargin._avg.profitMargin || 0) * 100) / 100,
-      },
-      topProfitMenus,
-      lowMarginMenus,
-    };
-  }
+      averageMargin: Math.round((avgMargin._avg.profitMargin || 0) * 100) / 100,
+    },
+    topProfitMenus,
+    lowMarginMenus,
+  };
+}
 }

@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { SettingsModule } from './settings/settings.module';
 import { AuthModule } from './auth/auth.module';
 import { StaffModule } from './staff/staff.module';
+import { RoleModule } from './role/role.module';
 import { CategoriesModule } from './categories/categories.module';
 import { MenuItemsModule } from './menu-items/menu-items.module';
 import { TablesModule } from './tables/tables.module';
@@ -25,7 +26,9 @@ import { CustomerModule } from './customer/customer.module';
 import { PromotionModule } from './promotion/promotion.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { LandingPageModule } from './landing-page/landing-page.module';
-
+import { DiscountModule } from './discount/discount.module';
+import { ModifierModule } from './modifier/modifier.module';
+import { DepartmentModule } from './department/department.module';
 
 @Module({
   imports: [
@@ -34,6 +37,7 @@ import { LandingPageModule } from './landing-page/landing-page.module';
     SettingsModule,
     AuthModule,
     StaffModule,
+    RoleModule,
     CategoriesModule,
     MenuItemsModule,
     TablesModule,
@@ -52,7 +56,9 @@ import { LandingPageModule } from './landing-page/landing-page.module';
     PromotionModule,
     LoyaltyModule,
     LandingPageModule,
-
+    DiscountModule,
+    ModifierModule,
+    DepartmentModule,
   ],
   providers: [
     {

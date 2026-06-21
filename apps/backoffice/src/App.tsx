@@ -12,7 +12,6 @@ import { MenuPage } from './pages/MenuPage';
 import { InventoryPage } from './pages/inventory/InventoryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { OutletManagementPage } from './pages/OutletManagementPage';
-import { CustomerPage } from './pages/CustomerPage';
 import { CostingCalculatorPage } from './pages/costing/CostingCalculatorPage';
 import { MenuItemsWithCostPage } from './pages/costing/MenuItemsWithCostPage';
 import { CostingPage } from './pages/costing/CostingPage';

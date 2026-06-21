@@ -1,4 +1,3 @@
-// src/reports/reports.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -52,6 +51,29 @@ export interface HourlyBreakdown {
 @Injectable()
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
+
+  // ==========================================
+  // DATE RANGE HELPER — Default 1 bulan
+  // ==========================================
+
+  resolveDateRange(query: { from?: string; to?: string }): { from: Date; to: Date } {
+    const now = new Date();
+    const to = query.to ? new Date(query.to) : new Date(now);
+    to.setHours(23, 59, 59, 999);
+
+    const from = query.from ? new Date(query.from) : new Date(now);
+    if (!query.from) {
+      // Default 1 bulan lepas
+      from.setMonth(from.getMonth() - 1);
+    }
+    from.setHours(0, 0, 0, 0);
+
+    return { from, to };
+  }
+
+  // ==========================================
+  // REPORT QUERIES
+  // ==========================================
 
   async salesSummary(from: Date, to: Date): Promise<SalesSummary> {
     const orders = await this.prisma.order.findMany({
@@ -212,5 +234,68 @@ export class ReportsService {
     });
 
     return hourly;
+  }
+
+  // ==========================================
+  // CSV EXPORT HELPERS
+  // ==========================================
+
+  private toCSV(headers: string[], rows: (string | number)[][]): string {
+    const escape = (val: string | number) => {
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    const lines = [headers.join(','), ...rows.map(r => r.map(escape).join(','))];
+    return lines.join('\n');
+  }
+
+  // ==========================================
+  // CSV EXPORTS
+  // ==========================================
+
+  async exportSalesCSV(from: Date, to: Date): Promise<string> {
+    const report = await this.salesSummary(from, to);
+    const headers = ['Order ID', 'Order Number', 'Status', 'Type', 'Total', 'Tax', 'Created At'];
+    const rows = report.orders.map(o => [
+      o.id,
+      o.orderNumber,
+      o.status,
+      o.type,
+      Number(o.totalAmount).toFixed(2),
+      Number(o.taxAmount || 0).toFixed(2),
+      o.createdAt.toISOString(),
+    ]);
+    return this.toCSV(headers, rows);
+  }
+
+  async exportSalesByItemCSV(from: Date, to: Date): Promise<string> {
+    const items = await this.salesByItem(from, to);
+    const headers = ['Item Name', 'Quantity Sold', 'Revenue'];
+    const rows = items.map(i => [i.name, i.quantity, i.revenue.toFixed(2)]);
+    return this.toCSV(headers, rows);
+  }
+
+  async exportSalesByCategoryCSV(from: Date, to: Date): Promise<string> {
+    const cats = await this.salesByCategory(from, to);
+    const headers = ['Category', 'Quantity Sold', 'Revenue'];
+    const rows = cats.map(c => [c.category, c.quantity, c.revenue.toFixed(2)]);
+    return this.toCSV(headers, rows);
+  }
+
+  async exportSalesByPaymentCSV(from: Date, to: Date): Promise<string> {
+    const payments = await this.salesByPayment(from, to);
+    const headers = ['Payment Method', 'Transaction Count', 'Total'];
+    const rows = payments.map(p => [p.method, p.count, p.total.toFixed(2)]);
+    return this.toCSV(headers, rows);
+  }
+
+  async exportSalesByCashierCSV(from: Date, to: Date): Promise<string> {
+    const cashiers = await this.salesByCashier(from, to);
+    const headers = ['Cashier', 'Transaction Count', 'Total'];
+    const rows = cashiers.map(c => [c.cashier, c.count, c.total.toFixed(2)]);
+    return this.toCSV(headers, rows);
   }
 }

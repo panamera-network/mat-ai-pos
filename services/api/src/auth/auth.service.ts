@@ -1,8 +1,8 @@
-// auth.service.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { StaffService } from '../staff/staff.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DEFAULT_PERMISSIONS } from '@mat-ai/types';
 
 @Injectable()
 export class AuthService {
@@ -23,15 +23,15 @@ export class AuthService {
   }
 
   async loginWithEmail(email: string, password: string) {
-    const staff = await this.prisma.staff.findUnique({
-      where: { email },
+    const staff = await this.prisma.staff.findFirst({
+      where: { email, isActive: true },
+      include: { role: true },
     });
 
     if (!staff || !staff.password) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // TODO: Use bcrypt.compare in production
     if (staff.password !== password) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -40,16 +40,29 @@ export class AuthService {
   }
 
   private generateToken(staff: any) {
-    const payload = { sub: staff.id, name: staff.name, role: staff.role };
+    const permissions = staff.isSuperAdmin
+      ? Object.fromEntries(DEFAULT_PERMISSIONS.map(p => [p.key, true]))
+      : (staff.role?.permissions as Record<string, boolean> || {});
+
+    const payload = {
+      sub: staff.id,
+      name: staff.name,
+      roleId: staff.roleId,
+      roleName: staff.role?.name,
+      isSuperAdmin: staff.isSuperAdmin,
+      permissions,
+    };
 
     return {
       access_token: this.jwtService.sign(payload),
       staff: {
         id: staff.id,
         name: staff.name,
-        role: staff.role,
-        employmentType: staff.employmentType,
         email: staff.email,
+        roleId: staff.roleId,
+        roleName: staff.role?.name,
+        isSuperAdmin: staff.isSuperAdmin,
+        permissions,
       },
     };
   }

@@ -1,0 +1,4 @@
+id,name,permissions,isActive,isSystem
+role-super-admin,Super Admin,{},true,true
+role-admin,Admin,"{""dashboard"":true,""sales"":true,""staff"":true,""payroll"":true,""menu"":true,""inventory"":true,""customers"":true,""promotions"":true,""landing_page"":true,""settings"":true}",true,false
+role-manager,Manager,"{""dashboard"":true,""menu"":true,""inventory"":true,""customers"":true}",true,false

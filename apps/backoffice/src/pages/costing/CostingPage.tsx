@@ -59,10 +59,10 @@ export const CostingPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'margin' | 'profit' | 'cost' | 'price'>('margin');
 
   const fetchDashboard = useCallback(async () => {
-    setLoading(true);
+  setLoading(true);
     try {
       const res = await get('/costing/dashboard');
-      if (res.ok) setDashboard(res.data);
+      if (res.ok) setDashboard(res.data as DashboardData);  // ← CAST AS DashboardData
     } catch (err) {
       console.error('Dashboard fetch error:', err);
     } finally {
@@ -80,7 +80,7 @@ export const CostingPage: React.FC = () => {
       params.append('sortOrder', 'desc');
 
       const res = await get(`/costing/profitability?${params.toString()}`);
-      if (res.ok) setProfitability(res.data || []);
+      if (res.ok) setProfitability((res.data as ProfitabilityItem[]) || []);  // ← CAST
     } catch (err) {
       console.error('Profitability fetch error:', err);
     } finally {
@@ -92,7 +92,7 @@ export const CostingPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await get('/costing/profitability/low-margin?threshold=30');
-      if (res.ok) setLowMargin(res.data || []);
+      if (res.ok) setLowMargin((res.data as ProfitabilityItem[]) || []);  // ← CAST
     } catch (err) {
       console.error('Low margin fetch error:', err);
     } finally {
@@ -248,8 +248,8 @@ export const CostingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {dashboard.topProfitMenus?.map((item) => (
-                  <tr key={item.menuItemId} className="hover:bg-gray-50">
+                {dashboard.topProfitMenus?.map((item, index) => (
+                  <tr key={item.menuItemId || `top-${index}`} className="hover:bg-gray-50">
                     <td className="px-6 py-3 text-sm font-medium text-gray-900">{item.menuItemName}</td>
                     <td className="px-6 py-3 text-sm text-gray-600 text-right">RM {item.totalCost.toFixed(2)}</td>
                     <td className="px-6 py-3 text-sm text-gray-900 text-right font-medium">RM {item.sellingPrice.toFixed(2)}</td>
@@ -291,8 +291,8 @@ export const CostingPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-red-50">
-                  {dashboard.lowMarginMenus?.slice(0, 5).map((item) => (
-                    <tr key={item.menuItemId} className="hover:bg-red-50/50">
+                  {dashboard.lowMarginMenus?.slice(0, 5).map((item, index) => (
+                    <tr key={item.menuItemId || `low-${index}`} className="hover:bg-red-50/50">
                       <td className="px-6 py-3 text-sm font-medium text-gray-900">{item.menuItemName}</td>
                       <td className="px-6 py-3 text-sm text-gray-600 text-right">RM {item.totalCost.toFixed(2)}</td>
                       <td className="px-6 py-3 text-sm text-gray-900 text-right">RM {item.sellingPrice.toFixed(2)}</td>
@@ -367,8 +367,8 @@ export const CostingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {profitability.map((item) => (
-                  <tr key={item.menuItemId} className="hover:bg-gray-50 transition-colors">
+                {profitability.map((item, index) => (
+                  <tr key={item.menuItemId || `profit-${index}`} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="text-sm font-medium text-gray-900">{item.menuItemName}</p>
                       <p className="text-xs text-gray-500">{item.ingredients.length} ingredients</p>
@@ -387,8 +387,8 @@ export const CostingPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {item.ingredients.slice(0, 3).map((ing) => (
-                          <span key={ing.inventoryItemId} className="inline-flex px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">
+                        {item.ingredients.slice(0, 3).map((ing, idx) => (
+                          <span key={ing.inventoryItemId || `ing-${idx}`} className="inline-flex px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">
                             {ing.inventoryItemName} ({ing.quantity}{ing.unit})
                           </span>
                         ))}
@@ -567,10 +567,10 @@ export const CostingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {lowMargin.map((item) => {
+                {lowMargin.map((item, index) => {
                   const suggestedPrice = item.totalCost / (1 - 0.30); // 30% margin target
                   return (
-                    <tr key={item.menuItemId} className="hover:bg-red-50/30 transition-colors">
+                    <tr key={item.menuItemId || `lowm-${index}`} className="hover:bg-red-50/30 transition-colors">
                       <td className="px-6 py-4">
                         <p className="text-sm font-medium text-gray-900">{item.menuItemName}</p>
                         <p className="text-xs text-gray-500">{item.ingredients.length} ingredients</p>

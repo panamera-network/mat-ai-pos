@@ -1,78 +1,113 @@
-// src/reports/reports.controller.ts
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { ReportsService } from './reports.service';
+import { DateRangeDto } from './dto/date-range.dto';
 
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get('sales')
-  salesSummary(
-    @Query('from') from: string,
-    @Query('to') to: string,
-  ) {
-    return this.reportsService.salesSummary(new Date(from), new Date(to));
+  salesSummary(@Query() query: DateRangeDto) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    return this.reportsService.salesSummary(from, to);
   }
 
   @Get('sales/by-item')
-  salesByItem(
-    @Query('from') from: string,
-    @Query('to') to: string,
-  ) {
-    return this.reportsService.salesByItem(new Date(from), new Date(to));
+  salesByItem(@Query() query: DateRangeDto) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    return this.reportsService.salesByItem(from, to);
   }
 
   @Get('sales/by-category')
-  salesByCategory(
-    @Query('from') from: string,
-    @Query('to') to: string,
-  ) {
-    return this.reportsService.salesByCategory(new Date(from), new Date(to));
+  salesByCategory(@Query() query: DateRangeDto) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    return this.reportsService.salesByCategory(from, to);
   }
 
   @Get('sales/by-payment')
-  salesByPayment(
-    @Query('from') from: string,
-    @Query('to') to: string,
-  ) {
-    return this.reportsService.salesByPayment(new Date(from), new Date(to));
+  salesByPayment(@Query() query: DateRangeDto) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    return this.reportsService.salesByPayment(from, to);
   }
 
   @Get('sales/by-cashier')
-  salesByCashier(
-    @Query('from') from: string,
-    @Query('to') to: string,
-  ) {
-    return this.reportsService.salesByCashier(new Date(from), new Date(to));
+  salesByCashier(@Query() query: DateRangeDto) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    return this.reportsService.salesByCashier(from, to);
   }
 
   @Get('sales/by-order-type')
-  salesByOrderType(
-    @Query('from') from: string,
-    @Query('to') to: string,
-  ) {
-    return this.reportsService.salesByOrderType(new Date(from), new Date(to));
+  salesByOrderType(@Query() query: DateRangeDto) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    return this.reportsService.salesByOrderType(from, to);
   }
 
   @Get('sales/by-hour')
-  hourlyBreakdown(
-    @Query('from') from: string,
-    @Query('to') to: string,
-  ) {
-    return this.reportsService.hourlyBreakdown(new Date(from), new Date(to));
+  hourlyBreakdown(@Query() query: DateRangeDto) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    return this.reportsService.hourlyBreakdown(from, to);
   }
 
   @Get('popular-items')
-  popularItems(
-    @Query('from') from: string,
-    @Query('to') to: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.reportsService.popularItems(new Date(from), new Date(to), limit ? parseInt(limit) : 10);
+  popularItems(@Query() query: DateRangeDto & { limit?: string }) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    const limit = query.limit ? parseInt(query.limit) : 10;
+    return this.reportsService.popularItems(from, to, limit);
   }
 
   @Get('daily')
-  dailyReport(@Query('date') date: string) {
-    return this.reportsService.dailyReport(new Date(date));
+  dailyReport(@Query('date') date?: string) {
+    const targetDate = date ? new Date(date) : new Date();
+    return this.reportsService.dailyReport(targetDate);
+  }
+
+  // ==========================================
+  // CSV EXPORTS
+  // ==========================================
+
+  @Get('sales/export')
+  async exportSales(@Query() query: DateRangeDto, @Res() res: Response) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    const csv = await this.reportsService.exportSalesCSV(from, to);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="sales-report-${from.toISOString().split('T')[0]}.csv"`);
+    res.send(csv);
+  }
+
+  @Get('sales/by-item/export')
+  async exportSalesByItem(@Query() query: DateRangeDto, @Res() res: Response) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    const csv = await this.reportsService.exportSalesByItemCSV(from, to);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="sales-by-item-${from.toISOString().split('T')[0]}.csv"`);
+    res.send(csv);
+  }
+
+  @Get('sales/by-category/export')
+  async exportSalesByCategory(@Query() query: DateRangeDto, @Res() res: Response) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    const csv = await this.reportsService.exportSalesByCategoryCSV(from, to);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="sales-by-category-${from.toISOString().split('T')[0]}.csv"`);
+    res.send(csv);
+  }
+
+  @Get('sales/by-payment/export')
+  async exportSalesByPayment(@Query() query: DateRangeDto, @Res() res: Response) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    const csv = await this.reportsService.exportSalesByPaymentCSV(from, to);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="sales-by-payment-${from.toISOString().split('T')[0]}.csv"`);
+    res.send(csv);
+  }
+
+  @Get('sales/by-cashier/export')
+  async exportSalesByCashier(@Query() query: DateRangeDto, @Res() res: Response) {
+    const { from, to } = this.reportsService.resolveDateRange(query);
+    const csv = await this.reportsService.exportSalesByCashierCSV(from, to);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="sales-by-cashier-${from.toISOString().split('T')[0]}.csv"`);
+    res.send(csv);
   }
 }

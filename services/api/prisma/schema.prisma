@@ -7,13 +7,487 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==================== ENUMS ====================
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  permissions Json     @default("{}")
+  isActive    Boolean  @default(true)
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  staff       Staff[]
 
-enum Role {
-  ADMIN
-  MANAGER
-  CASHIER
-  KITCHEN
+  @@map("roles")
+}
+
+model Outlet {
+  id                  String               @id @default(cuid())
+  name                String
+  address             String
+  phone               String?
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  inventoryItems      InventoryItem[]
+  orders              Order[]
+  settings            Setting[]
+  staff               Staff[]
+  landingPageContents LandingPageContent[]
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  staff     Staff[]
+
+  @@map("departments")
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  icon      String?
+  sortOrder Int        @default(0)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     MenuItem[]
+  modifiers Modifier[]
+}
+
+model MenuItem {
+  id           String               @id @default(cuid())
+  name         String               @unique
+  price        Decimal
+  categoryId   String
+  imageUrl     String?
+  isAvailable  Boolean              @default(true)
+  stock        Int                  @default(0)
+  minStock     Int                  @default(0)
+  options      Json?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  cost         Float?               @default(0)
+  profitMargin Float?               @default(0)
+  category     Category             @relation(fields: [categoryId], references: [id])
+  orderItems   OrderItem[]
+  stockLogs    StockLog[]
+  ingredients  MenuItemIngredient[]
+}
+
+model DiningTable {
+  id        String            @id @default(cuid())
+  number    String            @unique
+  capacity  Int               @default(4)
+  status    DiningTableStatus @default(AVAILABLE)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  orders    Order[]
+}
+
+model Customer {
+  id          String       @id @default(cuid())
+  name        String
+  phone       String       @unique
+  email       String?
+  visits      Int          @default(0)
+  points      Int          @default(0)
+  totalSpent  Float        @default(0) @map("total_spent")
+  lastVisit   DateTime?    @map("last_visit")
+  isVip       Boolean      @default(false) @map("is_vip")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  orders      Order[]
+  redemptions Redemption[]
+
+  @@map("customers")
+}
+
+model Redemption {
+  id         String   @id @default(cuid())
+  customerId String   @map("customer_id")
+  pointsUsed Int      @map("points_used")
+  reward     String
+  orderId    String?  @map("order_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  @@map("redemptions")
+}
+
+model Promotion {
+  id          String          @id @default(cuid())
+  title       String
+  description String?
+  type        PromotionType
+  bannerUrl   String?         @map("banner_url")
+  discount    Float?
+  minSpend    Float?          @map("min_spend")
+  startDate   DateTime        @map("start_date")
+  endDate     DateTime        @map("end_date")
+  isActive    Boolean         @default(true) @map("is_active")
+  outletId    String          @map("outlet_id")
+  target      PromotionTarget @default(ALL)
+  priority    Int             @default(0)
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@map("promotions")
+}
+
+model LandingPageContent {
+  id        String   @id @default(cuid())
+  section   String
+  key       String
+  content   Json
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  outletId  String?  @map("outlet_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  outlet    Outlet?  @relation(fields: [outletId], references: [id])
+
+  @@unique([section, key, outletId], name: "section_key_outlet")
+  @@index([outletId])
+  @@index([section, isActive])
+  @@map("landing_page_contents")
+}
+
+model Order {
+  id              String         @id @default(cuid())
+  orderNumber     String         @unique
+  status          OrderStatus    @default(PENDING)
+  source          OrderSource    @default(POS)
+  type            OrderType      @default(DINE_IN)
+  totalAmount     Decimal
+  paidAmount      Decimal?
+  taxAmount       Decimal?
+  paymentMethod   PaymentMethod?
+  customerName    String?
+  customerPhone   String?
+  customerAddress String?
+  tableId         String?
+  pax             Int?
+  reservationTime DateTime?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  completedAt     DateTime?
+  outletId        String?
+  customerId      String?        @map("customer_id")
+  customer        Customer?      @relation(fields: [customerId], references: [id])
+  outlet          Outlet?        @relation(fields: [outletId], references: [id])
+  table           DiningTable?   @relation(fields: [tableId], references: [id])
+  items           OrderItem[]
+  receipt         Receipt?
+
+  @@index([outletId])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id         String     @id @default(cuid())
+  orderId    String
+  menuItemId String
+  name       String
+  quantity   Int
+  unitPrice  Decimal
+  totalPrice Decimal
+  options    Json?
+  notes      String?
+  status     ItemStatus @default(PENDING)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  menuItem   MenuItem   @relation(fields: [menuItemId], references: [id])
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Discount {
+  id                   String       @id @default(cuid())
+  name                 String
+  type                 DiscountType
+  value                Float
+  minSpend             Float?       @map("min_spend")
+  maxDiscount          Float?       @map("max_discount")
+  startDate            DateTime     @map("start_date")
+  endDate              DateTime     @map("end_date")
+  isActive             Boolean      @default(true) @map("is_active")
+  outletId             String?      @map("outlet_id")
+  applicableItems      String[]     @map("applicable_items")
+  applicableCategories String[]     @map("applicable_categories")
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+
+  @@map("discounts")
+}
+
+model Modifier {
+  id         String    @id @default(cuid())
+  name       String
+  price      Float     @default(0)
+  categoryId String?   @map("category_id")
+  isActive   Boolean   @default(true) @map("is_active")
+  sortOrder  Int       @default(0) @map("sort_order")
+  outletId   String?   @map("outlet_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  @@map("modifiers")
+}
+
+model Staff {
+  id              String         @id @default(cuid())
+  name            String         @unique
+  pin             String?
+  isActive        Boolean        @default(true)
+  employmentType  EmploymentType @default(HOURLY_PART_TIME)
+  hourlyRate      Decimal?
+  monthlySalary   Decimal?
+  joinDate        DateTime       @default(now())
+  customEpfRate   Decimal?
+  customSocsoRate Decimal?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  email           String?        @unique
+  password        String?
+  outletId        String?
+  isSuperAdmin    Boolean        @default(false)
+  departmentId    String?
+  phone           String?
+  roleId          String?
+  leaveRequests   LeaveRequest[]
+  payrolls        Payroll[]
+  receipts        Receipt[]
+  department      Department?    @relation(fields: [departmentId], references: [id])
+  outlet          Outlet?        @relation(fields: [outletId], references: [id])
+  role            Role?          @relation(fields: [roleId], references: [id])
+  advances        StaffAdvance[]
+  stockLogs       StockLog[]
+  timecards       Timecard[]
+
+  @@index([outletId])
+  @@index([departmentId])
+  @@index([roleId])
+}
+
+model Timecard {
+  id           String    @id @default(cuid())
+  staffId      String
+  clockIn      DateTime
+  clockOut     DateTime?
+  breakMinutes Int       @default(0)
+  totalMinutes Int?
+  totalHours   Decimal?
+  verifiedBy   String?
+  verifiedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  staff        Staff     @relation(fields: [staffId], references: [id])
+}
+
+model LeaveRequest {
+  id               String      @id @default(cuid())
+  staffId          String
+  type             LeaveType
+  startDate        DateTime
+  endDate          DateTime
+  days             Int
+  reason           String?
+  status           LeaveStatus @default(PENDING)
+  approvedBy       String?
+  approvedAt       DateTime?
+  payrollDeduction Decimal?
+  createdAt        DateTime    @default(now())
+  staff            Staff       @relation(fields: [staffId], references: [id])
+}
+
+model StaffAdvance {
+  id                String             @id @default(cuid())
+  staffId           String
+  amount            Decimal
+  reason            String?
+  takenAt           DateTime           @default(now())
+  totalInstallments Int                @default(1)
+  paidInstallments  Int                @default(0)
+  installmentAmount Decimal
+  isFullyPaid       Boolean            @default(false)
+  paidOffAt         DateTime?
+  createdAt         DateTime           @default(now())
+  deductions        AdvanceDeduction[]
+  staff             Staff              @relation(fields: [staffId], references: [id])
+}
+
+model AdvanceDeduction {
+  id        String       @id @default(cuid())
+  advanceId String
+  payrollId String
+  amount    Decimal
+  createdAt DateTime     @default(now())
+  advance   StaffAdvance @relation(fields: [advanceId], references: [id])
+  payroll   Payroll      @relation(fields: [payrollId], references: [id])
+}
+
+model Payroll {
+  id                String             @id @default(cuid())
+  staffId           String
+  periodStart       DateTime
+  periodEnd         DateTime
+  periodType        PayrollPeriod
+  basicPay          Decimal
+  overtimeHours     Decimal            @default(0)
+  overtimePay       Decimal            @default(0)
+  totalEarnings     Decimal
+  leaveDeduction    Decimal            @default(0)
+  epfEmployee       Decimal            @default(0)
+  epfEmployer       Decimal            @default(0)
+  socsoEmployee     Decimal            @default(0)
+  socsoEmployer     Decimal            @default(0)
+  advanceDeduction  Decimal            @default(0)
+  otherDeductions   Decimal            @default(0)
+  totalDeductions   Decimal
+  nettPay           Decimal
+  status            PayrollStatus      @default(DRAFT)
+  paidAt            DateTime?
+  paidBy            String?
+  pdfUrl            String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  advanceDeductions AdvanceDeduction[]
+  staff             Staff              @relation(fields: [staffId], references: [id])
+}
+
+model Receipt {
+  id             String        @id @default(cuid())
+  receiptNo      String        @unique
+  orderId        String        @unique
+  totalAmount    Decimal
+  paidAmount     Decimal
+  change         Decimal?
+  taxAmount      Decimal?
+  cashierId      String
+  posId          String
+  itemsSnapshot  Json
+  customerInfo   Json?
+  printCount     Int           @default(0)
+  lastPrintedAt  DateTime?
+  pdfGeneratedAt DateTime?
+  pdfUrl         String?
+  emailedTo      String?
+  emailSentAt    DateTime?
+  createdAt      DateTime      @default(now())
+  paymentMethod  PaymentMethod
+  cashier        Staff         @relation(fields: [cashierId], references: [id])
+  order          Order         @relation(fields: [orderId], references: [id])
+}
+
+model StockLog {
+  id              String         @id @default(cuid())
+  menuItemId      String?
+  type            StockType
+  quantity        Int
+  orderId         String?
+  reason          String?
+  staffId         String?
+  createdAt       DateTime       @default(now())
+  inventoryItemId String?
+  outletId        String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  menuItem        MenuItem?      @relation(fields: [menuItemId], references: [id])
+  staff           Staff?         @relation(fields: [staffId], references: [id])
+}
+
+model InventoryItem {
+  id                 String               @id @default(cuid())
+  name               String               @unique
+  category           String
+  unit               String               @default("g")
+  currentStock       Float                @default(0)
+  minStock           Float                @default(0)
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  costPerUnit        Float?
+  supplier           String?
+  weight             Float?
+  outletId           String?
+  unitOfMeasure      String?              @default("g")
+  unitPrice          Float?               @default(0)
+  description        String?
+  openStock          Float?               @default(0)
+  packPrice          Float?
+  stockIn            Float?               @default(0)
+  stockOut           Float?               @default(0)
+  outlet             Outlet?              @relation(fields: [outletId], references: [id])
+  stockLogs          StockLog[]
+  ingredients        MenuItemIngredient[]
+  preCookIngredients PreCookIngredient[]
+
+  @@index([outletId])
+}
+
+model PreCookProduct {
+  id                  String               @id @default(cuid())
+  name                String               @unique
+  description         String?
+  cost                Float                @default(0)
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  menuItemIngredients MenuItemIngredient[]
+  ingredients         PreCookIngredient[]
+
+  @@map("pre_cook_products")
+}
+
+model PreCookIngredient {
+  id              String         @id @default(cuid())
+  preCookId       String         @map("pre_cook_id")
+  inventoryItemId String         @map("inventory_item_id")
+  quantityUsed    Float          @map("quantity_used")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime?      @updatedAt
+  inventoryItem   InventoryItem  @relation(fields: [inventoryItemId], references: [id])
+  preCook         PreCookProduct @relation(fields: [preCookId], references: [id], onDelete: Cascade)
+
+  @@unique([preCookId, inventoryItemId])
+  @@index([preCookId])
+  @@index([inventoryItemId])
+  @@map("pre_cook_ingredients")
+}
+
+model MenuItemIngredient {
+  id              String          @id @default(cuid())
+  inventoryItemId String?         @map("inventory_item_id")
+  preCookId       String?         @map("pre_cook_id")
+  menuItemId      String          @map("menu_item_id")
+  quantityUsed    Float           @map("quantity_used")
+  unit            String?         @default("g")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime?       @updatedAt
+  inventoryItem   InventoryItem?  @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  menuItem        MenuItem        @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  preCook         PreCookProduct? @relation(fields: [preCookId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, inventoryItemId])
+  @@index([menuItemId])
+  @@index([inventoryItemId])
+  @@index([preCookId])
+  @@map("menu_item_ingredients")
+}
+
+model Setting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+  outletId    String?
+  outlet      Outlet?  @relation(fields: [outletId], references: [id])
+
+  @@unique([key, outletId], name: "key_outletId")
 }
 
 enum EmploymentType {
@@ -111,407 +585,8 @@ enum PromotionTarget {
   VIP
 }
 
-// ==================== OUTLET ====================
-
-model Outlet {
-  id                  String          @id @default(cuid())
-  name                String
-  address             String
-  phone               String?
-  isActive            Boolean         @default(true)
-  orders              Order[]
-  staff               Staff[]
-  inventoryItems      InventoryItem[]
-  settings            Setting[]
-  landingPageContents LandingPageContent[]
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-}
-
-// ==================== CORE ====================
-
-model Category {
-  id        String     @id @default(cuid())
-  name      String     @unique
-  icon      String?
-  sortOrder Int        @default(0)
-  isActive  Boolean    @default(true)
-  items     MenuItem[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-}
-
-model MenuItem {
-  id            String               @id @default(cuid())
-  name          String               @unique
-  price         Decimal
-  categoryId    String
-  category      Category             @relation(fields: [categoryId], references: [id])
-  imageUrl      String?
-  isAvailable   Boolean              @default(true)
-  stock         Int                  @default(0)
-  minStock      Int                  @default(0)
-  options       Json?
-  ingredients   MenuItemIngredient[]
-  cost          Float?               @default(0)
-  profitMargin  Float?               @default(0)
-  stockLogs     StockLog[]
-  orderItems    OrderItem[]
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-}
-
-model DiningTable {
-  id        String           @id @default(cuid())
-  number    String           @unique
-  capacity  Int              @default(4)
-  status    DiningTableStatus @default(AVAILABLE)
-  orders    Order[]
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-}
-
-// ==================== CUSTOMER ====================
-
-model Customer {
-  id          String       @id @default(cuid())
-  name        String
-  phone       String       @unique
-  email       String?
-  visits      Int          @default(0)
-  points      Int          @default(0)
-  totalSpent  Float        @default(0) @map("total_spent")
-  lastVisit   DateTime?    @map("last_visit")
-  isVip       Boolean      @default(false) @map("is_vip")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-
-  orders      Order[]
-  redemptions Redemption[]
-
-  @@map("customers")
-}
-
-model Redemption {
-  id          String   @id @default(cuid())
-  customerId  String   @map("customer_id")
-  pointsUsed  Int      @map("points_used")
-  reward      String
-  orderId     String?  @map("order_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  customer    Customer @relation(fields: [customerId], references: [id])
-
-  @@map("redemptions")
-}
-
-// ==================== PROMOTION ====================
-
-model Promotion {
-  id          String          @id @default(cuid())
-  title       String
-  description String?
-  type        PromotionType
-  bannerUrl   String?         @map("banner_url")
-  discount    Float?          // percentage or fixed amount
-  minSpend    Float?          @map("min_spend")
-  startDate   DateTime        @map("start_date")
-  endDate     DateTime        @map("end_date")
-  isActive    Boolean         @default(true) @map("is_active")
-  outletId    String          @map("outlet_id")
-  target      PromotionTarget @default(ALL)
-  priority    Int             @default(0)
-  createdAt   DateTime        @default(now()) @map("created_at")
-
-  @@map("promotions")
-}
-
-// ==================== LANDING PAGE CMS ====================
-
-model LandingPageContent {
-  id          String      @id @default(cuid())
-  section     String
-  key         String
-  content     Json
-  sortOrder   Int         @default(0) @map("sort_order")
-  isActive    Boolean     @default(true) @map("is_active")
-  outletId    String?     @map("outlet_id")
-  outlet      Outlet?     @relation(fields: [outletId], references: [id])
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-
-  @@unique([section, key, outletId], name: "section_key_outlet")
-  @@index([outletId])
-  @@index([section, isActive])
-  @@map("landing_page_contents")
-}
-
-// ==================== ORDERS ====================
-
-model Order {
-  id              String         @id @default(cuid())
-  orderNumber     String         @unique
-  status          OrderStatus    @default(PENDING)
-  source          OrderSource    @default(POS)
-  type            OrderType      @default(DINE_IN)
-  totalAmount     Decimal
-  paidAmount      Decimal?
-  taxAmount       Decimal?
-  paymentMethod   PaymentMethod?
-  customerName    String?
-  customerPhone   String?
-  customerAddress String?
-  customerId      String?        @map("customer_id")
-  customer        Customer?      @relation(fields: [customerId], references: [id])
-  tableId         String?
-  table           DiningTable?   @relation(fields: [tableId], references: [id])
-  pax             Int?
-  reservationTime DateTime?
-  notes           String?
-  outletId        String?
-  outlet          Outlet?        @relation(fields: [outletId], references: [id])
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  completedAt     DateTime?
-  items           OrderItem[]
-  receipt         Receipt?
-
-  @@index([outletId])
-  @@index([customerId])
-}
-
-model OrderItem {
-  id         String     @id @default(cuid())
-  orderId    String
-  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItemId String
-  menuItem   MenuItem   @relation(fields: [menuItemId], references: [id])
-  name       String
-  quantity   Int
-  unitPrice  Decimal
-  totalPrice Decimal
-  options    Json?
-  notes      String?
-  status     ItemStatus @default(PENDING)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-}
-
-// ==================== STAFF ====================
-
-model Staff {
-  id              String         @id @default(cuid())
-  name            String         @unique
-  email           String?        @unique
-  password        String?
-  pin             String?
-  role            Role           @default(CASHIER)
-  isActive        Boolean        @default(true)
-  employmentType  EmploymentType @default(HOURLY_PART_TIME)
-  hourlyRate      Decimal?
-  monthlySalary   Decimal?
-  joinDate        DateTime       @default(now())
-  customEpfRate   Decimal?
-  customSocsoRate Decimal?
-  outletId        String?        
-  outlet          Outlet?        @relation(fields: [outletId], references: [id])
-  timecards       Timecard[]
-  receipts        Receipt[]
-  stockLogs       StockLog[]
-  payrolls        Payroll[]
-  leaveRequests   LeaveRequest[]
-  advances        StaffAdvance[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  @@index([outletId])
-}
-
-model Timecard {
-  id           String   @id @default(cuid())
-  staffId      String
-  staff        Staff    @relation(fields: [staffId], references: [id])
-  clockIn      DateTime
-  clockOut     DateTime?
-  breakMinutes Int      @default(0)
-  totalMinutes Int?
-  totalHours   Decimal?
-  verifiedBy   String?
-  verifiedAt   DateTime?
-  createdAt    DateTime @default(now())
-}
-
-// ==================== LEAVE ====================
-
-model LeaveRequest {
-  id               String      @id @default(cuid())
-  staffId          String
-  staff            Staff       @relation(fields: [staffId], references: [id])
-  type             LeaveType
-  startDate        DateTime
-  endDate          DateTime
-  days             Int
-  reason           String?
-  status           LeaveStatus @default(PENDING)
-  approvedBy       String?
-  approvedAt       DateTime?
-  payrollDeduction Decimal?
-  createdAt        DateTime    @default(now())
-}
-
-// ==================== ADVANCE ====================
-
-model StaffAdvance {
-  id                String             @id @default(cuid())
-  staffId           String
-  staff             Staff              @relation(fields: [staffId], references: [id])
-  amount            Decimal
-  reason            String?
-  takenAt           DateTime           @default(now())
-  totalInstallments Int                @default(1)
-  paidInstallments  Int                @default(0)
-  installmentAmount Decimal
-  isFullyPaid       Boolean            @default(false)
-  paidOffAt         DateTime?
-  deductions        AdvanceDeduction[]
-  createdAt         DateTime           @default(now())
-}
-
-model AdvanceDeduction {
-  id        String       @id @default(cuid())
-  advanceId String
-  advance   StaffAdvance @relation(fields: [advanceId], references: [id])
-  payrollId String
-  payroll   Payroll      @relation(fields: [payrollId], references: [id])
-  amount    Decimal
-  createdAt DateTime     @default(now())
-}
-
-// ==================== PAYROLL ====================
-
-model Payroll {
-  id                String             @id @default(cuid())
-  staffId           String
-  staff             Staff              @relation(fields: [staffId], references: [id])
-  periodStart       DateTime
-  periodEnd         DateTime
-  periodType        PayrollPeriod
-  basicPay          Decimal
-  overtimeHours     Decimal            @default(0)
-  overtimePay       Decimal            @default(0)
-  totalEarnings     Decimal
-  leaveDeduction    Decimal            @default(0)
-  epfEmployee       Decimal            @default(0)
-  epfEmployer       Decimal            @default(0)
-  socsoEmployee     Decimal            @default(0)
-  socsoEmployer     Decimal            @default(0)
-  advanceDeduction  Decimal            @default(0)
-  otherDeductions   Decimal            @default(0)
-  totalDeductions   Decimal
-  nettPay           Decimal
-  status            PayrollStatus      @default(DRAFT)
-  paidAt            DateTime?
-  paidBy            String?
-  pdfUrl            String?
-  advanceDeductions AdvanceDeduction[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-}
-
-// ==================== RECEIPTS ====================
-
-model Receipt {
-  id             String        @id @default(cuid())
-  receiptNo      String        @unique
-  orderId        String        @unique
-  order          Order         @relation(fields: [orderId], references: [id])
-  totalAmount    Decimal
-  paidAmount     Decimal
-  change         Decimal?
-  paymentMethod  PaymentMethod
-  taxAmount      Decimal?
-  cashierId      String
-  cashier        Staff         @relation(fields: [cashierId], references: [id])
-  posId          String
-  itemsSnapshot  Json
-  customerInfo   Json?
-  printCount     Int           @default(0)
-  lastPrintedAt  DateTime?
-  pdfGeneratedAt DateTime?
-  pdfUrl         String?
-  emailedTo      String?
-  emailSentAt    DateTime?
-  createdAt      DateTime      @default(now())
-}
-
-// ==================== INVENTORY ====================
-
-model StockLog {
-  id              String          @id @default(cuid())
-  type            StockType
-  menuItemId      String?
-  menuItem        MenuItem?       @relation(fields: [menuItemId], references: [id])
-  inventoryItemId String?
-  inventoryItem   InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
-  quantity        Int
-  orderId         String?
-  reason          String?
-  staffId         String?
-  staff           Staff?          @relation(fields: [staffId], references: [id])
-  createdAt       DateTime        @default(now())
-}
-
-// ==================== INVENTORY (Raw Material) ====================
-
-model InventoryItem {
-  id              String             @id @default(cuid())
-  name            String             @unique
-  category        String
-  unit            String             @default("g")
-  weight          Float?
-  currentStock    Float              @default(0)
-  minStock        Float              @default(0)
-  costPerUnit     Float?
-  supplier        String?
-  isActive        Boolean            @default(true)
-  outletId        String?            
-  outlet          Outlet?            @relation(fields: [outletId], references: [id])
-  ingredients     MenuItemIngredient[]
-  unitPrice       Float?             @default(0)
-  unitOfMeasure   String?            @default("g")
-  stockLogs       StockLog[]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
-  @@index([outletId])
-}
-
-model MenuItemIngredient {
-  id              String        @id @default(cuid())
-  inventoryItemId String
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
-  menuItemId      String
-  menuItem        MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  quantityUsed    Float
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime?      @updatedAt
-
-  @@unique([menuItemId, inventoryItemId])
-  @@index([menuItemId])
-  @@index([inventoryItemId])
-}
-
-// ==================== SETTINGS ====================
-
-model Setting {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String
-  description String?
-  updatedBy   String?
-  outletId    String?  
-  outlet      Outlet?  @relation(fields: [outletId], references: [id])
-  updatedAt   DateTime @updatedAt
-
-  @@unique([key, outletId], name: "key_outletId")
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BUY_X_GET_Y
 }

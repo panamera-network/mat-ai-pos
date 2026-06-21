@@ -1,24 +1,69 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useApi, useStaffCache } from '@mat-ai/backoffice';
-import type { Staff, DynamicRole, Department, PermissionDefinition } from '@mat-ai/types';
+import type { Staff, Department, PermissionDefinition } from '@mat-ai/types';
 import { DEFAULT_PERMISSIONS } from '@mat-ai/types';
 import {
   Plus, Search, RefreshCw, Users, Clock, Shield,
-  Edit3, Trash2, X, Check, Filter, Building2
+  Edit3, Trash2, X, Check, Building2, Crown
 } from 'lucide-react';
+
+// ============================================================
+// LOCAL TYPE — avoid conflict with React.Role (aria)
+// ============================================================
+interface StaffRole {
+  id: string;
+  name: string;
+  permissions: Record<string, boolean>;
+  isActive: boolean;
+  isSystem: boolean;
+  staffCount?: number;
+}
 
 type StaffTab = 'staff' | 'attendance' | 'roles' | 'departments';
 
 interface StaffFormData {
   name: string;
   email: string;
-  role: string;
-  department: string;
+  password: string;
+  pin: string;
+  phone: string;
+  roleId: string;
+  isSuperAdmin: boolean;
+  departmentId: string;
   employmentType: string;
   hourlyRate: string;
   monthlySalary: string;
-  phone: string;
+  isActive: boolean;
 }
+
+const EMPLOYMENT_TYPES = [
+  { value: 'HOURLY_PART_TIME', label: 'Hourly Part Time' },
+  { value: 'MONTHLY_SALARIED', label: 'Monthly Salaried' },
+] as const;
+
+// ============================================================
+// ROLE COLOR MAP
+// ============================================================
+const ROLE_COLORS: Record<string, string> = {
+  'ADMIN': 'bg-indigo-100 text-indigo-700',
+  'MANAGER': 'bg-blue-100 text-blue-700',
+  'CASHIER': 'bg-gray-100 text-gray-700',
+  'KITCHEN': 'bg-orange-100 text-orange-700',
+  'SUPER_ADMIN': 'bg-purple-100 text-purple-700',
+};
+
+// ============================================================
+// HELPER: Get role name string from Staff (handles both string and object)
+// ============================================================
+const getRoleName = (staff: Staff): string => {
+  if (!staff.role) return '';
+  if (typeof staff.role === 'string') return staff.role;
+  // If it's an object with name property
+  if (typeof staff.role === 'object' && staff.role !== null && 'name' in staff.role) {
+    return (staff.role as any).name || '';
+  }
+  return '';
+};
 
 export const StaffPage: React.FC = () => {
   const { get, post, patch, del } = useApi();
@@ -27,54 +72,48 @@ export const StaffPage: React.FC = () => {
   const cached = cache.getData();
   const [activeTab, setActiveTab] = useState<StaffTab>('staff');
   const [staffList, setStaffList] = useState<Staff[]>(cached?.staffList || []);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [roles, setRoles] = useState<StaffRole[]>([]);
   const [timecards, setTimecards] = useState<any[]>(cached?.timecards || []);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [formData, setFormData] = useState<StaffFormData>({
-    name: '', email: '', role: 'CASHIER', department: '', employmentType: 'FULL_TIME',
-    hourlyRate: '', monthlySalary: '', phone: ''
+    name: '', email: '', password: '', pin: '', phone: '',
+    roleId: '', isSuperAdmin: false, departmentId: '',
+    employmentType: 'HOURLY_PART_TIME', hourlyRate: '', monthlySalary: '', isActive: true
   });
   const [lastRefresh, setLastRefresh] = useState<Date | null>(
     cache.timestamp > 0 ? new Date(cache.timestamp) : null
   );
 
-  // Roles state - using centralized DynamicRole type
-  const [roles, setRoles] = useState<DynamicRole[]>([
-    { id: '1', name: 'ADMIN', isSystem: true, permissions: Object.fromEntries(DEFAULT_PERMISSIONS.map(p => [p.key, true])) },
-    { id: '2', name: 'MANAGER', isSystem: true, permissions: Object.fromEntries(DEFAULT_PERMISSIONS.map(p => [p.key, ['dashboard', 'sales', 'staff', 'menu', 'inventory', 'customers'].includes(p.key)])) },
-    { id: '3', name: 'CASHIER', isSystem: true, permissions: Object.fromEntries(DEFAULT_PERMISSIONS.map(p => [p.key, p.key === 'dashboard'])) },
-  ]);
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const [editingRole, setEditingRole] = useState<DynamicRole | null>(null);
-  const [newRoleName, setNewRoleName] = useState('');
-  const [rolePermissions, setRolePermissions] = useState<Record<string, boolean>>({});
-
-  // Departments state - using centralized Department type
-  const [departments, setDepartments] = useState<Department[]>([
-    { id: '1', name: 'Kitchen', isActive: true },
-    { id: '2', name: 'Service', isActive: true },
-    { id: '3', name: 'Management', isActive: true },
-    { id: '4', name: 'Security', isActive: true },
-  ]);
-  const [showDeptModal, setShowDeptModal] = useState(false);
-  const [editingDept, setEditingDept] = useState<Department | null>(null);
-  const [newDeptName, setNewDeptName] = useState('');
+  // Fetch roles (dynamic)
+  const fetchRoles = useCallback(async () => {
+    try {
+      const res = await get('/roles');
+      if (res.ok) setRoles((res.data as StaffRole[]) || []);
+    } catch (err) {
+      console.error('Roles fetch error:', err);
+    }
+  }, [get]);
 
   const fetchData = useCallback(async (isManual = false) => {
     if (!isManual) setLoading(true);
     try {
-      const [staffRes, timeRes] = await Promise.all([
+      const [staffRes, timeRes, deptRes] = await Promise.all([
         get('/staff'),
         get('/timecard'),
+        get('/departments'),
       ]);
 
       const newStaff = (staffRes.ok ? staffRes.data : []) as Staff[];
       const newTimecards = (timeRes.ok ? timeRes.data : []) as any[];
+      const newDepts = (deptRes.ok ? deptRes.data : []) as Department[];
 
       setStaffList(newStaff);
       setTimecards(newTimecards);
+      setDepartments(newDepts);
       cache.setData(newStaff, newTimecards, []);
       setLastRefresh(new Date());
     } catch (err) {
@@ -85,16 +124,17 @@ export const StaffPage: React.FC = () => {
   }, [get, cache]);
 
   useEffect(() => {
-    if (cache.isExpired()) {
-      fetchData();
-    }
-  }, [fetchData, cache]);
+    fetchData();
+    fetchRoles();
+  }, [fetchData, fetchRoles]);
 
   const handleSaveStaff = async () => {
     const payload = {
       ...formData,
       hourlyRate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : null,
       monthlySalary: formData.monthlySalary ? parseFloat(formData.monthlySalary) : null,
+      departmentId: formData.departmentId || null,
+      roleId: formData.roleId || null,
     };
 
     if (editingStaff) {
@@ -104,8 +144,16 @@ export const StaffPage: React.FC = () => {
     }
     setShowModal(false);
     setEditingStaff(null);
-    setFormData({ name: '', email: '', role: 'CASHIER', department: '', employmentType: 'FULL_TIME', hourlyRate: '', monthlySalary: '', phone: '' });
+    resetForm();
     fetchData(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '', email: '', password: '', pin: '', phone: '',
+      roleId: '', isSuperAdmin: false, departmentId: '',
+      employmentType: 'HOURLY_PART_TIME', hourlyRate: '', monthlySalary: '', isActive: true
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -119,80 +167,58 @@ export const StaffPage: React.FC = () => {
     setFormData({
       name: staff.name || '',
       email: staff.email || '',
-      role: staff.role || 'CASHIER',
-      department: (staff as any).department || '',
-      employmentType: staff.employmentType || 'FULL_TIME',
+      password: '',
+      pin: staff.pin || '',
+      phone: staff.phone || '',
+      roleId: staff.roleId || '',
+      isSuperAdmin: staff.isSuperAdmin || false,
+      departmentId: staff.departmentId || '',
+      employmentType: staff.employmentType || 'HOURLY_PART_TIME',
       hourlyRate: staff.hourlyRate?.toString() || '',
       monthlySalary: staff.monthlySalary?.toString() || '',
-      phone: (staff as any).phone || '',
+      isActive: staff.isActive ?? true,
     });
     setShowModal(true);
   };
 
-  // Role handlers
-  const openRoleEdit = (role: DynamicRole) => {
-    setEditingRole(role);
-    setNewRoleName(role.name);
-    setRolePermissions({ ...role.permissions });
-    setShowRoleModal(true);
-  };
+  // ============================================================
+  // DYNAMIC ROLE BADGE
+  // ============================================================
+  const getRoleBadge = (staff: Staff) => {
+    const role = roles.find(r => r.id === staff.roleId);
 
-  const openRoleCreate = () => {
-    setEditingRole(null);
-    setNewRoleName('');
-    setRolePermissions(Object.fromEntries(DEFAULT_PERMISSIONS.map(p => [p.key, false])));
-    setShowRoleModal(true);
-  };
-
-  const saveRole = () => {
-    if (!newRoleName.trim()) return;
-    if (editingRole) {
-      setRoles(roles.map(r => r.id === editingRole.id ? { ...r, name: newRoleName.trim().toUpperCase(), permissions: rolePermissions } : r));
-    } else {
-      setRoles([...roles, { id: Date.now().toString(), name: newRoleName.trim().toUpperCase(), permissions: rolePermissions }]);
+    if (staff.isSuperAdmin) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-purple-100 text-purple-700 border border-purple-300">
+          <Crown className="w-3 h-3" />
+          SUPER ADMIN
+        </span>
+      );
     }
-    setShowRoleModal(false);
+
+    const colorClass = ROLE_COLORS[role?.name || ''] || 'bg-gray-100 text-gray-700';
+    const displayName = role?.name || getRoleName(staff) || 'Unknown';
+
+    return (
+      <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium ${colorClass}`}>
+        {displayName}
+      </span>
+    );
   };
 
-  const deleteRole = (id: string) => {
-    if (!confirm('Delete this role?')) return;
-    setRoles(roles.filter(r => r.id !== id));
-  };
-
-  // Department handlers
-  const openDeptEdit = (dept: Department) => {
-    setEditingDept(dept);
-    setNewDeptName(dept.name);
-    setShowDeptModal(true);
-  };
-
-  const openDeptCreate = () => {
-    setEditingDept(null);
-    setNewDeptName('');
-    setShowDeptModal(true);
-  };
-
-  const saveDept = () => {
-    if (!newDeptName.trim()) return;
-    if (editingDept) {
-      setDepartments(departments.map(d => d.id === editingDept.id ? { ...d, name: newDeptName.trim() } : d));
-    } else {
-      setDepartments([...departments, { id: Date.now().toString(), name: newDeptName.trim(), isActive: true }]);
-    }
-    setShowDeptModal(false);
-  };
-
-  const deleteDept = (id: string) => {
-    if (!confirm('Delete this department?')) return;
-    setDepartments(departments.filter(d => d.id !== id));
-  };
-
-  const filteredStaff = staffList.filter(s =>
-    s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s as any).department?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // ============================================================
+  // FILTER — safe string comparison
+  // ============================================================
+  const filteredStaff = staffList.filter(s => {
+    const roleName = getRoleName(s);
+    return (
+      s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      roleName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.phone?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.department?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   const timeAgo = () => {
     if (!lastRefresh) return 'Never';
@@ -228,29 +254,11 @@ export const StaffPage: React.FC = () => {
           </button>
           {activeTab === 'staff' && (
             <button
-              onClick={() => { setEditingStaff(null); setShowModal(true); }}
+              onClick={() => { setEditingStaff(null); resetForm(); setShowModal(true); }}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
             >
               <Plus className="w-4 h-4" />
               Add Staff
-            </button>
-          )}
-          {activeTab === 'roles' && (
-            <button
-              onClick={openRoleCreate}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              Add Role
-            </button>
-          )}
-          {activeTab === 'departments' && (
-            <button
-              onClick={openDeptCreate}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              Add Department
             </button>
           )}
         </div>
@@ -278,7 +286,7 @@ export const StaffPage: React.FC = () => {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search staff by name, email, role or department..."
+            placeholder="Search staff by name, email, role, phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
@@ -298,6 +306,7 @@ export const StaffPage: React.FC = () => {
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Department</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Type</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Rate</th>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Phone</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
                 <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Actions</th>
               </tr>
@@ -307,32 +316,35 @@ export const StaffPage: React.FC = () => {
                 <tr key={staff.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-bold text-blue-700">{staff.name?.charAt(0)}</span>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                        staff.isSuperAdmin ? 'bg-purple-100' : 'bg-blue-100'
+                      }`}>
+                        <span className={`text-sm font-bold ${
+                          staff.isSuperAdmin ? 'text-purple-700' : 'text-blue-700'
+                        }`}>{staff.name?.charAt(0)}</span>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{staff.name}</p>
-                        <p className="text-xs text-gray-500">{(staff as any).phone || '-'}</p>
+                        <p className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                          {staff.name}
+                          {staff.isSuperAdmin && <Crown className="w-3 h-3 text-purple-500" />}
+                        </p>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">{staff.email || '-'}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium ${
-                      staff.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
-                      staff.role === 'MANAGER' ? 'bg-blue-100 text-blue-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {staff.role}
-                    </span>
+                  <td className="px-6 py-4">{getRoleBadge(staff)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{staff.department?.name || '-'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {staff.employmentType?.replace('_', ' ')}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{(staff as any).department || '-'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{staff.employmentType?.replace('_', ' ')}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {staff.hourlyRate ? `RM${staff.hourlyRate}/hr` : staff.monthlySalary ? `RM${staff.monthlySalary}/mo` : '-'}
                   </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{staff.phone || '-'}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium ${staff.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium ${
+                      staff.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
                       {staff.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
@@ -350,7 +362,7 @@ export const StaffPage: React.FC = () => {
               ))}
               {filteredStaff.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={9} className="px-6 py-12 text-center text-gray-400">
                     <Users className="w-8 h-8 mx-auto mb-2" />
                     <p>No staff found</p>
                   </td>
@@ -379,7 +391,7 @@ export const StaffPage: React.FC = () => {
               {timecards.map((tc) => (
                 <tr key={tc.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{tc.staff?.name || 'Unknown'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{tc.staff?.department || '-'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{tc.staff?.department?.name || '-'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{new Date(tc.clockIn).toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{tc.clockOut ? new Date(tc.clockOut).toLocaleString() : '-'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{tc.totalHours || '-'}</td>
@@ -403,100 +415,99 @@ export const StaffPage: React.FC = () => {
         </div>
       )}
 
-      {/* Roles Tab */}
+      {/* Roles Tab - DYNAMIC from API */}
       {activeTab === 'roles' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Role Name</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Staff Count</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Permissions</th>
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {roles.map((role) => (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Role</th>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Staff Count</th>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Permissions</th>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {roles.map((role) => {
+                const count = staffList.filter(s => s.roleId === role.id).length;
+                const permissionCount = Object.values(role.permissions || {}).filter(Boolean).length;
+                const totalPermissions = Object.keys(role.permissions || {}).length;
+
+                return (
                   <tr key={role.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
-                      <span className="inline-flex px-3 py-1 rounded-lg text-sm font-medium bg-blue-50 text-blue-700">
-                        {role.name}
+                      <span className={`inline-flex px-3 py-1 rounded-lg text-sm font-medium ${
+                        ROLE_COLORS[role.name] || 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {role.name === 'SUPER_ADMIN' ? '👑 SUPER ADMIN' : role.name}
                       </span>
-                      {role.isSystem && <span className="ml-2 text-xs text-gray-400">(system)</span>}
+                      {role.isSystem && (
+                        <span className="ml-2 text-xs text-gray-400">(System)</span>
+                      )}
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{count} staff</td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {staffList.filter(s => s.role === role.name).length} staff
+                      {permissionCount} / {totalPermissions} permissions
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {DEFAULT_PERMISSIONS.filter(p => role.permissions[p.key]).map(p => (
-                          <span key={p.key} className="inline-flex px-2 py-0.5 rounded text-xs bg-green-50 text-green-700">
-                            {p.label}
-                          </span>
-                        ))}
-                        {DEFAULT_PERMISSIONS.filter(p => !role.permissions[p.key]).length > 0 && (
-                          <span className="inline-flex px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-500">
-                            +{DEFAULT_PERMISSIONS.filter(p => !role.permissions[p.key]).length} restricted
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openRoleEdit(role)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-blue-600">
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        {!role.isSystem && (
-                          <button onClick={() => deleteRole(role.id)} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
+                      <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium ${
+                        role.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {role.isActive ? 'Active' : 'Inactive'}
+                      </span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+              {roles.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
+                    <Shield className="w-8 h-8 mx-auto mb-2" />
+                    <p>No roles found. Run seed to create default roles.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* Departments Tab */}
       {activeTab === 'departments' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {departments.map((dept) => (
-              <div key={dept.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Building2 className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{dept.name}</p>
-                      <p className="text-xs text-gray-500">{staffList.filter(s => (s as any).department === dept.name).length} staff</p>
-                    </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {departments.map((dept) => (
+            <div key={dept.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-blue-600" />
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => openDeptEdit(dept)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-blue-600">
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => deleteDept(dept.id)} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div>
+                    <p className="font-medium text-gray-900">{dept.name}</p>
+                    <p className="text-xs text-gray-500">{staffList.filter(s => s.departmentId === dept.id).length} staff</p>
                   </div>
                 </div>
+                <span className={`inline-flex px-2 py-0.5 rounded-full text-xs ${
+                  dept.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {dept.isActive ? 'Active' : 'Inactive'}
+                </span>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+          {departments.length === 0 && !loading && (
+            <div className="col-span-3 text-center py-12 text-gray-400">
+              <Building2 className="w-8 h-8 mx-auto mb-2" />
+              <p>No departments found</p>
+            </div>
+          )}
         </div>
       )}
 
       {/* Add/Edit Staff Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h3 className="font-semibold text-gray-900">{editingStaff ? 'Edit Staff' : 'Add New Staff'}</h3>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
@@ -504,45 +515,84 @@ export const StaffPage: React.FC = () => {
               </button>
             </div>
             <div className="p-6 space-y-4">
+              {/* Name & Email */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                   <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                  <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
                 </div>
               </div>
+
+              {/* PIN & Password */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                  <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">
-                    {roles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">PIN (4 digits) *</label>
+                  <input type="password" maxLength={4} value={formData.pin} onChange={e => setFormData({...formData, pin: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder={editingStaff ? 'Leave blank to keep current' : ''} />
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="+60 12-345 6789" />
+              </div>
+
+              {/* Role & Super Admin */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+                  <select 
+                    value={formData.roleId || ''} 
+                    onChange={e => setFormData({...formData, roleId: e.target.value})} 
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                  >
+                    <option value="">Select Role</option>
+                    {roles.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
                   </select>
                 </div>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-purple-50 w-full">
+                    <input
+                      type="checkbox"
+                      checked={formData.isSuperAdmin}
+                      onChange={e => setFormData({...formData, isSuperAdmin: e.target.checked})}
+                      className="w-4 h-4 rounded border-gray-300 text-purple-600"
+                    />
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-medium text-purple-700">Super Admin</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Department & Employment Type */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                  <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">
-                    <option value="">Select department</option>
-                    {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                  <select value={formData.departmentId} onChange={e => setFormData({...formData, departmentId: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">
+                    <option value="">No Department</option>
+                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type *</label>
                   <select value={formData.employmentType} onChange={e => setFormData({...formData, employmentType: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">
-                    <option value="FULL_TIME">Full Time</option>
-                    <option value="PART_TIME">Part Time</option>
-                    <option value="CONTRACT">Contract</option>
+                    {EMPLOYMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                  <input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
-                </div>
               </div>
+
+              {/* Hourly Rate & Monthly Salary */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate (RM)</label>
@@ -553,86 +603,23 @@ export const StaffPage: React.FC = () => {
                   <input type="number" value={formData.monthlySalary} onChange={e => setFormData({...formData, monthlySalary: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
                 </div>
               </div>
+
+              {/* Is Active */}
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={e => setFormData({...formData, isActive: e.target.checked})}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <span className="text-sm text-gray-700">Active staff</span>
+                </label>
+              </div>
             </div>
             <div className="flex justify-end gap-2 px-6 py-4 border-t">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
               <button onClick={handleSaveStaff} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Role Modal */}
-      {showRoleModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h3 className="font-semibold text-gray-900">{editingRole ? 'Edit Role' : 'Add New Role'}</h3>
-              <button onClick={() => setShowRoleModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role Name</label>
-                <input 
-                  value={newRoleName} 
-                  onChange={e => setNewRoleName(e.target.value)} 
-                  placeholder="e.g. SECURITY_GUARD"
-                  className="w-full px-3 py-2 border rounded-lg text-sm" 
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
-                <div className="space-y-2">
-                  {DEFAULT_PERMISSIONS.map((perm) => (
-                    <label key={perm.key} className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <div>
-                        <span className="text-sm text-gray-700">{perm.label}</span>
-                        <span className="text-xs text-gray-400 ml-2">({perm.category})</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={rolePermissions[perm.key] || false}
-                        onChange={(e) => setRolePermissions({...rolePermissions, [perm.key]: e.target.checked})}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600"
-                      />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 px-6 py-4 border-t">
-              <button onClick={() => setShowRoleModal(false)} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
-              <button onClick={saveRole} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save Role</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Department Modal */}
-      {showDeptModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h3 className="font-semibold text-gray-900">{editingDept ? 'Edit Department' : 'Add New Department'}</h3>
-              <button onClick={() => setShowDeptModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
-            <div className="p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department Name</label>
-              <input 
-                value={newDeptName} 
-                onChange={e => setNewDeptName(e.target.value)} 
-                placeholder="e.g. Security"
-                onKeyDown={(e) => e.key === 'Enter' && saveDept()}
-                className="w-full px-3 py-2 border rounded-lg text-sm" 
-              />
-            </div>
-            <div className="flex justify-end gap-2 px-6 py-4 border-t">
-              <button onClick={() => setShowDeptModal(false)} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
-              <button onClick={saveDept} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
             </div>
           </div>
         </div>
