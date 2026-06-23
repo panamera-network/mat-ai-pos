@@ -3,6 +3,7 @@ import { Injectable, forwardRef, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrdersGateway } from '../gateway/orders.gateway';
 import { InventoryService } from '../inventory/inventory.service';
+import { AccountingService } from '../accounting/accounting.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderStatus, ItemStatus } from '@prisma/client';
@@ -15,6 +16,7 @@ export class OrdersService {
     private ordersGateway: OrdersGateway,
     @Inject(forwardRef(() => InventoryService))
     private inventoryService: InventoryService,
+    private accountingService: AccountingService,
   ) {}
 
   async create(createOrderDto: CreateOrderDto) {
@@ -37,16 +39,13 @@ export class OrdersService {
     const orderNumber = createOrderDto.orderNumber || `ORD-${Date.now()}`;
 
     // ============================================================
-    // CUSTOMER HANDLING (NEW)
+    // CUSTOMER HANDLING
     // ============================================================
     let customerId: string | undefined = undefined;
 
-    // If customerId provided (from QR Menu with logged-in customer)
     if (createOrderDto.customerId) {
       customerId = createOrderDto.customerId;
-    } 
-    // If customerPhone provided (from POS or QR without login), try find/create customer
-    else if (createOrderDto.customerPhone) {
+    } else if (createOrderDto.customerPhone) {
       const existingCustomer = await this.prisma.customer.findUnique({
         where: { phone: createOrderDto.customerPhone },
       });
@@ -54,7 +53,6 @@ export class OrdersService {
       if (existingCustomer) {
         customerId = existingCustomer.id;
       } else if (createOrderDto.customerName) {
-        // Auto-create customer from order data
         const newCustomer = await this.prisma.customer.create({
           data: {
             name: createOrderDto.customerName,
@@ -79,7 +77,7 @@ export class OrdersService {
         customerName: createOrderDto.customerName || undefined,
         customerPhone: createOrderDto.customerPhone || undefined,
         customerAddress: createOrderDto.customerAddress || undefined,
-        customerId: customerId,  // <-- NEW: link to Customer
+        customerId: customerId,
         tableId,
         pax: createOrderDto.pax || undefined,
         reservationTime: createOrderDto.reservationTime 
@@ -94,7 +92,7 @@ export class OrdersService {
       include: {
         items: true,
         table: true,
-        customer: true,  // <-- NEW: include customer in response
+        customer: true,
       },
     });
 
@@ -135,7 +133,7 @@ export class OrdersService {
 
     return this.prisma.order.findMany({
       where: Object.keys(where).length > 0 ? where : undefined,
-      include: { items: true, table: true, customer: true },  // <-- NEW: include customer
+      include: { items: true, table: true, customer: true },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -143,7 +141,7 @@ export class OrdersService {
   async findOne(id: string) {
     return this.prisma.order.findUnique({
       where: { id },
-      include: { items: true, table: true, customer: true },  // <-- NEW: include customer
+      include: { items: true, table: true, customer: true },
     });
   }
 
@@ -156,11 +154,11 @@ export class OrdersService {
         paymentMethod: updateOrderDto.paymentMethod,
         completedAt: updateOrderDto.status === OrderStatus.PAID ? new Date() : undefined,
       },
-      include: { items: true, table: true, customer: true },  // <-- NEW: include customer
+      include: { items: true, table: true, customer: true },
     });
 
     // ============================================================
-    // ADD LOYALTY POINTS WHEN ORDER PAID (NEW)
+    // LOYALTY POINTS WHEN ORDER PAID
     // ============================================================
     if (updateOrderDto.status === OrderStatus.PAID && order.customerId) {
       const pointsEarned = Math.floor(Number(order.totalAmount));
@@ -170,6 +168,18 @@ export class OrdersService {
           points: { increment: pointsEarned },
         },
       });
+    }
+
+    // ============================================================
+    // AUTO-GENERATE JOURNAL ENTRY WHEN ORDER PAID
+    // ============================================================
+    if (updateOrderDto.status === OrderStatus.PAID) {
+      try {
+        const journalEntry = await this.accountingService.createOrderJournal(order.id);
+        console.log(`✅ Auto-journal created for order ${order.orderNumber}: ${journalEntry.reference}`);
+      } catch (error) {
+        console.error(`⚠️ Failed to create journal for order ${order.orderNumber}:`, error.message);
+      }
     }
 
     this.ordersGateway.broadcastOrderUpdated(order);
@@ -210,7 +220,7 @@ export class OrdersService {
           },
         },
         table: true,
-        customer: true,  // <-- NEW: include customer
+        customer: true,
       },
       orderBy: { createdAt: 'asc' },
     });

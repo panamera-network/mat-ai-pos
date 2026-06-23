@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useApi } from '@mat-ai/backoffice';
 import type { Order } from '@mat-ai/types';
 import {
-  Download, TrendingUp, Calendar, RefreshCw, FileSpreadsheet,
-  Filter, ChevronDown, ArrowUpDown,
+  TrendingUp, Calendar, RefreshCw, FileSpreadsheet,
+  ChevronDown, ArrowUpDown,
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,

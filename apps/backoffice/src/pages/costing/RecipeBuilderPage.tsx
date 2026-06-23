@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useApi } from '@mat-ai/backoffice';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ChefHat, Plus, X, Save, ArrowLeft, Calculator,
+  ChefHat, Plus, ArrowLeft, Calculator,
   DollarSign, Package, AlertCircle, Trash2, Loader2
 } from 'lucide-react';
 
@@ -53,7 +53,6 @@ export const RecipeBuilderPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // New ingredient form
   const [selectedIngredient, setSelectedIngredient] = useState('');
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('g');
@@ -136,7 +135,6 @@ export const RecipeBuilderPage: React.FC = () => {
   const handleUpdateIngredient = async (inventoryItemId: string, newQuantity: number) => {
     if (!menuItemId) return;
     try {
-      // Use patch instead of put (useApi doesn't have put)
       await patch(`/costing/menu-items/${menuItemId}/ingredients/${inventoryItemId}`, {
         quantity: newQuantity,
         unit,
@@ -178,7 +176,6 @@ export const RecipeBuilderPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate('/costing/recipes')}
@@ -197,7 +194,6 @@ export const RecipeBuilderPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Cost Summary Card */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <p className="text-sm text-gray-500">Selling Price</p>
@@ -228,7 +224,6 @@ export const RecipeBuilderPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Margin Alert */}
       {margin < 20 && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-red-500" />
@@ -242,7 +237,6 @@ export const RecipeBuilderPage: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Ingredient List */}
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -315,7 +309,6 @@ export const RecipeBuilderPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Add Ingredient Form */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 h-fit">
           <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Plus className="w-5 h-5 text-green-500" />
@@ -380,7 +373,6 @@ export const RecipeBuilderPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Ingredient Info */}
           <div className="mt-6 pt-6 border-t border-gray-200">
             <p className="text-xs text-gray-500 mb-2">
               <DollarSign className="w-3 h-3 inline mr-1" />

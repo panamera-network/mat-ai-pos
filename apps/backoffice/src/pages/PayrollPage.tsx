@@ -4,8 +4,8 @@ import { useApi } from '@mat-ai/backoffice';
 import type { Staff, Payroll, PayrollStatus, } from '@mat-ai/types';
 import {
   RefreshCw, DollarSign, Calendar, CheckCircle, AlertCircle,
-  Download, Filter, Check, X, Printer, ArrowRight, Users,
-  ChevronDown, FileText
+  Download, Check, X, Printer, ArrowRight, Users,
+  ChevronDown
 } from 'lucide-react';
 
 type PayrollTab = 'payroll' | 'staff-report';
@@ -416,11 +416,11 @@ export const PayrollPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium ${
-                          staff.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
-                          staff.role === 'MANAGER' ? 'bg-blue-100 text-blue-700' :
+                          staff.role?.name === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
+                          staff.role?.name === 'MANAGER' ? 'bg-blue-100 text-blue-700' :
                           'bg-gray-100 text-gray-700'
                         }`}>
-                          {staff.role}
+                          {staff.role?.name}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">{(staff as any).department || '-'}</td>

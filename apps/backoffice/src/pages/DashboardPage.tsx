@@ -1,10 +1,7 @@
 // apps/backoffice/src/pages/DashboardPage.tsx
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import type { FC } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
-  AreaChart, Area,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { useApi } from '@mat-ai/backoffice';
 import {
@@ -95,14 +92,13 @@ export const DashboardPage: React.FC = () => {
   const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryAlert[]>([]);
   const [staffAttendance, setStaffAttendance] = useState<AttendanceRecord[]>([]);
-  
+
   const [loading, setLoading] = useState({
     sales: false,
     popular: false,
     inventory: false,
     attendance: false,
   });
-  const [error, setError] = useState('');
 
   // ── Resolve date range ──
   const resolveDates = useCallback(() => {
@@ -136,11 +132,11 @@ export const DashboardPage: React.FC = () => {
   const fetchSalesSummary = useCallback(async () => {
     setLoading(prev => ({ ...prev, sales: true }));
     const { start, end } = resolveDates();
-    
+
     try {
       const res = await get(`/reports/sales?from=${start.toISOString()}&to=${end.toISOString()}`);
       if (res.ok) setSalesSummary(res.data as SalesSummary);
-      
+
       // Fetch previous period for comparison
       const prev = getPrevPeriodDates();
       const prevRes = await get(`/reports/sales?from=${prev.start.toISOString()}&to=${prev.end.toISOString()}`);
@@ -156,7 +152,7 @@ export const DashboardPage: React.FC = () => {
   const fetchPopularItems = useCallback(async () => {
     setLoading(prev => ({ ...prev, popular: true }));
     const { start, end } = resolveDates();
-    
+
     try {
       const res = await get(`/reports/popular-items?from=${start.toISOString()}&to=${end.toISOString()}&limit=5`);
       if (res.ok) setPopularItems((res.data as PopularItem[]) || []);
@@ -195,7 +191,7 @@ export const DashboardPage: React.FC = () => {
   // ── Fetch staff attendance ──
   const fetchAttendance = useCallback(async () => {
     setLoading(prev => ({ ...prev, attendance: true }));
-    
+
     try {
       const res = await get('/timecard');
       if (res.ok) {
@@ -231,7 +227,7 @@ export const DashboardPage: React.FC = () => {
 
   // ── Chart data dari hourly breakdown ──
   const [hourlyData, setHourlyData] = useState<any[]>([]);
-  
+
   const fetchHourlyData = useCallback(async () => {
     const { start, end } = resolveDates();
     try {
@@ -259,16 +255,16 @@ export const DashboardPage: React.FC = () => {
     const total = salesSummary.summary.totalSales;
     const count = salesSummary.summary.orderCount;
     const avg = salesSummary.summary.averageOrder;
-    
+
     // Calculate change vs previous period
     const prevTotal = prevSalesSummary?.summary.totalSales ?? 0;
     const prevCount = prevSalesSummary?.summary.orderCount ?? 0;
     const prevAvg = prevSalesSummary?.summary.averageOrder ?? 0;
-    
+
     const totalChange = prevTotal > 0 ? ((total - prevTotal) / prevTotal * 100).toFixed(1) : '0';
     const countChange = prevCount > 0 ? ((count - prevCount) / prevCount * 100).toFixed(1) : '0';
     const avgChange = prevAvg > 0 ? ((avg - prevAvg) / prevAvg * 100).toFixed(1) : '0';
-    
+
     return {
       revenue: `RM ${total.toFixed(2)}`,
       orders: count.toString(),
@@ -297,8 +293,6 @@ export const DashboardPage: React.FC = () => {
     '30': 'Last 30 days',
     'custom': 'Custom Range',
   }[dateRange];
-
-  const isLoading = Object.values(loading).some(Boolean);
 
   return (
     <div className="space-y-6">

@@ -29,6 +29,7 @@ import { LandingPageModule } from './landing-page/landing-page.module';
 import { DiscountModule } from './discount/discount.module';
 import { ModifierModule } from './modifier/modifier.module';
 import { DepartmentModule } from './department/department.module';
+import { AccountingModule } from './accounting/accounting.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { DepartmentModule } from './department/department.module';
     DiscountModule,
     ModifierModule,
     DepartmentModule,
+    AccountingModule,
   ],
   providers: [
     {

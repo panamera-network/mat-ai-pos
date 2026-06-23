@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useApi } from '@mat-ai/backoffice';
 import {
-  Calculator, TrendingUp, TrendingDown, ChefHat, DollarSign,
-  ArrowRight, AlertTriangle, BarChart3, PieChart, Search,
-  Filter, RefreshCw, ArrowUpDown, Package, Info
+  Calculator, TrendingUp, ChefHat, DollarSign,
+  AlertTriangle, BarChart3, PieChart, Search,
+  RefreshCw, Package, Info
 } from 'lucide-react';
 
 interface ProfitabilityItem {
@@ -59,10 +59,10 @@ export const CostingPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'margin' | 'profit' | 'cost' | 'price'>('margin');
 
   const fetchDashboard = useCallback(async () => {
-  setLoading(true);
+    setLoading(true);
     try {
       const res = await get('/costing/dashboard');
-      if (res.ok) setDashboard(res.data as DashboardData);  // ← CAST AS DashboardData
+      if (res.ok) setDashboard(res.data as DashboardData);
     } catch (err) {
       console.error('Dashboard fetch error:', err);
     } finally {
@@ -80,7 +80,7 @@ export const CostingPage: React.FC = () => {
       params.append('sortOrder', 'desc');
 
       const res = await get(`/costing/profitability?${params.toString()}`);
-      if (res.ok) setProfitability((res.data as ProfitabilityItem[]) || []);  // ← CAST
+      if (res.ok) setProfitability((res.data as ProfitabilityItem[]) || []);
     } catch (err) {
       console.error('Profitability fetch error:', err);
     } finally {
@@ -92,7 +92,7 @@ export const CostingPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await get('/costing/profitability/low-margin?threshold=30');
-      if (res.ok) setLowMargin((res.data as ProfitabilityItem[]) || []);  // ← CAST
+      if (res.ok) setLowMargin((res.data as ProfitabilityItem[]) || []);
     } catch (err) {
       console.error('Low margin fetch error:', err);
     } finally {
@@ -107,7 +107,7 @@ export const CostingPage: React.FC = () => {
   }, [activeTab, fetchDashboard, fetchProfitability, fetchLowMargin]);
 
   const handleCalculateMarkup = async () => {
-    const payload: any = { cost: parseFloat(calcCost) || 0 };
+    const payload: Record<string, any> = { cost: parseFloat(calcCost) || 0 };
     if (calcTargetPrice) {
       payload.targetPrice = parseFloat(calcTargetPrice);
     } else {
@@ -120,13 +120,6 @@ export const CostingPage: React.FC = () => {
     } catch (err) {
       console.error('Calculator error:', err);
     }
-  };
-
-  const getMarginColor = (margin: number) => {
-    if (margin >= 60) return 'text-green-600 bg-green-50';
-    if (margin >= 40) return 'text-blue-600 bg-blue-50';
-    if (margin >= 20) return 'text-yellow-600 bg-yellow-50';
-    return 'text-red-600 bg-red-50';
   };
 
   const getMarginBadge = (margin: number) => {
@@ -179,12 +172,9 @@ export const CostingPage: React.FC = () => {
         ))}
       </div>
 
-      {/* ==========================================
-          DASHBOARD TAB
-      ========================================== */}
+      {/* DASHBOARD TAB */}
       {activeTab === 'dashboard' && dashboard && (
         <div className="space-y-6">
-          {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <div className="flex items-center justify-between mb-2">
@@ -223,19 +213,12 @@ export const CostingPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Top Profit Menus */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-green-500" />
                 Top Profit Menus (by Margin)
               </h3>
-              <button
-                onClick={() => setActiveTab('profitability')}
-                className="text-sm text-blue-600 hover:text-blue-700"
-              >
-                View All →
-              </button>
             </div>
             <table className="w-full">
               <thead className="bg-gray-50">
@@ -248,8 +231,8 @@ export const CostingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {dashboard.topProfitMenus?.map((item, index) => (
-                  <tr key={item.menuItemId || `top-${index}`} className="hover:bg-gray-50">
+                {dashboard.topProfitMenus?.map((item) => (
+                  <tr key={item.menuItemId} className="hover:bg-gray-50">
                     <td className="px-6 py-3 text-sm font-medium text-gray-900">{item.menuItemName}</td>
                     <td className="px-6 py-3 text-sm text-gray-600 text-right">RM {item.totalCost.toFixed(2)}</td>
                     <td className="px-6 py-3 text-sm text-gray-900 text-right font-medium">RM {item.sellingPrice.toFixed(2)}</td>
@@ -264,61 +247,12 @@ export const CostingPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-
-          {/* Low Margin Alerts */}
-          {dashboard.lowMarginMenus?.length > 0 && (
-            <div className="bg-white rounded-xl border border-red-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-red-100 flex items-center justify-between">
-                <h3 className="font-semibold text-red-700 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5" />
-                  Low Margin Alerts (Below 30%)
-                </h3>
-                <button
-                  onClick={() => setActiveTab('low-margin')}
-                  className="text-sm text-red-600 hover:text-red-700"
-                >
-                  View All →
-                </button>
-              </div>
-              <table className="w-full">
-                <thead className="bg-red-50">
-                  <tr>
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-red-600 uppercase">Menu</th>
-                    <th className="text-right px-6 py-3 text-xs font-semibold text-red-600 uppercase">Cost</th>
-                    <th className="text-right px-6 py-3 text-xs font-semibold text-red-600 uppercase">Price</th>
-                    <th className="text-right px-6 py-3 text-xs font-semibold text-red-600 uppercase">Margin</th>
-                    <th className="text-right px-6 py-3 text-xs font-semibold text-red-600 uppercase">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-red-50">
-                  {dashboard.lowMarginMenus?.slice(0, 5).map((item, index) => (
-                    <tr key={item.menuItemId || `low-${index}`} className="hover:bg-red-50/50">
-                      <td className="px-6 py-3 text-sm font-medium text-gray-900">{item.menuItemName}</td>
-                      <td className="px-6 py-3 text-sm text-gray-600 text-right">RM {item.totalCost.toFixed(2)}</td>
-                      <td className="px-6 py-3 text-sm text-gray-900 text-right">RM {item.sellingPrice.toFixed(2)}</td>
-                      <td className="px-6 py-3 text-right">
-                        <span className="inline-flex px-2 py-1 rounded-lg text-xs font-medium bg-red-100 text-red-700">
-                          {item.marginPercent.toFixed(1)}%
-                        </span>
-                      </td>
-                      <td className="px-6 py-3 text-right">
-                        <span className="text-xs text-red-600">Consider price increase</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
       )}
 
-      {/* ==========================================
-          PROFITABILITY TAB
-      ========================================== */}
+      {/* PROFITABILITY TAB */}
       {activeTab === 'profitability' && (
         <div className="space-y-4">
-          {/* Filters */}
           <div className="flex items-center gap-3">
             <div className="relative flex-1 max-w-md">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -353,7 +287,6 @@ export const CostingPage: React.FC = () => {
             </select>
           </div>
 
-          {/* Profitability Table */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -367,8 +300,8 @@ export const CostingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {profitability.map((item, index) => (
-                  <tr key={item.menuItemId || `profit-${index}`} className="hover:bg-gray-50 transition-colors">
+                {profitability.map((item) => (
+                  <tr key={item.menuItemId} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="text-sm font-medium text-gray-900">{item.menuItemName}</p>
                       <p className="text-xs text-gray-500">{item.ingredients.length} ingredients</p>
@@ -387,8 +320,8 @@ export const CostingPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {item.ingredients.slice(0, 3).map((ing, idx) => (
-                          <span key={ing.inventoryItemId || `ing-${idx}`} className="inline-flex px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">
+                        {item.ingredients.slice(0, 3).map((ing) => (
+                          <span key={ing.inventoryItemId} className="inline-flex px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">
                             {ing.inventoryItemName} ({ing.quantity}{ing.unit})
                           </span>
                         ))}
@@ -401,26 +334,15 @@ export const CostingPage: React.FC = () => {
                     </td>
                   </tr>
                 ))}
-                {profitability.length === 0 && !loading && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
-                      <BarChart3 className="w-8 h-8 mx-auto mb-2" />
-                      <p>No menu items found</p>
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* ==========================================
-          CALCULATOR TAB
-      ========================================== */}
+      {/* CALCULATOR TAB */}
       {activeTab === 'calculator' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Markup Calculator */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Calculator className="w-5 h-5 text-blue-500" />
@@ -502,7 +424,6 @@ export const CostingPage: React.FC = () => {
             )}
           </div>
 
-          {/* Quick Reference */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Info className="w-5 h-5 text-purple-500" />
@@ -525,21 +446,12 @@ export const CostingPage: React.FC = () => {
                 <p className="text-sm font-medium text-red-700">Margin &lt; 20% — Warning</p>
                 <p className="text-xs text-red-600">Low profit. Consider price increase or cost reduction.</p>
               </div>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm font-medium text-gray-700">Formula</p>
-                <p className="text-xs text-gray-600 mt-1">
-                  <strong>Markup:</strong> Harga = Kos ÷ (1 - Markup%)<br/>
-                  <strong>Margin:</strong> (Harga - Kos) ÷ Harga × 100%
-                </p>
-              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ==========================================
-          LOW MARGIN TAB
-      ========================================== */}
+      {/* LOW MARGIN TAB */}
       {activeTab === 'low-margin' && (
         <div className="space-y-4">
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
@@ -567,10 +479,10 @@ export const CostingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {lowMargin.map((item, index) => {
-                  const suggestedPrice = item.totalCost / (1 - 0.30); // 30% margin target
+                {lowMargin.map((item) => {
+                  const suggestedPrice = item.totalCost / (1 - 0.30);
                   return (
-                    <tr key={item.menuItemId || `lowm-${index}`} className="hover:bg-red-50/30 transition-colors">
+                    <tr key={item.menuItemId} className="hover:bg-red-50/30 transition-colors">
                       <td className="px-6 py-4">
                         <p className="text-sm font-medium text-gray-900">{item.menuItemName}</p>
                         <p className="text-xs text-gray-500">{item.ingredients.length} ingredients</p>
@@ -593,14 +505,6 @@ export const CostingPage: React.FC = () => {
                     </tr>
                   );
                 })}
-                {lowMargin.length === 0 && !loading && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
-                      <TrendingUp className="w-8 h-8 mx-auto mb-2 text-green-400" />
-                      <p>All menu items have healthy margins! 🎉</p>
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>

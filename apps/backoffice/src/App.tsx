@@ -19,6 +19,13 @@ import { RecipeBuilderPage } from './pages/costing/RecipeBuilderPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { PromotionsPage } from './pages/PromotionsPage';
 import { LandingPageCMS } from './pages/LandingPageCMS'
+import ChartOfAccountsPage from './pages/accounting/ChartOfAccountsPage';
+import JournalEntriesPage from './pages/accounting/JournalEntriesPage';
+import GeneralLedgerPage from './pages/accounting/GeneralLedgerPage';
+import TrialBalancePage from './pages/accounting/TrialBalancePage';
+import FinancialReportsPage from './pages/accounting/FinancialReportsPage';
+
+
 
 // ============ AUTH GUARD ============
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -90,7 +97,13 @@ const App: React.FC = () => {
             </RoleGuard>
           }
         />
-
+        {/* Accounting */}
+        <Route path= '/accounting/chart-of-accounts' element={<ChartOfAccountsPage />} />
+        <Route path= '/accounting/journal-entries' element={<JournalEntriesPage />} />
+        <Route path= '/accounting/general-ledger' element={<GeneralLedgerPage />} />
+        <Route path= '/accounting/trial-balance' element={<TrialBalancePage />} />
+        <Route path= '/accounting/financial-reports' element={<FinancialReportsPage />} />  
+        
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>

@@ -7,6 +7,123 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================
+// ENUMS
+// ============================================
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum EmploymentType {
+  HOURLY_PART_TIME
+  MONTHLY_SALARIED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+enum ItemStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+}
+
+enum OrderSource {
+  QR_MENU
+  POS
+  ONLINE
+  PHONE
+}
+
+enum OrderType {
+  DINE_IN
+  PICKUP
+  DELIVERY
+  RESERVATION
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  EWALLET
+  QR_PAY
+}
+
+enum DiningTableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+enum StockType {
+  AUTO_DEDUCT
+  MANUAL_IN
+  ADJUSTMENT
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  UNPAID
+  EMERGENCY
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PayrollPeriod {
+  WEEKLY
+  MONTHLY
+}
+
+enum PayrollStatus {
+  DRAFT
+  APPROVED
+  PAID
+}
+
+enum PromotionType {
+  BANNER
+  POPUP
+  DISCOUNT_PERCENT
+  DISCOUNT_FIXED
+  FREE_ITEM
+  BUNDLE
+}
+
+enum PromotionTarget {
+  ALL
+  NEW_CUSTOMER
+  RETURNING
+  VIP
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BUY_X_GET_Y
+}
+
+// ============================================
+// CORE MODELS
+// ============================================
+
 model Role {
   id          String   @id @default(cuid())
   name        String   @unique
@@ -33,6 +150,8 @@ model Outlet {
   settings            Setting[]
   staff               Staff[]
   landingPageContents LandingPageContent[]
+  accounts            Account[]
+  journalEntries      JournalEntry[]
 }
 
 model Department {
@@ -155,6 +274,10 @@ model LandingPageContent {
   @@map("landing_page_contents")
 }
 
+// ============================================
+// ORDER & RECEIPT
+// ============================================
+
 model Order {
   id              String         @id @default(cuid())
   orderNumber     String         @unique
@@ -182,6 +305,7 @@ model Order {
   table           DiningTable?   @relation(fields: [tableId], references: [id])
   items           OrderItem[]
   receipt         Receipt?
+  journalEntry    JournalEntry?
 
   @@index([outletId])
   @@index([customerId])
@@ -203,6 +327,35 @@ model OrderItem {
   menuItem   MenuItem   @relation(fields: [menuItemId], references: [id])
   order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
+
+model Receipt {
+  id             String        @id @default(cuid())
+  receiptNo      String        @unique
+  orderId        String        @unique
+  totalAmount    Decimal
+  paidAmount     Decimal
+  change         Decimal?
+  taxAmount      Decimal?
+  cashierId      String
+  posId          String
+  itemsSnapshot  Json
+  customerInfo   Json?
+  printCount     Int           @default(0)
+  lastPrintedAt  DateTime?
+  pdfGeneratedAt DateTime?
+  pdfUrl         String?
+  emailedTo      String?
+  emailSentAt    DateTime?
+  createdAt      DateTime      @default(now())
+  paymentMethod  PaymentMethod
+  cashier        Staff         @relation(fields: [cashierId], references: [id])
+  order          Order         @relation(fields: [orderId], references: [id])
+  journalEntry   JournalEntry?
+}
+
+// ============================================
+// DISCOUNT & MODIFIER
+// ============================================
 
 model Discount {
   id                   String       @id @default(cuid())
@@ -238,6 +391,10 @@ model Modifier {
   @@map("modifiers")
 }
 
+// ============================================
+// STAFF & PAYROLL
+// ============================================
+
 model Staff {
   id              String         @id @default(cuid())
   name            String         @unique
@@ -253,7 +410,7 @@ model Staff {
   updatedAt       DateTime       @updatedAt
   email           String?        @unique
   password        String?
-  outletId        String?
+  outletId        String?        // nullable?
   isSuperAdmin    Boolean        @default(false)
   departmentId    String?
   phone           String?
@@ -267,6 +424,7 @@ model Staff {
   advances        StaffAdvance[]
   stockLogs       StockLog[]
   timecards       Timecard[]
+  journalEntries  JournalEntry[] @relation("CreatedBy")
 
   @@index([outletId])
   @@index([departmentId])
@@ -356,31 +514,12 @@ model Payroll {
   updatedAt         DateTime           @updatedAt
   advanceDeductions AdvanceDeduction[]
   staff             Staff              @relation(fields: [staffId], references: [id])
+  journalEntry      JournalEntry?
 }
 
-model Receipt {
-  id             String        @id @default(cuid())
-  receiptNo      String        @unique
-  orderId        String        @unique
-  totalAmount    Decimal
-  paidAmount     Decimal
-  change         Decimal?
-  taxAmount      Decimal?
-  cashierId      String
-  posId          String
-  itemsSnapshot  Json
-  customerInfo   Json?
-  printCount     Int           @default(0)
-  lastPrintedAt  DateTime?
-  pdfGeneratedAt DateTime?
-  pdfUrl         String?
-  emailedTo      String?
-  emailSentAt    DateTime?
-  createdAt      DateTime      @default(now())
-  paymentMethod  PaymentMethod
-  cashier        Staff         @relation(fields: [cashierId], references: [id])
-  order          Order         @relation(fields: [orderId], references: [id])
-}
+// ============================================
+// INVENTORY
+// ============================================
 
 model StockLog {
   id              String         @id @default(cuid())
@@ -477,6 +616,10 @@ model MenuItemIngredient {
   @@map("menu_item_ingredients")
 }
 
+// ============================================
+// SETTINGS
+// ============================================
+
 model Setting {
   id          String   @id @default(cuid())
   key         String   @unique
@@ -490,103 +633,78 @@ model Setting {
   @@unique([key, outletId], name: "key_outletId")
 }
 
-enum EmploymentType {
-  HOURLY_PART_TIME
-  MONTHLY_SALARIED
+// ============================================
+// ACCOUNTING MODULE
+// ============================================
+
+model Account {
+  id          String      @id @default(cuid())
+  code        String      // e.g., "1000", "4100", "5100"
+  name        String      // e.g., "Cash", "Sales Revenue", "COGS"
+  type        AccountType
+  description String?
+  parentId    String?     // For sub-accounts (e.g., 1001 Cash-POS, 1002 Cash-QR)
+  outletId    String?
+  isActive    Boolean     @default(true)
+  isPreset    Boolean     @default(false) // true = cannot delete (system account)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  outlet      Outlet?     @relation(fields: [outletId], references: [id])
+  parent      Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children    Account[]   @relation("AccountHierarchy")
+  journalLines JournalLine[]
+
+  @@unique([code, outletId])
+  @@index([outletId])
+  @@index([type])
+  @@map("accounts")
 }
 
-enum OrderStatus {
-  PENDING
-  PAID
-  PREPARING
-  READY
-  SERVED
-  CANCELLED
+model JournalEntry {
+  id              String   @id @default(cuid())
+  date            DateTime @default(now())
+  reference       String?  // e.g., "INV-001", "PAY-001", "JE-001"
+  description     String
+  outletId        String?
+  orderId         String?  @unique  // Link to POS order (auto-generated)
+  payrollId       String?  @unique  // Link to payroll (auto-generated)
+  receiptId       String?  @unique  // Link to receipt (auto-generated)
+  createdById     String?  // Staff who created (for manual entries)
+  isAutoGenerated Boolean  @default(false) // true = from POS/payroll
+  isPosted        Boolean  @default(false) // true = locked, cannot edit
+  postedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  outlet      Outlet?      @relation(fields: [outletId], references: [id])
+  order       Order?       @relation(fields: [orderId], references: [id])
+  payroll     Payroll?     @relation(fields: [payrollId], references: [id])
+  receipt     Receipt?     @relation(fields: [receiptId], references: [id])
+  createdBy   Staff?       @relation("CreatedBy", fields: [createdById], references: [id])
+  lines       JournalLine[]
+
+  @@index([outletId])
+  @@index([date])
+  @@map("journal_entries")
 }
 
-enum ItemStatus {
-  PENDING
-  PREPARING
-  READY
-  SERVED
-}
+model JournalLine {
+  id              String   @id @default(cuid())
+  journalEntryId  String
+  accountId       String
+  description     String?
+  debit           Decimal  @default(0)
+  credit          Decimal  @default(0)
+  createdAt       DateTime @default(now())
 
-enum OrderSource {
-  QR_MENU
-  POS
-  ONLINE
-  PHONE
-}
+  // Relations
+  journalEntry    JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account         Account      @relation(fields: [accountId], references: [id])
 
-enum OrderType {
-  DINE_IN
-  PICKUP
-  DELIVERY
-  RESERVATION
-}
-
-enum PaymentMethod {
-  CASH
-  CARD
-  EWALLET
-  QR_PAY
-}
-
-enum DiningTableStatus {
-  AVAILABLE
-  OCCUPIED
-  RESERVED
-  CLEANING
-}
-
-enum StockType {
-  AUTO_DEDUCT
-  MANUAL_IN
-  ADJUSTMENT
-}
-
-enum LeaveType {
-  ANNUAL
-  SICK
-  UNPAID
-  EMERGENCY
-}
-
-enum LeaveStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-enum PayrollPeriod {
-  WEEKLY
-  MONTHLY
-}
-
-enum PayrollStatus {
-  DRAFT
-  APPROVED
-  PAID
-}
-
-enum PromotionType {
-  BANNER
-  POPUP
-  DISCOUNT_PERCENT
-  DISCOUNT_FIXED
-  FREE_ITEM
-  BUNDLE
-}
-
-enum PromotionTarget {
-  ALL
-  NEW_CUSTOMER
-  RETURNING
-  VIP
-}
-
-enum DiscountType {
-  PERCENTAGE
-  FIXED_AMOUNT
-  BUY_X_GET_Y
+  @@index([journalEntryId])
+  @@index([accountId])
+  @@map("journal_lines")
 }

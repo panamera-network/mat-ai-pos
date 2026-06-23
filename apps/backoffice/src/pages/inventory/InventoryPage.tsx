@@ -1,52 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useApi } from '@mat-ai/backoffice';
+import type { InventoryItem, StockLog, StockType } from '@mat-ai/types';
 import {
-  AlertTriangle, Package, TrendingDown, RefreshCw, Plus,
-  Search, Filter, ArrowUpDown, History, Edit3, Trash2, X,
-  Save, Minus, Settings2, DollarSign, Calculator, ChefHat,
+  AlertTriangle, Package, RefreshCw, Plus,
+  Search, History, Edit3, Trash2, X,
+  Save, Minus, Settings2, Calculator, ChefHat,
   TrendingUp, BarChart3, ArrowRight
 } from 'lucide-react';
 
-// ==========================================
-// TYPES (aligned with backend costing engine)
-// ==========================================
-interface InventoryItem {
-  id: string;
-  name: string;
-  category: string;
-  unitPrice: number;        // NEW: Price per unit (RM per g/ml/pcs)
-  unitOfMeasure: string;    // NEW: g, kg, ml, l, pcs
-  weight: number;           // NEW: Weight per pack (for unitPrice calc)
-  packPrice: number;        // NEW: Price per pack/box
-  open: number;             // NEW: Opening stock
-  in: number;               // NEW: Stock received
-  out: number;              // NEW: Stock used/sold
-  close: number;            // NEW: Closing stock (auto: open + in - out)
-  minStock: number;
-  supplier?: string;
-  description?: string;
-  outletId?: string;
-  // Costing relations
-  menuItemIngredients?: MenuItemIngredient[];
-}
-
-interface MenuItemIngredient {
-  id: string;
-  menuItemId: string;
-  menuItemName?: string;
-  quantity: number;
-  unit: string;
-}
-
-interface StockAdjustment {
-  id: string;
-  itemId: string;
-  itemName: string;
-  type: 'open' | 'in' | 'out' | 'adjust';
-  quantity: number;
-  reason: string;
-  date: string;
-}
 
 type ModalType = 'add' | 'edit' | 'adjust' | 'history' | 'cost-impact' | null;
 type InventoryTab = 'all' | 'frozen' | 'chiller' | 'dry' | 'cheese' | 'vegetables' | 'sauce' | 'pasta' | 'oil' | 'prepared';
@@ -81,9 +42,9 @@ export const InventoryPage: React.FC = () => {
     packPrice: '',
     weight: '',
     unitOfMeasure: 'g',
-    open: '',
-    in: '',
-    out: '',
+    openStock: '',
+    stockIn: '',
+    stockOut: '',
     minStock: '50',
     supplier: '',
     description: '',
@@ -91,9 +52,9 @@ export const InventoryPage: React.FC = () => {
   const [adjustData, setAdjustData] = useState({
     quantity: '',
     reason: '',
-    type: 'in' as 'in' | 'out',
+    type: 'MANUAL_IN' as StockType,
   });
-  const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
+  const [adjustments, setAdjustments] = useState<StockLog[]>([]);
   const [costImpact, setCostImpact] = useState<any>(null);
 
   // ==========================================
@@ -109,19 +70,25 @@ export const InventoryPage: React.FC = () => {
           id: item.id,
           name: item.name,
           category: item.category || 'dry',
-          unitPrice: item.unitPrice ?? 0,
-          unitOfMeasure: item.unitOfMeasure || 'g',
+          unit: item.unitOfMeasure || item.unit || 'g',
+          unitOfMeasure: item.unitOfMeasure || item.unit || 'g',
           weight: item.weight ?? 0,
-          packPrice: item.packPrice ?? (item.unitPrice && item.weight ? item.unitPrice * item.weight : 0),
-          open: item.open ?? 0,
-          in: item.in ?? 0,
-          out: item.out ?? 0,
-          close: (item.open ?? 0) + (item.in ?? 0) - (item.out ?? 0),
+          currentStock: item.currentStock ?? ((item.openStock ?? 0) + (item.stockIn ?? 0) - (item.stockOut ?? 0)),
           minStock: item.minStock ?? 50,
+          costPerUnit: item.unitPrice ?? item.costPerUnit ?? 0,
+          unitPrice: item.unitPrice ?? item.costPerUnit ?? 0,
+          packPrice: item.packPrice ?? (item.unitPrice && item.weight ? item.unitPrice * item.weight : 0),
+          openStock: item.openStock ?? 0,
+          stockIn: item.stockIn ?? 0,
+          stockOut: item.stockOut ?? 0,
+          close: (item.openStock ?? 0) + (item.stockIn ?? 0) - (item.stockOut ?? 0),
           supplier: item.supplier || '',
           description: item.description || '',
+          isActive: item.isActive ?? true,
           outletId: item.outletId,
-          menuItemIngredients: item.menuItemIngredients || [],
+          ingredients: item.ingredients || item.menuItemIngredients || [],
+          createdAt: item.createdAt || new Date().toISOString(),
+          updatedAt: item.updatedAt || new Date().toISOString(),
         })));
       }
     } catch (err) {
@@ -142,9 +109,9 @@ export const InventoryPage: React.FC = () => {
     const weight = parseFloat(formData.weight) || 0;
     const packPrice = parseFloat(formData.packPrice) || 0;
     const unitPrice = weight > 0 ? packPrice / weight : 0;
-    const open = parseFloat(formData.open) || 0;
-    const invIn = parseFloat(formData.in) || 0;
-    const out = parseFloat(formData.out) || 0;
+    const openStock = parseFloat(formData.openStock) || 0;
+    const stockIn = parseFloat(formData.stockIn) || 0;
+    const stockOut = parseFloat(formData.stockOut) || 0;
 
     const payload = {
       name: formData.name,
@@ -153,9 +120,9 @@ export const InventoryPage: React.FC = () => {
       unitOfMeasure: formData.unitOfMeasure,
       weight,
       packPrice,
-      open,
-      in: invIn,
-      out,
+      openStock,
+      stockIn,
+      stockOut,
       minStock: parseFloat(formData.minStock) || 50,
       supplier: formData.supplier,
       description: formData.description,
@@ -174,7 +141,7 @@ export const InventoryPage: React.FC = () => {
     if (!selectedItem) return;
     const qty = parseFloat(adjustData.quantity) || 0;
 
-    const updateField = adjustData.type === 'in' ? 'in' : 'out';
+    const updateField = adjustData.type === 'MANUAL_IN' ? 'stockIn' : 'stockOut';
     const currentValue = selectedItem[updateField] || 0;
 
     await patch(`/inventory/${selectedItem.id}`, {
@@ -184,13 +151,14 @@ export const InventoryPage: React.FC = () => {
     // Add to adjustment history
     setAdjustments(prev => [{
       id: Date.now().toString(),
-      itemId: selectedItem.id,
-      itemName: selectedItem.name,
+      inventoryItemId: selectedItem.id,
+      inventoryItem: selectedItem,
       type: adjustData.type,
       quantity: qty,
       reason: adjustData.reason,
-      date: new Date().toISOString(),
-    }, ...prev]);
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as StockLog, ...prev]);
 
     closeModal();
     fetchItems();
@@ -207,7 +175,7 @@ export const InventoryPage: React.FC = () => {
   // ==========================================
   const fetchCostImpact = async (item: InventoryItem) => {
     try {
-      const res = await get(`/costing/inventory/${item.id}/impact?newPrice=${item.unitPrice * 1.1}`);
+      const res = await get(`/costing/inventory/${item.id}/impact?newPrice=${(item.unitPrice ?? 0) * 1.1}`);
       if (res.ok) {
         setCostImpact(res.data);
       }
@@ -227,18 +195,18 @@ export const InventoryPage: React.FC = () => {
         setFormData({
           name: item.name,
           category: item.category || 'frozen',
-          packPrice: item.packPrice?.toString() || ((item.unitPrice * item.weight) || 0).toString(),
+          packPrice: item.packPrice?.toString() || (((item.unitPrice ?? 0) * (item.weight ?? 0)) || 0).toString(),
           weight: item.weight?.toString() || '',
           unitOfMeasure: item.unitOfMeasure || 'g',
-          open: item.open?.toString() || '0',
-          in: item.in?.toString() || '0',
-          out: item.out?.toString() || '0',
+          openStock: item.openStock?.toString() || '0',
+          stockIn: item.stockIn?.toString() || '0',
+          stockOut: item.stockOut?.toString() || '0',
           minStock: item.minStock?.toString() || '50',
           supplier: item.supplier || '',
           description: item.description || '',
         });
       } else if (type === 'adjust') {
-        setAdjustData({ quantity: '', reason: '', type: 'in' });
+        setAdjustData({ quantity: '', reason: '', type: 'MANUAL_IN' });
       } else if (type === 'cost-impact') {
         fetchCostImpact(item);
       }
@@ -246,7 +214,7 @@ export const InventoryPage: React.FC = () => {
       setSelectedItem(null);
       setFormData({
         name: '', category: 'frozen', packPrice: '', weight: '',
-        unitOfMeasure: 'g', open: '', in: '', out: '',
+        unitOfMeasure: 'g', openStock: '', stockIn: '', stockOut: '',
         minStock: '50', supplier: '', description: '',
       });
       setCostImpact(null);
@@ -259,10 +227,10 @@ export const InventoryPage: React.FC = () => {
     setCostImpact(null);
     setFormData({
       name: '', category: 'frozen', packPrice: '', weight: '',
-      unitOfMeasure: 'g', open: '', in: '', out: '',
+      unitOfMeasure: 'g', openStock: '', stockIn: '', stockOut: '',
       minStock: '50', supplier: '', description: '',
     });
-    setAdjustData({ quantity: '', reason: '', type: 'in' });
+    setAdjustData({ quantity: '', reason: '', type: 'MANUAL_IN' });
   };
 
   // ==========================================
@@ -284,15 +252,15 @@ export const InventoryPage: React.FC = () => {
 
   // Stats
   const lowStockCount = items.filter(i => {
-    const close = (i.open ?? 0) + (i.in ?? 0) - (i.out ?? 0);
+    const close = i.close ?? ((i.openStock ?? 0) + (i.stockIn ?? 0) - (i.stockOut ?? 0));
     return close > 0 && close < (i.minStock ?? 50);
   }).length;
   const outOfStockCount = items.filter(i => {
-    const close = (i.open ?? 0) + (i.in ?? 0) - (i.out ?? 0);
+    const close = i.close ?? ((i.openStock ?? 0) + (i.stockIn ?? 0) - (i.stockOut ?? 0));
     return close <= 0;
   }).length;
   const totalInventoryValue = items.reduce((sum, item) => {
-    const close = (item.open ?? 0) + (item.in ?? 0) - (item.out ?? 0);
+    const close = item.close ?? ((item.openStock ?? 0) + (item.stockIn ?? 0) - (item.stockOut ?? 0));
     return sum + (close * (item.unitPrice || 0));
   }, 0);
 
@@ -436,10 +404,10 @@ export const InventoryPage: React.FC = () => {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filteredItems.map((item) => {
-              const close = (item.open ?? 0) + (item.in ?? 0) - (item.out ?? 0);
+              const close = item.close ?? ((item.openStock ?? 0) + (item.stockIn ?? 0) - (item.stockOut ?? 0));
               const isLow = close > 0 && close < (item.minStock ?? 50);
               const isOut = close <= 0;
-              const recipeCount = item.menuItemIngredients?.length ?? 0;
+              const recipeCount = item.ingredients?.length ?? 0;
               const catStyle = CATEGORY_LABELS[item.category] || { color: 'bg-gray-100 text-gray-700' };
 
               return (
@@ -457,9 +425,9 @@ export const InventoryPage: React.FC = () => {
                     <p className="text-sm font-medium text-gray-900">RM {item.unitPrice?.toFixed(4)}/<span className="text-xs text-gray-500">{item.unitOfMeasure}</span></p>
                     <p className="text-xs text-gray-500">Pack: RM {item.packPrice?.toFixed(2)} ({item.weight}{item.unitOfMeasure})</p>
                   </td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-600">{item.open ?? 0}</td>
-                  <td className="px-4 py-3 text-right text-sm text-green-600 font-medium">+{item.in ?? 0}</td>
-                  <td className="px-4 py-3 text-right text-sm text-red-600 font-medium">-{item.out ?? 0}</td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-600">{item.openStock ?? 0}</td>
+                  <td className="px-4 py-3 text-right text-sm text-green-600 font-medium">+{item.stockIn ?? 0}</td>
+                  <td className="px-4 py-3 text-right text-sm text-red-600 font-medium">-{item.stockOut ?? 0}</td>
                   <td className="px-4 py-3 text-right">
                     <span className={`text-sm font-bold ${isOut ? 'text-red-600' : isLow ? 'text-orange-600' : 'text-gray-900'}`}>
                       {close}
@@ -626,8 +594,8 @@ export const InventoryPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Open Stock</label>
                   <input 
                     type="number" 
-                    value={formData.open} 
-                    onChange={e => setFormData({...formData, open: e.target.value})} 
+                    value={formData.openStock} 
+                    onChange={e => setFormData({...formData, openStock: e.target.value})} 
                     className="w-full px-3 py-2 border rounded-lg text-sm" 
                   />
                 </div>
@@ -635,8 +603,8 @@ export const InventoryPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Stock In</label>
                   <input 
                     type="number" 
-                    value={formData.in} 
-                    onChange={e => setFormData({...formData, in: e.target.value})} 
+                    value={formData.stockIn} 
+                    onChange={e => setFormData({...formData, stockIn: e.target.value})} 
                     className="w-full px-3 py-2 border rounded-lg text-sm" 
                   />
                 </div>
@@ -644,8 +612,8 @@ export const InventoryPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Stock Out</label>
                   <input 
                     type="number" 
-                    value={formData.out} 
-                    onChange={e => setFormData({...formData, out: e.target.value})} 
+                    value={formData.stockOut} 
+                    onChange={e => setFormData({...formData, stockOut: e.target.value})} 
                     className="w-full px-3 py-2 border rounded-lg text-sm" 
                   />
                 </div>
@@ -704,39 +672,39 @@ export const InventoryPage: React.FC = () => {
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-xs text-gray-500">Open</p>
-                  <p className="text-lg font-bold text-gray-700">{selectedItem.open ?? 0}</p>
+                  <p className="text-lg font-bold text-gray-700">{selectedItem.openStock ?? 0}</p>
                 </div>
                 <div className="p-3 bg-green-50 rounded-lg">
                   <p className="text-xs text-green-600">In</p>
-                  <p className="text-lg font-bold text-green-700">+{selectedItem.in ?? 0}</p>
+                  <p className="text-lg font-bold text-green-700">+{selectedItem.stockIn ?? 0}</p>
                 </div>
                 <div className="p-3 bg-red-50 rounded-lg">
                   <p className="text-xs text-red-600">Out</p>
-                  <p className="text-lg font-bold text-red-700">-{selectedItem.out ?? 0}</p>
+                  <p className="text-lg font-bold text-red-700">-{selectedItem.stockOut ?? 0}</p>
                 </div>
               </div>
               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                 <span className="text-sm text-blue-700">Current Close Stock</span>
                 <span className="text-lg font-bold text-blue-900">
-                  {(selectedItem.open ?? 0) + (selectedItem.in ?? 0) - (selectedItem.out ?? 0)} {selectedItem.unitOfMeasure}
+                  {(selectedItem.openStock ?? 0) + (selectedItem.stockIn ?? 0) - (selectedItem.stockOut ?? 0)} {selectedItem.unitOfMeasure}
                 </span>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Adjustment Type</label>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setAdjustData({...adjustData, type: 'in'})}
+                    onClick={() => setAdjustData({...adjustData, type: 'MANUAL_IN'})}
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      adjustData.type === 'in' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      adjustData.type === 'MANUAL_IN' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
                     <Plus className="w-4 h-4" />
-                    Stock In (Receive)
+                    Stock In (Receive / Open)
                   </button>
                   <button
-                    onClick={() => setAdjustData({...adjustData, type: 'out'})}
+                    onClick={() => setAdjustData({...adjustData, type: 'AUTO_DEDUCT'})}
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      adjustData.type === 'out' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      adjustData.type === 'AUTO_DEDUCT' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
                     <Minus className="w-4 h-4" />
@@ -767,9 +735,9 @@ export const InventoryPage: React.FC = () => {
               <div className="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
                 <span className="text-sm text-gray-700">New Close Stock</span>
                 <span className="text-lg font-bold text-gray-900">
-                  {adjustData.type === 'in' 
-                    ? (selectedItem.open ?? 0) + (selectedItem.in ?? 0) + (parseFloat(adjustData.quantity) || 0) - (selectedItem.out ?? 0)
-                    : (selectedItem.open ?? 0) + (selectedItem.in ?? 0) - (selectedItem.out ?? 0) - (parseFloat(adjustData.quantity) || 0)
+                  {adjustData.type === 'MANUAL_IN' 
+                    ? (selectedItem.openStock ?? 0) + (selectedItem.stockIn ?? 0) + (parseFloat(adjustData.quantity) || 0) - (selectedItem.stockOut ?? 0)
+                    : (selectedItem.openStock ?? 0) + (selectedItem.stockIn ?? 0) - (selectedItem.stockOut ?? 0) - (parseFloat(adjustData.quantity) || 0)
                   } {selectedItem.unitOfMeasure}
                 </span>
               </div>
@@ -861,7 +829,7 @@ export const InventoryPage: React.FC = () => {
               </button>
             </div>
             <div className="p-6">
-              {adjustments.filter(a => a.itemId === selectedItem.id).length === 0 ? (
+              {adjustments.filter(a => a.inventoryItemId === selectedItem.id).length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <History className="w-8 h-8 mx-auto mb-2" />
                   <p>No adjustment history for this item</p>
@@ -869,14 +837,14 @@ export const InventoryPage: React.FC = () => {
               ) : (
                 <div className="space-y-3">
                   {adjustments
-                    .filter(a => a.itemId === selectedItem.id)
+                    .filter(a => a.inventoryItemId === selectedItem.id)
                     .map((adj) => (
                       <div key={adj.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            adj.type === 'in' || adj.type === 'open' ? 'bg-green-100' : 'bg-red-100'
+                            adj.type === 'MANUAL_IN' ? 'bg-green-100' : 'bg-red-100'
                           }`}>
-                            {adj.type === 'in' || adj.type === 'open' ? (
+                            {adj.type === 'MANUAL_IN' ? (
                               <Plus className="w-4 h-4 text-green-600" />
                             ) : (
                               <Minus className="w-4 h-4 text-red-600" />
@@ -884,12 +852,12 @@ export const InventoryPage: React.FC = () => {
                           </div>
                           <div>
                             <p className="text-sm font-medium text-gray-900">
-                              {adj.type === 'in' ? '+' : '-'}{adj.quantity} {selectedItem.unitOfMeasure}
+                              {adj.type === 'MANUAL_IN' ? '+' : '-'}{adj.quantity} {selectedItem.unitOfMeasure}
                             </p>
                             <p className="text-xs text-gray-500">{adj.reason}</p>
                           </div>
                         </div>
-                        <span className="text-xs text-gray-400">{new Date(adj.date).toLocaleDateString()}</span>
+                        <span className="text-xs text-gray-400">{new Date(adj.createdAt).toLocaleDateString()}</span>
                       </div>
                     ))}
                 </div>

@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useApi } from '@mat-ai/backoffice';
 import { useNavigate } from 'react-router-dom';
 import {
-  ChefHat, Search, Plus, Edit3, ArrowRight, TrendingUp,
-  TrendingDown, AlertTriangle, DollarSign, Tag
+  ChefHat, Search, Edit3, ArrowRight,
+  AlertTriangle, DollarSign, Tag
 } from 'lucide-react';
 
 interface MenuWithCost {
@@ -31,7 +31,6 @@ export const MenuItemsWithCostPage: React.FC = () => {
       if (res.ok) {
         const data = (res.data as any[]) || [];
         setMenus(data.map(item => {
-          // FIX: Handle category as object or string
           let categoryName = 'uncategorized';
           if (item.category) {
             if (typeof item.category === 'string') {
@@ -75,13 +74,6 @@ export const MenuItemsWithCostPage: React.FC = () => {
       menu.category.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-  const getMarginColor = (margin: number) => {
-    if (margin >= 60) return 'text-green-600';
-    if (margin >= 40) return 'text-blue-600';
-    if (margin >= 20) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
   const getMarginBadge = (margin: number) => {
     if (margin >= 60) return 'bg-green-100 text-green-700';
     if (margin >= 40) return 'bg-blue-100 text-blue-700';
@@ -101,7 +93,6 @@ export const MenuItemsWithCostPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -133,7 +124,6 @@ export const MenuItemsWithCostPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Menu Items Table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">

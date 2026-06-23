@@ -4,9 +4,10 @@ import { PayrollController } from './payroll.controller';
 import { PayrollService } from './payroll.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SettingsModule } from '../settings/settings.module';
+import { AccountingModule } from '../accounting/accounting.module';
 
 @Module({
-  imports: [PrismaModule, SettingsModule],
+  imports: [PrismaModule, SettingsModule, AccountingModule],
   controllers: [PayrollController],
   providers: [PayrollService],
   exports: [PayrollService],

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApi } from '@mat-ai/backoffice';
 import type { MenuItem, Category } from '@mat-ai/types';
 import {
-  Search, Plus, Edit3, Trash2, ToggleLeft, ToggleRight,
+  Search, Plus, Edit3, ToggleLeft, ToggleRight,
   Tag, Layers, Puzzle, Percent, ImageIcon, Upload, X, Save
 } from 'lucide-react';
 
@@ -24,7 +24,7 @@ interface Discount {
 type TabType = 'items' | 'categories' | 'modifiers' | 'discounts';
 
 export const MenuPage: React.FC = () => {
-  const { get, patch, post, del } = useApi();
+  const { get, patch, post } = useApi();
 
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [searchQuery, setSearchQuery] = useState('');

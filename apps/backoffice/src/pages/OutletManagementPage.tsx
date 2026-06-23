@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus, Store, MapPin, Phone, Users, TrendingUp,
+  Plus, Store, MapPin, Phone, TrendingUp,
   Edit3, Trash2, MoreHorizontal, X, Loader2
 } from 'lucide-react';
 import { Outlet } from '@mat-ai/types';

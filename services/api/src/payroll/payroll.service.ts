@@ -2,6 +2,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+import { AccountingService } from '../accounting/accounting.service';
 import { PayrollPeriod, PayrollStatus, LeaveStatus } from '@prisma/client';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class PayrollService {
   constructor(
     private prisma: PrismaService,
     private settingsService: SettingsService,
+    private accountingService: AccountingService,
   ) {}
 
   async generate(staffId: string, periodStart: Date, periodEnd: Date, periodType: PayrollPeriod) {
@@ -35,7 +37,7 @@ export class PayrollService {
         t.clockIn <= periodEnd && 
         t.clockOut !== null
       );
-      const regularHours = timecards.reduce((sum, t) => sum + Number(t.totalHours || 0), 0);  // ← FIXED: Number()
+      const regularHours = timecards.reduce((sum, t) => sum + Number(t.totalHours || 0), 0);
       basicPay = regularHours * Number(staff.hourlyRate || 0);
     } else {
       basicPay = Number(staff.monthlySalary || 0);
@@ -44,7 +46,7 @@ export class PayrollService {
     // Calculate deductions
     const leaveDeduction = staff.leaveRequests
       .filter(l => l.status === LeaveStatus.APPROVED && l.type === 'UNPAID')
-      .reduce((sum, l) => sum + Number(l.payrollDeduction || 0), 0);  // ← FIXED: Number()
+      .reduce((sum, l) => sum + Number(l.payrollDeduction || 0), 0);
 
     const epfEmployee = (basicPay * epfRate) / 100;
     const socsoEmployee = (basicPay * socsoRate) / 100;
@@ -79,11 +81,11 @@ export class PayrollService {
     });
   }
 
-  async findAll(options?: { staffId?: string; from?: Date; to?: Date; outletId?: string }) {  // ← TAMBAH outletId
+  async findAll(options?: { staffId?: string; from?: Date; to?: Date; outletId?: string }) {
     const where: Record<string, unknown> = {};
     if (options?.staffId) where.staffId = options.staffId;
     if (options?.outletId) {
-      where.staff = { outletId: options.outletId };  // ← TAMBAH filter through Staff
+      where.staff = { outletId: options.outletId };
     }
     if (options?.from || options?.to) {
       where.periodStart = {};
@@ -93,11 +95,11 @@ export class PayrollService {
 
     return this.prisma.payroll.findMany({
       where,
-      include: { staff: { select: { name: true, employmentType: true, outletId: true } } },  // ← TAMBAH outletId
+      include: { staff: { select: { name: true, employmentType: true, outletId: true } } },
       orderBy: { periodStart: 'desc' },
     });
   }
-  
+
   async findOne(id: string) {
     const payroll = await this.prisma.payroll.findUnique({
       where: { id },
@@ -115,9 +117,22 @@ export class PayrollService {
   }
 
   async markPaid(id: string, paidBy: string) {
-    return this.prisma.payroll.update({
+    const payroll = await this.prisma.payroll.update({
       where: { id },
       data: { status: PayrollStatus.PAID, paidAt: new Date(), paidBy },
+      include: { staff: true },
     });
+
+    // ============================================================
+    // AUTO-GENERATE JOURNAL ENTRY WHEN PAYROLL PAID
+    // ============================================================
+    try {
+      const journalEntry = await this.accountingService.createPayrollJournal(payroll.id);
+      console.log(`✅ Auto-journal created for payroll ${payroll.id}: ${journalEntry.reference}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to create journal for payroll ${payroll.id}:`, error.message);
+    }
+
+    return payroll;
   }
 }

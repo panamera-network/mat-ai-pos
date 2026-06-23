@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApi } from '@mat-ai/backoffice';
 import {
   Calculator, DollarSign, TrendingUp, Percent, ChefHat,
-  ArrowRight, Info, CheckCircle2
+  Info, CheckCircle2
 } from 'lucide-react';
 
 type PricingMethod = 'food_cost' | 'markup' | 'margin' | 'target_price';
@@ -77,7 +77,7 @@ export const CostingCalculatorPage: React.FC = () => {
 
     setLoading(true);
 
-    const payload: any = { cost: costNum, method };
+    const payload: Record<string, any> = { cost: costNum, method };
 
     if (method === 'markup') {
       payload.markupPercent = parseFloat(markupPercent) || 30;
@@ -91,7 +91,7 @@ export const CostingCalculatorPage: React.FC = () => {
 
     try {
       const res = await post('/costing/calculator/markup', payload);
-      if (res.ok) setResult(res.data);
+      if (res.ok) setResult(res.data as CalcResult);
     } catch (err) {
       console.error('Calculator error:', err);
     } finally {
@@ -380,7 +380,7 @@ export const CostingCalculatorPage: React.FC = () => {
               {result.targetPriceAnalysis && (
                 <div className="mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
                   <p className="text-sm font-medium text-orange-800 mb-2">
-                    Analysis for RM {result.targetPrice?.toFixed(2)}
+                    Analysis for RM {targetPrice}
                   </p>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>

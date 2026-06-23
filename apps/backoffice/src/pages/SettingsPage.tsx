@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@mat-ai/backoffice';
 import type { PaymentType, TaxRate, Device } from '@mat-ai/types';
 import {
-  Store, Palette, Bell, Shield, CreditCard, Users,
-  ChevronRight, Save, Upload, X, Plus, Trash2, Smartphone,
+  Store, Palette, Bell, Shield, CreditCard, 
+  ChevronRight, Save, Upload, Plus, Trash2, Smartphone,
   Receipt, Percent, Gift, MessageCircle, Send, Monitor
 } from 'lucide-react';
 
@@ -28,7 +28,7 @@ const sections: SettingsSection[] = [
 ];
 
 export const SettingsPage: React.FC = () => {
-  const { staff } = useAuthStore();
+  useAuthStore();
   const [activeSection, setActiveSection] = useState('general');
   
   // General
@@ -71,7 +71,7 @@ export const SettingsPage: React.FC = () => {
   // Receipt
   const [receiptHeader, setReceiptHeader] = useState('MAT.ai Restaurant');
   const [receiptFooter, setReceiptFooter] = useState('Thank you for dining with us!');
-  const [receiptLogo, setReceiptLogo] = useState('');
+  const [receiptLogo] = useState('');
   const [showCustomerInfo, setShowCustomerInfo] = useState(true);
   const [showQrCode, setShowQrCode] = useState(false);
   const [enableEinvoice, setEnableEinvoice] = useState(false);

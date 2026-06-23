@@ -40,11 +40,11 @@ export const useAuthStore = create<AuthStore>()(
             return false;
           }
 
-          const { staff, token } = await res.json() as { staff: Staff; token: string };
+          const { staff, access_token } = await res.json() as { staff: Staff; access_token: string };
 
           set({
             staff,
-            token,
+            token: access_token,
             isAuthenticated: true,
             isLoading: false,
             error: null,

@@ -1,11 +1,10 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import type { Role } from '@mat-ai/types';
-import { ROLE_HIERARCHY } from '../constants';
+import { ROLE_HIERARCHY, getRoleLevel } from '../constants';
 
 interface RoleGuardProps {
-  allowedRoles: Role[];
+  allowedRoles: string[];
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }
@@ -17,7 +16,14 @@ export function RoleGuard({ allowedRoles, children, fallback }: RoleGuardProps) 
     return <Navigate to="/" replace />;
   }
 
-  const userLevel = ROLE_HIERARCHY[staff.role] || 0;
+  // SUPER ADMIN bypass all role checks
+  if (staff.isSuperAdmin) {
+    return <>{children}</>;
+  }
+
+  // Check role hierarchy for non-super-admin
+  const roleName = staff.role?.name || '';
+  const userLevel = getRoleLevel(roleName);
   const requiredLevel = Math.min(...allowedRoles.map((r) => ROLE_HIERARCHY[r] || 999));
 
   if (userLevel < requiredLevel) {

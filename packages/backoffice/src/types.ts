@@ -1,8 +1,7 @@
-// Backoffice-specific types (Role, Staff imported from @mat-ai/types)
+// packages/backoffice/src/types.ts
 import type { ReactNode, ComponentType } from 'react';
 import type { Staff, Role } from '@mat-ai/types';
 
-// Re-export for convenience
 export type { Staff, Role } from '@mat-ai/types';
 
 export interface AuthState {
@@ -30,14 +29,14 @@ export interface ApiConfig {
 export interface CacheEntry<T> {
   data: T;
   timestamp: number;
-  ttl: number; // milliseconds
+  ttl: number;
 }
 
 export type NavItem = {
   icon: ComponentType<{ className?: string }>;
   label: string;
   path: string;
-  roles: Role[];
+  roles: string[];
   requiresPin: boolean;
 };
 

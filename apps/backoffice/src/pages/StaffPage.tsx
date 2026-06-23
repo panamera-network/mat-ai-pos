@@ -1,10 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useApi, useStaffCache } from '@mat-ai/backoffice';
-import type { Staff, Department, PermissionDefinition } from '@mat-ai/types';
-import { DEFAULT_PERMISSIONS } from '@mat-ai/types';
+import type { Staff, Department } from '@mat-ai/types';
 import {
   Plus, Search, RefreshCw, Users, Clock, Shield,
-  Edit3, Trash2, X, Check, Building2, Crown
+  Edit3, Trash2, X, Building2, Crown
 } from 'lucide-react';
 
 // ============================================================

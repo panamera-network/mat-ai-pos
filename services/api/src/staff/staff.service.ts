@@ -25,6 +25,7 @@ export class StaffService {
     const staff = await this.prisma.staff.findUnique({
       where: { id },
       include: {
+        role: true,
         department: true,    // ← TAMBAH
         outlet: true,        // ← TAMBAH
         timecards: { take: 10, orderBy: { clockIn: 'desc' } },

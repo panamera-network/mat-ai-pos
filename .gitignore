@@ -2,6 +2,7 @@
 node_modules/
 .pnpm-store/
 .turbo/
+.qodo/
 
 # Build outputs
 dist/
@@ -18,6 +19,7 @@ build/
 .idea/
 *.swp
 *.swo
+
 
 # OS
 .DS_Store
