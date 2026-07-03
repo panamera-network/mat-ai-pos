@@ -1,8 +1,10 @@
 // src/settings/settings.controller.ts
-import { Controller, Get, Post, Body, Param, Delete, Patch, Query } from '@nestjs/common';  // ← TAMBAH Query
+import { Controller, Get, Post, Body, Param, Delete, Patch, Query, UseGuards } from '@nestjs/common';  // ← TAMBAH Query
 import { SettingsService } from './settings.service';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 
 @Controller('settings')
+@UseGuards(JwtAuthGuard)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 

@@ -531,7 +531,7 @@ export class AccountingService {
       const debits = acc.journalLines.reduce((sum, l) => sum + l.debit.toNumber(), 0);
       const credits = acc.journalLines.reduce((sum, l) => sum + l.credit.toNumber(), 0);
 
-      let balance = 0;
+      let balance: number;
       if (['ASSET', 'EXPENSE'].includes(acc.type)) {
         balance = debits - credits;
       } else {

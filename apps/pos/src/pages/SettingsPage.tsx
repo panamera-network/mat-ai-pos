@@ -15,6 +15,7 @@ interface FallbackSettings {
 
 export function SettingsPage() {
   const { staff, logout } = useAuthStore();
+  const roleName = staff?.role?.name || 'Unknown';
   const navigate = useNavigate();
 
   // Fallback settings state (same as original)
@@ -72,7 +73,7 @@ export function SettingsPage() {
       title: 'Security',
       items: [
         { icon: Shield, label: 'Staff PIN', desc: 'Manage access codes' },
-        { icon: User, label: 'Roles', desc: `${staff?.role || 'Unknown'} — ${staff?.name || 'Guest'}`, disabled: false },
+        { icon: User, label: 'Roles', desc: `${roleName} — ${staff?.name || 'Guest'}`, disabled: false },
       ],
     },
   ];
@@ -96,7 +97,7 @@ export function SettingsPage() {
           </div>
           <div>
             <p className="text-lg font-semibold text-gray-900">{staff?.name || 'Admin'}</p>
-            <p className="text-sm text-gray-500">{staff?.role || 'Manager'} • {staff?.employmentType?.replace('_', ' ') || ''}</p>
+            <p className="text-sm text-gray-500">{roleName} - {staff?.employmentType?.replace('_', ' ') || ''}</p>
           </div>
         </div>
       </div>

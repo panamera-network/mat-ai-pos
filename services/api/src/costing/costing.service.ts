@@ -226,7 +226,7 @@ export class CostingService {
     }
 
     const method = dto.method || PricingMethod.FOOD_COST;
-    let suggestedPrice = 0;
+    let suggestedPrice: number;
     let markupPercent = 0;
     let targetMargin = 0;
     let targetFoodCostPercent = 0;

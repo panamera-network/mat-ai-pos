@@ -1,7 +1,7 @@
 // apps/kitchen/src/components/OrderCard.tsx
 import React from 'react';
 import { CheckCircle, UtensilsCrossed, Package, Bike, Calendar } from 'lucide-react';
-import { Card, CardHeader, Badge, Button } from '@mat-ai/ui';
+import { Card, Badge, Button } from '@mat-ai/ui';
 import type { KitchenTicket } from '../types/kitchen';
 import { getTimerState, TIMER_COLORS } from '../utils/timer';
 import { TimerBadge } from './TimerBadge';

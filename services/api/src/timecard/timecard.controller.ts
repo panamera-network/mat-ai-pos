@@ -1,8 +1,10 @@
 // src/timecard/timecard.controller.ts
-import { Controller, Post, Get, Body, Param, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { TimecardService } from './timecard.service';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 
 @Controller('timecard')
+@UseGuards(JwtAuthGuard)
 export class TimecardController {
   constructor(private readonly timecardService: TimecardService) {}
 

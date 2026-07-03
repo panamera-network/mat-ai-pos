@@ -8,14 +8,17 @@ import {
   Param,
   Query,
   ParseFloatPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { CostingService } from './costing.service';
 import { CreateMenuItemIngredientDto } from './dto/create-menu-item-ingredient.dto';
 import { UpdateMenuItemIngredientDto } from './dto/update-menu-item-ingredient.dto';
 import { MarkupCalculatorDto } from './dto/markup-calculator.dto';
 import { ProfitabilityQueryDto } from './dto/profitability-query.dto';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 
 @Controller('costing')
+@UseGuards(JwtAuthGuard)
 export class CostingController {
   constructor(private readonly costingService: CostingService) {}
 

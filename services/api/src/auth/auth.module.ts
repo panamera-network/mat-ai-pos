@@ -4,12 +4,13 @@ import { AuthService } from './auth.service';
 import { StaffModule } from '../staff/staff.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { getJwtSecret } from './jwt-secret';
 
 @Module({
   imports: [
     StaffModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'mat-ai-secret-key',
+      secret: getJwtSecret(),
       signOptions: { expiresIn: '12h' },
     }),
   ],

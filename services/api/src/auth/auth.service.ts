@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { StaffService } from '../staff/staff.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DEFAULT_PERMISSIONS } from '@mat-ai/types';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +14,10 @@ export class AuthService {
   ) {}
 
   async login(pin: string) {
+    if (!pin) {
+      throw new UnauthorizedException('Invalid PIN');
+    }
+
     const staff = await this.staffService.findByPin(pin);
 
     if (!staff) {
@@ -32,8 +37,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (staff.password !== password) {
+    const passwordMatches = await bcrypt.compare(password, staff.password);
+    const legacyPlainTextMatch = !staff.password.startsWith('$2') && staff.password === password;
+
+    if (!passwordMatches && !legacyPlainTextMatch) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (legacyPlainTextMatch) {
+      await this.prisma.staff.update({
+        where: { id: staff.id },
+        data: { password: await bcrypt.hash(password, 10) },
+      });
     }
 
     return this.generateToken(staff);

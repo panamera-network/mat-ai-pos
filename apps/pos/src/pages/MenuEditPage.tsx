@@ -29,6 +29,7 @@ export const MenuEditPage: React.FC = () => {
   const navigate = useNavigate();
   const { get, patch } = useApi();
   const { staff } = useAuthStore();
+  const roleName = staff?.role?.name || 'Admin';
 
   const [activeTab, setActiveTab] = useState<TabType>('items');
   const [searchQuery, setSearchQuery] = useState('');
@@ -119,7 +120,7 @@ export const MenuEditPage: React.FC = () => {
             Add Item
           </button>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 rounded-lg">
-            <span className="text-sm font-medium text-green-700">{staff?.role || 'Admin'}</span>
+            <span className="text-sm font-medium text-green-700">{roleName}</span>
           </div>
         </div>
       </header>

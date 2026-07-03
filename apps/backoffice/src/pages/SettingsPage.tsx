@@ -115,7 +115,9 @@ export const SettingsPage: React.FC = () => {
         if (parsed.loyaltyEnabled !== undefined) setLoyaltyEnabled(parsed.loyaltyEnabled);
         if (parsed.pointsPerRm) setPointsPerRm(parsed.pointsPerRm);
         if (parsed.redemptionRate) setRedemptionRate(parsed.redemptionRate);
-      } catch {}
+      } catch (_error) {
+        console.warn('Unable to parse saved backoffice settings.');
+      }
     }
   }, []);
 

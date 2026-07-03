@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { CustomerService } from './customer.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 
 @Controller('customers')
 export class CustomerController {
@@ -13,13 +14,9 @@ export class CustomerController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   findAll(@Query('outletId') outletId?: string) {
     return this.service.findAll(outletId);
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
   }
 
   @Get('phone/:phone')
@@ -27,12 +24,20 @@ export class CustomerController {
     return this.service.findByPhone(phone);
   }
 
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(id);
+  }
+
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string) {
     return this.service.remove(id);
   }

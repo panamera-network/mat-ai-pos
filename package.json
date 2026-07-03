@@ -16,7 +16,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "type-check": "turbo run type-check",
     "clean": "turbo run clean && rm -rf node_modules",
-    "api:dev": "pnpm --filter @mat-ai/api dev",
+    "api:dev": "pnpm --filter @mat-ai/backend dev",
     "pos:dev": "pnpm --filter @mat-ai/pos dev",
     "pos:build": "pnpm --filter @mat-ai/pos build",
     "kitchen:dev": "pnpm --filter @mat-ai/kitchen dev",
@@ -25,14 +25,22 @@
     "backoffice:dev": "pnpm --filter @mat-ai/backoffice-app dev"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@mat-ai/eslint-config": "workspace:*",
     "@types/node": "^20.11.0",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.7.0",
     "prettier": "^3.2.0",
     "turbo": "^1.13.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "typescript-eslint": "^8.62.1"
   },
-  "packageManager": "pnpm@8.15.0",
+  "packageManager": "pnpm@11.7.0",
   "engines": {
     "node": ">=20.0.0",
-    "pnpm": ">=8.0.0"
+    "pnpm": ">=11.0.0"
   }
 }

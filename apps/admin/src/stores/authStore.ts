@@ -4,8 +4,9 @@ import type { Staff } from '@mat-ai/types';
 
 interface AuthState {
   staff: Staff | null;
+  token: string | null;
   isAuthenticated: boolean;
-  login: (staff: Staff) => void;
+  login: (staff: Staff, token: string) => void;
   logout: () => void;
 }
 
@@ -13,9 +14,10 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       staff: null,
+      token: null,
       isAuthenticated: false,
-      login: (staff) => set({ staff, isAuthenticated: true }),
-      logout: () => set({ staff: null, isAuthenticated: false }),
+      login: (staff, token) => set({ staff, token, isAuthenticated: true }),
+      logout: () => set({ staff: null, token: null, isAuthenticated: false }),
     }),
     { name: 'mat-admin-auth' }
   )

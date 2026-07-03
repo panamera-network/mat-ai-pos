@@ -1,9 +1,11 @@
 // src/leave/leave.controller.ts
-import { Controller, Post, Get, Body, Param } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common';
 import { LeaveService } from './leave.service';
 import { LeaveType } from '@prisma/client';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 
 @Controller('leave')
+@UseGuards(JwtAuthGuard)
 export class LeaveController {
   constructor(private readonly leaveService: LeaveService) {}
 

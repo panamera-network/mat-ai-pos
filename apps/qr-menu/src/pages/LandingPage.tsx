@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Sparkles, ArrowRight, Star, Gift, ChevronRight, X, ChevronUp,
+  Sparkles, ArrowRight, Star, Gift, X,
   UtensilsCrossed, ShoppingBag, Truck, CalendarCheck,
   User, Phone, Table, Users, Clock, MapPin,
   Heart,
@@ -98,7 +98,7 @@ export const LandingPage: React.FC = () => {
 
   // CMS data
   const [cmsData, setCmsData] = useState<LandingPagePublicData | null>(null);
-  const [cmsLoading, setCmsLoading] = useState(true);
+  const [, setCmsLoading] = useState(true);
 
   // Form state
   const [customerName, setCustomerName] = useState('');

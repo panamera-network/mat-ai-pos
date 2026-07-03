@@ -1,5 +1,5 @@
 // apps/kitchen/src/pages/Settings.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -18,7 +18,6 @@ import {
   CardTitle,
   Input,
   Switch,
-  Modal,
   ConfirmDialog,
 } from '@mat-ai/ui';
 import { getSettings, saveSettings, resetMemory, resetAll } from '../utils/storage';

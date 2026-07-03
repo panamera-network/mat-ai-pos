@@ -3,3 +3,19 @@ packages:
   - "packages/*"
   - "tooling/*"
   - 'services/*'
+
+onlyBuiltDependencies:
+  - "@nestjs/core"
+  - "@prisma/client"
+  - "@prisma/engines"
+  - "core-js"
+  - "esbuild"
+  - "prisma"
+
+allowBuilds:
+  "@nestjs/core": true
+  "@prisma/client": true
+  "@prisma/engines": true
+  "core-js": true
+  "esbuild": true
+  "prisma": true

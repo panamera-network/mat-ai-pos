@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trash2, Clock, Search, Calendar } from 'lucide-react';
-import { Button, Card, CardHeader, CardTitle, Input, EmptyState } from '@mat-ai/ui';
+import { Button, Card, Input, EmptyState } from '@mat-ai/ui';
 import { getHistory, clearHistory } from '../utils/storage';
 import type { HistoryOrder } from '../types/kitchen';
 

@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 
 export function Sidebar() {
   const { staff, logout } = useAuth();
+  const roleName = staff?.role?.name || 'Manager';
 
   const links = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -46,7 +47,7 @@ export function Sidebar() {
           </div>
           <div>
             <p className="text-sm font-medium text-gray-900">{staff?.name || 'Admin'}</p>
-            <p className="text-xs text-gray-500">{staff?.role || 'Manager'}</p>
+            <p className="text-xs text-gray-500">{roleName}</p>
           </div>
         </div>
         <button

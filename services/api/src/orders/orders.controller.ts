@@ -23,6 +23,11 @@ export class OrdersController {
   }
   
 
+  @Get('kitchen-queue')
+  getKitchenQueue() {
+    return this.ordersService.getKitchenQueue();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.ordersService.findOne(id);
@@ -31,10 +36,5 @@ export class OrdersController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateOrderDto) {
     return this.ordersService.update(id, dto);
-  }
-
-  @Get('kitchen-queue')
-  getKitchenQueue() {
-    return this.ordersService.getKitchenQueue();
   }
 }

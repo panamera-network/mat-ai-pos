@@ -6,8 +6,11 @@ import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
 
 @Injectable()
 export class InventoryService {
-  update(id: string, arg1: { unitPrice: number; }) {
-    throw new Error('Method not implemented.');
+  async update(id: string, data: { unitPrice?: number; costPerUnit?: number }) {
+    return this.prisma.inventoryItem.update({
+      where: { id },
+      data,
+    });
   }
   constructor(private prisma: PrismaService) {}
 

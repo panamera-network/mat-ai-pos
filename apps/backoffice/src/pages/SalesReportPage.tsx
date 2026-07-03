@@ -54,6 +54,11 @@ interface HourlyBreakdown {
   total: number;
 }
 
+const formatCurrencyTooltip = (value: unknown) => {
+  const amount = typeof value === 'number' ? value : Number(value ?? 0);
+  return [`RM${amount.toFixed(2)}`, 'Revenue'] as [string, string];
+};
+
 export const SalesReportPage: React.FC = () => {
   const { get } = useApi();
 
@@ -416,7 +421,7 @@ export const SalesReportPage: React.FC = () => {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#9ca3af" />
                 <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" tickFormatter={(v: number) => `RM${v}`} />
                 <Tooltip 
-                  formatter={(value: number) => [`RM${value.toFixed(2)}`, 'Revenue']}
+                  formatter={formatCurrencyTooltip}
                   contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }}
                 />
                 <Area type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2} fill="url(#colorSales)" />
@@ -427,7 +432,7 @@ export const SalesReportPage: React.FC = () => {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#9ca3af" />
                 <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" tickFormatter={(v: number) => `RM${v}`} />
                 <Tooltip 
-                  formatter={(value: number) => [`RM${value.toFixed(2)}`, 'Revenue']}
+                  formatter={formatCurrencyTooltip}
                   contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }}
                 />
                 <Bar dataKey="revenue" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={32} />

@@ -57,8 +57,8 @@ export class OrdersService {
           data: {
             name: createOrderDto.customerName,
             phone: createOrderDto.customerPhone,
-            visits: 1,
-            totalSpent: Number(createOrderDto.totalAmount),
+            visits: 0,
+            totalSpent: 0,
             lastVisit: new Date(),
           },
         });

@@ -1,9 +1,11 @@
 // src/payroll/payroll.controller.ts
-import { Controller, Post, Get, Body, Param, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { PayrollService } from './payroll.service';
 import { PayrollPeriod } from '@prisma/client';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 
 @Controller('payroll')
+@UseGuards(JwtAuthGuard)
 export class PayrollController {
   constructor(private readonly payrollService: PayrollService) {}
 

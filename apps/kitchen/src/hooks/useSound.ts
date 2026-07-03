@@ -1,10 +1,8 @@
 // apps/kitchen/src/hooks/useSound.ts
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { getSettings } from '../utils/storage';
 
 export function useSound() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
   const playNewOrder = useCallback(() => {
     const settings = getSettings();
     if (!settings.soundEnabled) return;

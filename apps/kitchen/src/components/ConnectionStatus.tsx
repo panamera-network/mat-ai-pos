@@ -1,7 +1,6 @@
 // apps/kitchen/src/components/ConnectionStatus.tsx
 import React from 'react';
 import { StatusBadge } from '@mat-ai/ui';
-import { Wifi, WifiOff } from 'lucide-react';
 
 interface ConnectionStatusProps {
   isConnected: boolean;

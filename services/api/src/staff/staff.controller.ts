@@ -1,10 +1,12 @@
 // src/staff/staff.controller.ts
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { StaffService } from './staff.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 
 @Controller('staff')
+@UseGuards(JwtAuthGuard)
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
 

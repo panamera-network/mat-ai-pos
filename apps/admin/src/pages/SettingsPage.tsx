@@ -13,6 +13,7 @@ interface FallbackSettings {
 
 export function SettingsPage() {
   const { staff, logout } = useAuth();
+  const roleName = staff?.role?.name || 'Manager';
 
   // Fallback settings state
   const [fallbackSettings, setFallbackSettings] = useState<FallbackSettings>(() => {
@@ -88,7 +89,7 @@ export function SettingsPage() {
           </div>
           <div>
             <p className="text-lg font-semibold text-gray-900">{staff?.name || 'Admin'}</p>
-            <p className="text-sm text-gray-500">{staff?.role || 'Manager'} • {staff?.employmentType?.replace('_', ' ') || ''}</p>
+            <p className="text-sm text-gray-500">{roleName} - {staff?.employmentType?.replace('_', ' ') || ''}</p>
           </div>
         </div>
       </div>

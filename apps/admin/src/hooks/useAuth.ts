@@ -15,7 +15,7 @@ export function useAuth() {
     const res = await post('/auth/login', { pin });
     if (res.ok) {
       const data = await res.json();
-      login(data.staff);
+      login(data.staff, data.access_token);
       setLoading(false);
       return true;
     }

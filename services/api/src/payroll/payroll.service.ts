@@ -27,9 +27,9 @@ export class PayrollService {
     const socsoEmployerRate = Number(await this.settingsService.getNumericValue('socso_employer_rate', 1.75));
 
     // Calculate earnings
-    let basicPay = 0;
-    let overtimeHours = 0;
-    let overtimePay = 0;
+    let basicPay: number;
+    const overtimeHours = 0;
+    const overtimePay = 0;
 
     if (staff.employmentType === 'HOURLY_PART_TIME') {
       const timecards = staff.timecards.filter(t => 

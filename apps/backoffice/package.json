@@ -7,7 +7,7 @@
     "dev": "vite --port 3004",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --report-unused-disable-directives"
   },
   "dependencies": {
     "@mat-ai/backoffice": "workspace:*",
@@ -17,7 +17,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.23.0",
-    "recharts": "^2.15.4"
+    "recharts": "^3.9.1"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",

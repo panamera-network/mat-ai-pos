@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { OutletService } from './outlet.service';
 import { CreateOutletDto } from './dto/create-outlet.dto';
 import { UpdateOutletDto } from './dto/update-outlet.dto';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 
 @Controller('outlets')
+@UseGuards(JwtAuthGuard)
 export class OutletController {
   constructor(private readonly outletService: OutletService) {}
 

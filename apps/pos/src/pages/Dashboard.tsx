@@ -45,11 +45,12 @@ export function Dashboard() {
     { isOpen: false, targetPath: '', title: '' }
   );
 
-  const navItems = staff ? getNavItemsForRole(staff.role) : [];
+  const roleName = staff?.role?.name;
+  const navItems = staff ? getNavItemsForRole(roleName) : [];
 
   const handleNavClick = (item: NavItem) => {
     if (!staff) return;
-    if (requiresPin(staff.role, item.path)) {
+    if (requiresPin(roleName, item.path)) {
       setPinPrompt({ isOpen: true, targetPath: item.path, title: `Enter PIN to access ${item.label}` });
       return;
     }
@@ -215,7 +216,7 @@ export function Dashboard() {
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
             <Users className="w-4 h-4 text-gray-600" />
             <span className="text-sm font-medium text-gray-700">{staff?.name || 'Guest'}</span>
-            <span className="text-xs text-gray-400 px-1.5 py-0.5 bg-gray-200 rounded-full">{staff?.role || '—'}</span>
+            <span className="text-xs text-gray-400 px-1.5 py-0.5 bg-gray-200 rounded-full">{roleName || '-'}</span>
           </div>
           <button onClick={handleLogout} className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors" title="Logout"><LogOut className="w-5 h-5" /></button>
         </div>
@@ -227,7 +228,7 @@ export function Dashboard() {
             <button key={item.label} onClick={() => handleNavClick(item)} className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border shadow-sm hover:shadow-md hover:bg-gray-50 active:scale-[0.98] transition-all text-left group">
               <item.icon className="w-5 h-5 text-gray-600 group-hover:text-primary-600 transition-colors" />
               <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{item.label}</span>
-              {requiresPin(staff?.role || 'CASHIER', item.path) && <Lock className="w-3 h-3 text-gray-300 ml-auto" />}
+              {requiresPin(roleName || 'CASHIER', item.path) && <Lock className="w-3 h-3 text-gray-300 ml-auto" />}
             </button>
           ))}
         </aside>
