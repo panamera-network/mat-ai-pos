@@ -80,7 +80,7 @@ export class MATaiWSClient {
       };
 
       this.ws.onerror = (error) => {
-        console.error('[WS] Error:', error);
+        console.warn(`[WS] Connection error for ${this.options.url}. Retrying...`, error);
         this.options.onError?.(error);
       };
     } catch (err) {

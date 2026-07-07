@@ -1,91 +1,57 @@
-# @mat-ai/backend
+# MAT.ai API Service
 
-NestJS backend for MAT.ai POS system.
+NestJS backend for MAT.ai POS. It owns the database API used by POS, QR Menu, Backoffice, Admin, and related services.
 
-## Stack
-- **NestJS** — Framework
-- **PostgreSQL** — Database
-https://console.neon.tech/app/projects/restless-sky-08726925?database=neondb
-- **Prisma** — ORM
-- **Socket.IO** — Real-time sync
-- **Redis** — Pub/sub (future scaling)
+## Run
 
-## Quick Start
-
-### 1. Start infrastructure
 ```bash
-docker-compose up -d
+pnpm api:dev
+pnpm --filter @mat-ai/backend build
 ```
 
-### 2. Install dependencies
+Default local URL:
+
+```text
+http://localhost:4000
+```
+
+## Database
+
+The API uses Prisma.
+
 ```bash
-pnpm install
+pnpm --filter @mat-ai/backend db:generate
+pnpm --filter @mat-ai/backend db:migrate
+pnpm --filter @mat-ai/backend db:seed
 ```
 
-### 3. Setup database
+Useful local reset:
+
 ```bash
-pnpm dlx prisma@6.19.2 migrate dev --name init
-pnpm dlx prisma@6.19.2 generate
-pnpm run db:seed
-
+pnpm --filter @mat-ai/backend db:fresh
 ```
 
-### 4. Run
+## Main Domains
+
+- Orders
+- Tables
+- Menu items and modifiers
+- Receipts and payments
+- Staff, auth, and roles
+- Reservations
+- WebSocket gateway events
+
+## Order Notes
+
+- Dine-in orders can assign and occupy a table.
+- Paid orders release their table.
+- Reservations are stored without requiring a table.
+- Reservation assignment happens from the POS Reservation page, then the order can be sent to KDS.
+
+## Troubleshooting
+
+If TypeScript reports missing Prisma model or enum exports, regenerate the Prisma client:
+
 ```bash
-# Development
-pnpm start:dev
-
-npx prisma@6.19.2 studio --schema=services/api/prisma/schema.prisma
-/
-cd services/api
-npx prisma@6.19.2 studio --schema=prisma/schema.prisma
-
-# Production
-pnpm run build
-pnpm run start:prod
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/orders` | Create order |
-| GET | `/orders` | List all orders |
-| GET | `/orders?status=PENDING` | Filter by status |
-| GET | `/orders/:id` | Get single order |
-| PATCH | `/orders/:id` | Update order |
-| GET | `/orders/kitchen-queue` | Get KDS queue |
-| PATCH | `/orders/items/:itemId/status` | Update item status |
-
-## Socket.IO Events
-
-### Client → Server
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `joinRoom` | `"pos"` / `"kds"` / `"qr"` | Join app room |
-| `order:create` | `CreateOrderDto` | Create new order |
-| `order:update` | `{ id, updates }` | Update order |
-| `order:itemStatus` | `{ itemId, status }` | Update item status |
-| `sync:request` | `{ lastSync? }` | Request full sync |
-
-### Server → Client
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `order:created` | `Order` | New order broadcast |
-| `order:updated` | `Order` | Order updated |
-| `pos:newOrder` | `Order` | New order for POS |
-| `kds:newOrder` | `Order` | New order for KDS |
-| `kds:orderPaid` | `Order` | Order paid → KDS |
-| `pos:orderReady` | `Order` | Order ready → POS |
-| `qr:orderReady` | `Order` | Order ready → QR |
-| `sync:orders` | `Order[]` | Full order list |
-
-## Architecture
-
-```
-QR Menu (:3003) ──┐
-                  ├──► NestJS (:4000) ──► PostgreSQL
-POS (:3000) ──────┤         │
-                  │         └──► Socket.IO broadcast
-KDS (:3001) ──────┘
+pnpm --filter @mat-ai/backend db:generate
 ```

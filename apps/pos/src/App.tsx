@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore, RoleGuard } from '@mat-ai/backoffice';
+import { useAuthStore, RoleGuard, type AuthStore } from '@mat-ai/backoffice';
 import { MainPage } from './pages/MainPage';
 import { Dashboard } from './pages/Dashboard';
 import { POSPage } from './pages/POSPage';
@@ -12,9 +12,10 @@ import { SettingsPage } from './pages/SettingsPage';
 import { SalesReportPage } from './pages/SalesReportPage';
 import { StaffPage } from './pages/StaffPage';
 import { PayrollPage } from './pages/PayrollPage';
+import { ReservationPage } from './pages/ReservationPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthenticated = useAuthStore((s: AuthStore) => s.isAuthenticated);
   return isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
 };
 
@@ -63,6 +64,14 @@ const App: React.FC = () => {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reservations"
+          element={
+            <ProtectedRoute>
+              <ReservationPage />
             </ProtectedRoute>
           }
         />

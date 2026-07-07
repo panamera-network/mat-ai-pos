@@ -5,11 +5,13 @@
   "description": "MAT.ai POS - Smart Restaurant Point of Sale System",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "services/*"
   ],
   "author": "MAT.ai Team",
   "license": "MIT",
   "scripts": {
+    "start": "pnpm dev",
     "build": "turbo run build",
     "dev": "turbo run dev start:dev --parallel",
     "lint": "turbo run lint",
@@ -18,6 +20,7 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "api:dev": "pnpm --filter @mat-ai/backend dev",
     "pos:dev": "pnpm --filter @mat-ai/pos dev",
+    "bridge:dev": "pnpm --filter @mat-ai/pos-bridge dev",
     "pos:build": "pnpm --filter @mat-ai/pos build",
     "kitchen:dev": "pnpm --filter @mat-ai/kitchen dev",
     "admin:dev": "pnpm --filter @mat-ai/admin dev",

@@ -131,10 +131,18 @@ export const MenuPage: React.FC = () => {
   };
 
   const getOptionValues = (item: MenuItem | null): string[] => {
-    if (!item?.options || !Array.isArray(item.options)) return [];
-    return item.options.flatMap(opt => 
-      opt.choices.map(c => `${opt.name}: ${c.name}`)
-    );
+    if (!item?.options) return [];
+    if (Array.isArray(item.options)) {
+      return item.options.flatMap((opt: any) => {
+        if (typeof opt === 'string') return [opt];
+        if (Array.isArray(opt?.choices)) {
+          return opt.choices.map((choice: any) => `${opt.name}: ${choice.name || choice.id || choice}`);
+        }
+        return [opt?.name || opt?.label || opt?.id].filter(Boolean);
+      });
+    }
+    if (typeof item.options === 'object') return Object.keys(item.options as Record<string, unknown>);
+    return [];
   };
 
   return (

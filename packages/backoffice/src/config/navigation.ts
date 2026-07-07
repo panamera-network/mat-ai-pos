@@ -1,12 +1,13 @@
 // packages/backoffice/src/config/navigation.ts
 import {
-  Receipt, Utensils, TrendingUp, Users, DollarSign, Package, Settings, Edit3,
+  Calendar, Receipt, Utensils, TrendingUp, Users, DollarSign, Package, Settings, Edit3,
 } from 'lucide-react';
-import type { NavItem } from '../types';
+import type { NavItem, Staff } from '../types';
 
 export const NAV_ITEMS: NavItem[] = [
   { icon: Receipt, label: 'Receipt', path: '/receipts', roles: ['CASHIER', 'MANAGER', 'ADMIN'], requiresPin: false },
   { icon: Utensils, label: 'POS', path: '/pos', roles: ['CASHIER', 'MANAGER', 'ADMIN'], requiresPin: false },
+  { icon: Calendar, label: 'Reservation', path: '/reservations', roles: ['CASHIER', 'MANAGER', 'ADMIN'], requiresPin: false },
   { icon: TrendingUp, label: 'Sales Report', path: '/sales', roles: ['MANAGER', 'ADMIN'], requiresPin: true },
   { icon: Users, label: 'Staff', path: '/staff', roles: ['MANAGER', 'ADMIN'], requiresPin: true },
   { icon: DollarSign, label: 'Payroll', path: '/payroll', roles: ['ADMIN'], requiresPin: false },
@@ -16,13 +17,17 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 // Use string for role name (from role.name)
-export function getNavItemsForRole(roleName: string | undefined): NavItem[] {
+export function getNavItemsForRole(roleName: string | undefined, staff?: Staff | null): NavItem[] {
+  if (staff?.isSuperAdmin) return NAV_ITEMS;
   if (!roleName) return [];
+  if (['SUPER_ADMIN', 'SUPER ADMIN', 'OWNER'].includes(roleName.toUpperCase())) return NAV_ITEMS;
   return NAV_ITEMS.filter((item) => item.roles.includes(roleName));
 }
 
-export function canAccessRoute(roleName: string | undefined, path: string): boolean {
+export function canAccessRoute(roleName: string | undefined, path: string, staff?: Staff | null): boolean {
+  if (staff?.isSuperAdmin) return true;
   if (!roleName) return false;
+  if (['SUPER_ADMIN', 'SUPER ADMIN', 'OWNER'].includes(roleName.toUpperCase())) return true;
   const item = NAV_ITEMS.find((n) => n.path === path);
   if (!item) return true;
   return item.roles.includes(roleName);

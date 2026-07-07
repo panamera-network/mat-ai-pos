@@ -4,10 +4,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Search, Plus, Minus, Trash2, ArrowRight, X, Save,
   Home, ShoppingBag, Car, Check, User, Phone, MapPin, Calendar,
-  Clock, Users,
+  Clock, Users, MoreVertical,
 } from 'lucide-react';
 import type { Order, OrderItem, MenuItem, Category, DiningTable, CustomerInfo, MenuItemOptions,  } from '@mat-ai/types';
 import { toBackendOrderType, buildOrderPayload, normalizeBackendOrder } from '../lib/types';
+import { wsServer } from '../lib/ws';
+import { printBill, printOrderSlip } from '../lib/print';
 
 const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
 
@@ -69,6 +71,21 @@ const orderTypeStyles: Record<OrderTypeString, { border: string; bg: string; ico
   'reservation': { border: 'border-pink-500', bg: 'bg-pink-50', iconBg: 'bg-pink-100', iconText: 'text-pink-600' },
 };
 
+const getOptionLabels = (options: unknown): string[] => {
+  if (!options) return [];
+  if (Array.isArray(options)) {
+    return options.flatMap((option: any) => {
+      if (typeof option === 'string') return [option];
+      if (Array.isArray(option?.choices)) {
+        return option.choices.map((choice: any) => `${option.name}: ${choice.name || choice.id || choice}`);
+      }
+      return [option?.name || option?.label || option?.id].filter(Boolean);
+    });
+  }
+  if (typeof options === 'object') return Object.keys(options as Record<string, unknown>);
+  return [];
+};
+
 // ============================================
 // COMPONENT
 // ============================================
@@ -103,7 +120,8 @@ export const POSPage: React.FC = () => {
     })),
   } : undefined;
 
-  const existingTableId = state.tableId as string | undefined;
+  const existingTableId = (state.tableId || existingOrder?.tableId) as string | undefined;
+  const existingTableNumber = state.tableNumber as string | undefined;
   const existingOrderType = state.orderType as OrderTypeString | undefined;
   const existingCustomer = state.customerInfo as CustomerInfo | undefined;
 
@@ -127,6 +145,8 @@ export const POSPage: React.FC = () => {
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showReservationModal, setShowReservationModal] = useState(false);
   const [showModifierModal, setShowModifierModal] = useState(false);
+  const [showOrderActions, setShowOrderActions] = useState(false);
+  const [showChangeTypeModal, setShowChangeTypeModal] = useState(false);
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
   const [selectedModifiers, setSelectedModifiers] = useState<string[]>([]);
 
@@ -140,11 +160,12 @@ export const POSPage: React.FC = () => {
 
   // Resolve tableNumber to tableId when editing an existing order
   useEffect(() => {
-    if (existingOrder?.table?.number && tables.length > 0 && !selectedTableId && !existingTableId) {
-      const found = tables.find(t => t.number === existingOrder.table!.number);
+    const tableNumber = existingOrder?.table?.number || existingTableNumber;
+    if (tableNumber && tables.length > 0 && !selectedTableId && !existingTableId) {
+      const found = tables.find(t => t.number === tableNumber);
       if (found) setSelectedTableId(found.id);
     }
-  }, [existingOrder?.table?.number, tables, selectedTableId, existingTableId]);
+  }, [existingOrder?.table?.number, existingTableNumber, tables, selectedTableId, existingTableId]);
 
   // Fetch menu & tables from backend
   useEffect(() => {
@@ -187,13 +208,7 @@ export const POSPage: React.FC = () => {
           isAvailable: item.isAvailable ?? true,
           stock: item.stock || 999,
           minStock: item.minStock || 0,
-          options: (() => {
-            if (!item.options) return [];
-            if (Array.isArray(item.options)) {
-              return item.options.map((o: any) => typeof o === 'string' ? o : o.name || String(o));
-            }
-            return Object.keys(item.options);
-          })(),
+          options: item.options || [],
           createdAt: item.createdAt || new Date().toISOString(),
           updatedAt: item.updatedAt || new Date().toISOString(),
         }));
@@ -279,7 +294,7 @@ export const POSPage: React.FC = () => {
       unitPrice,
       quantity,
       totalPrice: unitPrice * quantity,
-      options: modStrings.length > 0 
+      options: modStrings.length > 0
         ? modStrings.map(m => ({ 
             id: m, 
             name: m, 
@@ -297,12 +312,10 @@ export const POSPage: React.FC = () => {
 
   const addToCart = (item: MenuItem, modStrings: string[] = []) => {
     setCartItems((prev) => {
-      const existing = prev.find(
-        (i) => i.menuItemId === item.id && JSON.stringify(i.options) === JSON.stringify(modStrings)
-      );
+      const existing = prev.find((i) => i.menuItemId === item.id && JSON.stringify(getOptionLabels(i.options)) === JSON.stringify(modStrings));
       if (existing) {
         return prev.map((i) =>
-          i.menuItemId === item.id && JSON.stringify(i.options) === JSON.stringify(modStrings)
+          i.menuItemId === item.id && JSON.stringify(getOptionLabels(i.options)) === JSON.stringify(modStrings)
             ? { ...i, quantity: i.quantity + 1, totalPrice: i.unitPrice * (i.quantity + 1) }
             : i
         );
@@ -312,7 +325,7 @@ export const POSPage: React.FC = () => {
   };
 
   const handleMenuItemClick = (item: MenuItem) => {
-    const itemModifiers = (item as any).modifiers || (item as any).options || [];
+    const itemModifiers = getOptionLabels((item as any).modifiers || (item as any).options);
     if (itemModifiers.length > 0) {
       setSelectedMenuItem(item);
       setSelectedModifiers([]);
@@ -329,6 +342,61 @@ export const POSPage: React.FC = () => {
       setSelectedMenuItem(null);
       setSelectedModifiers([]);
     }
+  };
+
+  const handleResendToKds = () => {
+    if (!existingOrder) return;
+    wsServer.broadcastOrder(buildOrder());
+    setShowOrderActions(false);
+  };
+
+  const handleVoidTicket = async () => {
+    if (!existingOrder?.id) return;
+    if (!confirm(`Void order #${existingOrder.orderNumber || existingOrder.id.slice(-4)}?`)) return;
+    try {
+      const res = await fetch(`${API_URL}/orders/${existingOrder.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      });
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Failed to void ticket:', err);
+      alert('Failed to void ticket.');
+    } finally {
+      setShowOrderActions(false);
+    }
+  };
+
+  const openChangeOrderType = () => {
+    setShowOrderActions(false);
+    setShowChangeTypeModal(true);
+  };
+
+  const openChangeTable = () => {
+    setOrderType('dine-in');
+    setShowOrderActions(false);
+    setShowTableModal(true);
+  };
+
+  const applyChangedOrderType = (nextType: OrderTypeString) => {
+    setOrderType(nextType);
+    setShowChangeTypeModal(false);
+
+    if (nextType === 'dine-in') {
+      setShowTableModal(true);
+      return;
+    }
+
+    if (nextType === 'reservation') {
+      setSelectedTableId('');
+      setShowReservationModal(true);
+      return;
+    }
+
+    setSelectedTableId('');
+    setShowCustomerModal(true);
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -356,16 +424,16 @@ export const POSPage: React.FC = () => {
     id: existingOrder?.id || `ORD-${Date.now()}`,
     orderNumber: existingOrder?.orderNumber || `ORD-${Date.now()}`,
     status: 'PENDING',
-    source: 'POS',
+    source: existingOrder?.source || 'POS',
     type: toBackendOrderType(orderType),
     totalAmount: total,
     taxAmount: tax,
     customerInfo: (orderType === 'takeaway' || orderType === 'delivery' || orderType === 'reservation') ? customerInfo : undefined,
-    tableId: (orderType === 'dine-in' || orderType === 'reservation') ? selectedTableId : undefined,
-    table: selectedTable,
+    tableId: orderType === 'dine-in' ? selectedTableId : undefined,
+    table: orderType === 'dine-in' ? selectedTable : undefined,
     pax: pax ? parseInt(pax) : undefined,
     reservationTime: orderType === 'reservation' ? reservationTime : undefined,
-    notes: customerInfo.note,
+    notes: orderType === 'reservation' ? [customerInfo.note, `Reservation timing: ${orderTiming === 'now' ? 'order-now' : 'counter'}`].filter(Boolean).join('\n') : customerInfo.note,
     items: cartItems,
     createdAt: existingOrder?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -391,7 +459,7 @@ export const POSPage: React.FC = () => {
       if (!selectedTableId) return;
       setShowTableModal(false);
     } else if (orderType === 'reservation') {
-      if (!selectedTableId || !customerInfo.name.trim() || !customerInfo.phone.trim() || !pax || !reservationTime) {
+      if (!customerInfo.name.trim() || !customerInfo.phone.trim() || !pax || !reservationTime) {
         return;
       }
       setShowReservationModal(false);
@@ -409,9 +477,11 @@ export const POSPage: React.FC = () => {
 
     try {
       const payload = buildOrderPayload(order, selectedTableId, orderType);
+      const endpoint = existingOrder?.id ? `${API_URL}/orders/${existingOrder.id}` : `${API_URL}/orders`;
+      const method = existingOrder?.id ? 'PATCH' : 'POST';
 
-      const res = await fetch(`${API_URL}/orders`, {
-        method: 'POST',
+      const res = await fetch(endpoint, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -424,14 +494,27 @@ export const POSPage: React.FC = () => {
       const result = await res.json();
       const normalizedOrder = normalizeBackendOrder(result);
       savedOrderId = normalizedOrder.id;
+      if (normalizedOrder.type !== 'RESERVATION') {
+        if (!wsServer.isRunning) wsServer.start();
+        wsServer.broadcastOrder(normalizedOrder);
+      }
+
+      if (existingOrder?.tableId && existingOrder.tableId !== selectedTableId) {
+        await fetch(`${API_URL}/tables/${existingOrder.tableId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'AVAILABLE' }),
+        }).catch(err => console.error('Failed to release previous table:', err));
+        updateTableStatus(existingOrder.tableId, 'AVAILABLE');
+      }
 
       // Sync table status to backend
-      if (selectedTableId && (orderType === 'dine-in' || orderType === 'reservation')) {
+      if (selectedTableId && orderType === 'dine-in') {
         await fetch(`${API_URL}/tables/${selectedTableId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            status: orderType === 'reservation' ? 'RESERVED' : 'OCCUPIED',
+            status: 'OCCUPIED',
           }),
         }).catch(err => console.error('Failed to update backend table status:', err));
       }
@@ -449,13 +532,13 @@ export const POSPage: React.FC = () => {
     }
 
     // Update local table status
-    if (selectedTableId && (orderType === 'dine-in' || orderType === 'reservation')) {
-      updateTableStatus(selectedTableId, orderType === 'reservation' ? 'RESERVED' : 'OCCUPIED');
+    if (selectedTableId && orderType === 'dine-in') {
+      updateTableStatus(selectedTableId, 'OCCUPIED');
     }
 
     if (andNavigateToPayment) {
       navigate(`/payment/${savedOrderId}`, { 
-        state: { order: { ...order, id: savedOrderId } } 
+        state: { order: { ...order, id: savedOrderId } }
       });
     } else {
       navigate('/dashboard');
@@ -576,9 +659,41 @@ export const POSPage: React.FC = () => {
         {/* Right: Order Cart */}
         <div className="w-[360px] bg-white border-l flex flex-col">
           <div className="p-4 border-b">
-            <h2 className="font-bold text-gray-900">{isEditMode ? 'Edit Order' : 'New Order'}</h2>
-            {isEditMode && selectedTable && <p className="text-sm text-gray-500 mt-1">Table: {selectedTable.number}</p>}
-            {isEditMode && customerInfo.name && <p className="text-sm text-gray-500 mt-1">Customer: {customerInfo.name}</p>}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-bold text-gray-900">{isEditMode ? 'Edit Order' : 'New Order'}</h2>
+                {isEditMode && selectedTable && <p className="text-sm text-gray-500 mt-1">Table: {selectedTable.number}</p>}
+                {isEditMode && customerInfo.name && <p className="text-sm text-gray-500 mt-1">Customer: {customerInfo.name}</p>}
+                {isEditMode && orderType === 'delivery' && customerInfo.address && (
+                  <p className="text-xs text-gray-600 mt-2 whitespace-pre-wrap leading-relaxed">
+                    <MapPin className="w-3.5 h-3.5 inline mr-1 text-purple-500" />
+                    {customerInfo.address}
+                  </p>
+                )}
+              </div>
+              {isEditMode && (
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => setShowOrderActions((open) => !open)}
+                    className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                    title="Order actions"
+                  >
+                    <MoreVertical className="w-5 h-5 text-gray-600" />
+                  </button>
+                  {showOrderActions && (
+                    <div className="absolute right-0 top-11 z-30 w-56 rounded-xl border bg-white shadow-xl py-1 text-gray-700">
+                      <button onClick={() => { setShowOrderActions(false); }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Edit order</button>
+                      <button onClick={openChangeOrderType} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Change order type</button>
+                      <button onClick={openChangeTable} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Change table</button>
+                      <button onClick={handleResendToKds} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Re-send to KDS</button>
+                      <button onClick={() => { printOrderSlip(buildOrder()); setShowOrderActions(false); }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Reprint order</button>
+                      <button onClick={() => { printBill(buildOrder()); setShowOrderActions(false); }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Reprint bill</button>
+                      <button onClick={() => void handleVoidTicket()} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">Void ticket</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex-1 overflow-auto p-4">
@@ -651,6 +766,13 @@ export const POSPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="absolute right-4 top-4 p-2 hover:bg-gray-100 rounded-xl transition-colors"
+              aria-label="Cancel new order"
+            >
+              <X className="w-5 h-5" />
+            </button>
             <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">Select Order Type</h2>
             <p className="text-center text-gray-500 mb-8">How will this order be served?</p>
             <div className="space-y-4">
@@ -686,7 +808,57 @@ export const POSPage: React.FC = () => {
                 );
               })}
             </div>
-            <button onClick={handleConfirmOrderType} className="w-full mt-6 py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 active:scale-95 transition-all">Continue</button>
+            <div className="grid grid-cols-2 gap-3 mt-6">
+              <button onClick={() => navigate('/dashboard')} className="py-3 bg-gray-200 text-gray-800 rounded-xl font-semibold hover:bg-gray-300 active:scale-95 transition-all">Cancel</button>
+              <button onClick={handleConfirmOrderType} className="py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 active:scale-95 transition-all">Continue</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Order Type Modal */}
+      {showChangeTypeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowChangeTypeModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Change Order Type</h2>
+                <p className="text-sm text-gray-500">Choose the new service flow.</p>
+              </div>
+              <button onClick={() => setShowChangeTypeModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              {([
+                { type: 'dine-in' as OrderTypeString, label: 'Dine In', desc: 'Assign a table', icon: Home },
+                { type: 'takeaway' as OrderTypeString, label: 'Takeaway', desc: 'No table required', icon: ShoppingBag },
+                { type: 'delivery' as OrderTypeString, label: 'Delivery', desc: 'Requires delivery address', icon: Car },
+                { type: 'reservation' as OrderTypeString, label: 'Reservation', desc: 'Assign table later', icon: Calendar },
+              ]).map(({ type, label, desc, icon: Icon }) => {
+                const styles = orderTypeStyles[type];
+                const isSelected = orderType === type;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => applyChangedOrderType(type)}
+                    className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-3 ${
+                      isSelected ? `${styles.border} ${styles.bg}` : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${isSelected ? styles.iconBg : 'bg-gray-100'}`}>
+                      <Icon className={`w-5 h-5 ${isSelected ? styles.iconText : 'text-gray-600'}`} />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-bold text-gray-900">{label}</h3>
+                      <p className="text-xs text-gray-500">{desc}</p>
+                    </div>
+                    {isSelected && <Check className={`w-5 h-5 ${styles.iconText} ml-auto`} />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -735,28 +907,8 @@ export const POSPage: React.FC = () => {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-1">Reservation</h2>
-            <p className="text-sm text-gray-500 mb-6">Book a table for your customer</p>
+            <p className="text-sm text-gray-500 mb-6">Book first, assign a table later from reservations.</p>
             <div className="space-y-4">
-              {/* Table Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select Table</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {tables.filter(t => t.status === 'AVAILABLE').map((table) => (
-                    <button
-                      key={table.id}
-                      onClick={() => setSelectedTableId(table.id)}
-                      className={`p-2 rounded-xl border-2 text-sm font-medium transition-all ${
-                        selectedTableId === table.id
-                          ? 'border-pink-500 bg-pink-100'
-                          : 'border-gray-200 hover:border-pink-300'
-                      }`}
-                    >
-                      {table.number}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
@@ -801,7 +953,7 @@ export const POSPage: React.FC = () => {
                     Order Now
                   </button>
                   <button onClick={() => setOrderTiming('later')} className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${orderTiming === 'later' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                    @ Counter
+                    Order @ Counter
                   </button>
                 </div>
               </div>
@@ -813,9 +965,12 @@ export const POSPage: React.FC = () => {
                 placeholder="Any special requests..." rows={2} className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
               </div>
             </div>
-            <button onClick={handleFinalizeOrder} className="w-full mt-6 py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-2">
-              <Check className="w-5 h-5" /> Confirm Reservation
-            </button>
+            <div className="grid grid-cols-2 gap-3 mt-6">
+              <button onClick={() => navigate('/dashboard')} className="py-3 bg-gray-200 text-gray-800 rounded-xl font-semibold hover:bg-gray-300 active:scale-95 transition-all">Cancel</button>
+              <button onClick={handleFinalizeOrder} className="py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-2">
+                <Check className="w-5 h-5" /> Confirm
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -879,12 +1034,12 @@ export const POSPage: React.FC = () => {
             </div>
             <div className="space-y-3 mb-6">
               <p className="text-sm font-medium text-gray-700">Select Options:</p>
-              {(selectedMenuItem.options || []).map((opt) => (
-                <label key={typeof opt === 'string' ? opt : opt.id || opt.name} onClick={() => toggleModifier(typeof opt === 'string' ? opt : opt.name)} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedModifiers.includes(typeof opt === 'string' ? opt : opt.name) ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selectedModifiers.includes(typeof opt === 'string' ? opt : opt.name) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'}`}>
-                    {selectedModifiers.includes(typeof opt === 'string' ? opt : opt.name) && <Check className="w-3 h-3 text-white" />}
+              {getOptionLabels(selectedMenuItem.options).map((opt) => (
+                <label key={opt} onClick={() => toggleModifier(opt)} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedModifiers.includes(opt) ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selectedModifiers.includes(opt) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'}`}>
+                    {selectedModifiers.includes(opt) && <Check className="w-3 h-3 text-white" />}
                   </div>
-                  <span className="text-sm font-medium text-gray-700">{typeof opt === 'string' ? opt : opt.name}</span>
+                  <span className="text-sm font-medium text-gray-700">{opt}</span>
                 </label>
               ))}
             </div>

@@ -1,119 +1,134 @@
 # MAT.ai POS
 
-Smart Restaurant Point of Sale System powered by AI.
+Smart restaurant POS monorepo for QR ordering, POS operations, kitchen display, back office, and the local POS-to-KDS bridge.
 
-## Apps
+## Stack
 
-| App | Description | Port | Stack |
-|-----|-------------|------|-------|
-| `@mat-ai/pos` | Cashier POS (Tablet) | 3000 | React 18 + Vite + Dexie (offline) |
-| `@mat-ai/kitchen` | Kitchen Display | 3001 | React 18 + Vite + WebSocket |
-| `@mat-ai/admin` | Admin Dashboard (Tablet) | 3002 | React 18 + Vite + Prisma/Supabase |
-| `@mat-ai/qr-menu` | Customer QR Menu | 3003 | React 18 + Vite |
-| `@mat-ai/api` | Backend API | 4000 | Node.js + Prisma + Supabase |
+- Node.js 20+
+- pnpm 11.x
+- Turborepo
+- React + Vite for web apps
+- NestJS + Prisma for the API
+- WebSocket bridge for local POS to KDS communication
 
-## Tech Stack
+## Workspace
 
-- **Frontend**: React 18 + Vite + TypeScript
-- **Styling**: Tailwind CSS
-- **State**: Zustand
-- **Offline DB**: IndexedDB (Dexie.js) — POS & Kitchen
-- **Cloud DB**: PostgreSQL via Prisma + Supabase — Admin
-- **Real-time**: WebSocket (Kitchen ↔ POS)
-- **Sync**: Supabase (cloud backup & multi-device)
-- **Mobile**: Capacitor (PWA)
+```text
+apps/
+  pos/          Cashier POS, table plan, payments, reservations, receipts
+  kitchen/      KDS screen for kitchen terminals
+  qr-menu/      Customer QR ordering app
+  backoffice/   Management and reporting app
+  admin/        Admin dashboard app
 
-## Project Structure
+services/
+  api/          NestJS API and Prisma database service
+  pos-bridge/   Local WebSocket bridge used by POS and KDS
 
-
+packages/
+  backoffice/   Shared backoffice navigation and domain config
+  ui/           Shared UI primitives
+  ws/           Shared WebSocket client helpers
+  types/        Shared TypeScript types
 ```
-mat-ai-pos/
-├── apps/
-│   ├── pos/          # Cashier POS (offline-first)
-│   ├── kitchen/      # Kitchen Display (real-time)
-│   ├── admin/        # Admin Dashboard (cloud)
-│   └── qr-menu/      # Customer QR Menu
-├── services/
-│   └── api/          # NestJS backend API
-│       ├── prisma/   # Prisma schema & migrations
-│       ├── src/      # API modules & endpoints
-│       ├── dist/     # Build output
-│       ├── docker-compose.yml
-│       └── sync-client.ts
-├── packages/
-│   ├── types/        # Shared TypeScript definitions
-│   ├── ui/           # Shared UI components
-│   ├── db/           # Database layer (Dexie + Prisma adapters)
-│   ├── ws/           # WebSocket client/server
-│   ├── sync/         # Cloud sync logic
-│   ├── backoffice/   # backoffice 
-│   └── ai/           # AI module (planned)
-└── tooling/
-    ├── eslint-config/
-    ├── typescript-config/
-    └── tailwind-config/
 
-```
-## Quick Start
+## Install
 
 ```bash
-# Install dependencies
 pnpm install
+pnpm --filter @mat-ai/backend db:generate
+```
 
-# Run individual apps
-pnpm pos:dev      # POS only
-pnpm kitchen:dev  # Kitchen only
-pnpm admin:dev    # Admin only
-pnpm api:dev      # or: cd services/api && pnpm start:dev
+The repo is pinned to `pnpm@11.7.0` in `packageManager`.
 
-# Run all apps + API
-pnpm dev
-
-Environment Setup
-
-Copy .env.example to .env and configure:
-VITE_SUPABASE_URL / VITE_SUPABASE_KEY — cloud sync
-DATABASE_URL — Prisma connection (Admin API)
-WS_PORT — WebSocket server (default: 4001)
-
-
-## License
-
-MIT
-
-## Github
-
-https://github.com/panamera-network/mat-ai-pos
-
-## Git Workflow
+## Run Everything
 
 ```bash
-# Check status
-cd D:\mat-ai-pos
-git status
+pnpm start
+```
 
-# Stage and commit
-git add .
-git commit -m "type: description"
+This runs the Turbo dev graph, including frontend apps, API dev server, and the POS bridge when their workspace scripts are available.
 
-# Push
-git push origin main
-# atau
-git push origin master
+## Run Individually
 
-Buka GitHub repo, check files ada ke tak
+```bash
+pnpm api:dev
+pnpm pos:dev
+pnpm kitchen:dev
+pnpm qr:dev
+pnpm backoffice:dev
+pnpm admin:dev
+pnpm bridge:dev
+```
 
-❓ Kalau Belum Setup Remote
+Default local ports:
 
-# Check remote
-git remote -v
+| Service | Default |
+| --- | --- |
+| API | `http://localhost:4000` |
+| POS Bridge | `http://localhost:8080` and `ws://localhost:8080` |
+| KDS | `http://localhost:3001` |
+| Backoffice | `http://localhost:3004` |
 
-# Kalau takde, add:
-git remote add origin https://github.com/YOUR_USERNAME/mat-ai-pos.git
+Other Vite apps use their configured/default Vite port unless overridden locally.
 
-# Then push:
-git push -u origin main
+## Current Order Flow
 
-One-Liner (PowerShell)
+```text
+QR Menu -> API / Cloud -> POS dashboard -> POS approve -> POS Bridge -> KDS
+POS manual order -> POS Bridge -> KDS
+POS payment -> API -> table released
+Reservation -> POS reservation list -> assign table -> POS Bridge -> KDS
+```
 
-cd D:\mat-ai-pos; git add .; git commit -m ["feat: full backend construction";] git push origin main
+Important behavior:
+
+- Dine-in orders occupy the selected table.
+- Takeaway and delivery stay as active order cards after approval.
+- Reservations do not need a table at creation time.
+- Reservations are not sent to KDS until a table is assigned from the Reservation page.
+- Dashboard active table view shows today's reservation cards; the Reservation page can show all reservations.
+- KDS connects to the local POS Bridge IP and port, not directly to the browser POS app.
+
+## Local KDS Bridge
+
+The POS browser cannot safely run a WebSocket server by itself, so the bridge is a small Node service.
+
+```bash
+pnpm bridge:dev
+```
+
+Bridge endpoints:
+
+- `GET /health`
+- `POST /orders/broadcast`
+- `ws://<pos-device-ip>:8080`
+
+For real devices, set KDS to the POS/host machine LAN IP, for example `ws://192.168.100.122:8080`.
+
+## Useful Checks
+
+```bash
+pnpm --filter @mat-ai/pos type-check
+pnpm --filter @mat-ai/pos build
+pnpm --filter @mat-ai/qr-menu type-check
+pnpm --filter @mat-ai/qr-menu build
+pnpm --filter @mat-ai/kitchen build
+pnpm --filter @mat-ai/backend build
+```
+
+If backend build reports missing Prisma exports, regenerate the Prisma client first:
+
+```bash
+pnpm --filter @mat-ai/backend db:generate
+```
+
+## App READMEs
+
+- [POS](apps/pos/README.md)
+- [Kitchen Display](apps/kitchen/README.md)
+- [QR Menu](apps/qr-menu/README.md)
+- [Backoffice](apps/backoffice/README.md)
+- [Admin](apps/admin/README.md)
+- [API](services/api/README.md)
+- [POS Bridge](services/pos-bridge/README.md)

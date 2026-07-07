@@ -643,6 +643,12 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  services/pos-bridge:
+    dependencies:
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
+
   tooling/eslint-config:
     dependencies:
       '@eslint/js':

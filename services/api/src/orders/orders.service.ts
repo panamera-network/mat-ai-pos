@@ -22,7 +22,7 @@ export class OrdersService {
   async create(createOrderDto: CreateOrderDto) {
     const cleanTableId = createOrderDto.tableId?.trim() || undefined;
 
-    const tableId = ['DINE_IN', 'RESERVATION'].includes(createOrderDto.type) 
+    const tableId = createOrderDto.type === 'DINE_IN'
       ? cleanTableId 
       : undefined;
 
@@ -146,16 +146,58 @@ export class OrdersService {
   }
 
   async update(id: string, updateOrderDto: UpdateOrderDto) {
+    const cleanTableId = updateOrderDto.tableId?.trim() || undefined;
+    const nextTableId = updateOrderDto.type === 'DINE_IN' ? cleanTableId : updateOrderDto.type ? null : undefined;
+    const items = updateOrderDto.items?.map(item => ({
+      menuItemId: item.menuItemId,
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: item.totalPrice,
+      options: item.options || (item as any).modifiers || undefined,
+      notes: item.notes || undefined,
+    }));
+
     const order = await this.prisma.order.update({
       where: { id },
       data: {
+        type: updateOrderDto.type,
+        source: updateOrderDto.source,
         status: updateOrderDto.status,
+        totalAmount: updateOrderDto.totalAmount,
+        taxAmount: updateOrderDto.taxAmount,
         paidAmount: updateOrderDto.paidAmount,
         paymentMethod: updateOrderDto.paymentMethod,
+        customerName: updateOrderDto.customerName,
+        customerPhone: updateOrderDto.customerPhone,
+        customerAddress: updateOrderDto.customerAddress,
+        tableId: nextTableId,
+        pax: updateOrderDto.pax,
+        reservationTime: updateOrderDto.reservationTime
+          ? new Date(updateOrderDto.reservationTime)
+          : updateOrderDto.reservationTime === null
+            ? null
+            : undefined,
+        notes: updateOrderDto.notes,
         completedAt: updateOrderDto.status === OrderStatus.PAID ? new Date() : undefined,
+        ...(items
+          ? {
+              items: {
+                deleteMany: {},
+                create: items,
+              },
+            }
+          : {}),
       },
       include: { items: true, table: true, customer: true },
     });
+
+    if (updateOrderDto.status === OrderStatus.PAID && order.tableId) {
+      await this.prisma.diningTable.update({
+        where: { id: order.tableId },
+        data: { status: 'AVAILABLE' },
+      });
+    }
 
     // ============================================================
     // LOYALTY POINTS WHEN ORDER PAID

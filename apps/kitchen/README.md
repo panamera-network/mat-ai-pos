@@ -1,55 +1,72 @@
-# @mat-ai/kitchen
+# MAT.ai Kitchen Display
 
-Kitchen Display System (KDS) for MAT.ai POS
+Kitchen Display System (KDS) app for kitchen terminals. It receives orders from the POS Bridge over WebSocket.
 
-## Features
-
-- **Real-time Orders**: Receive orders from POS via WebSocket
-- **Kanban Board**: Card-based layout (like reference image)
-- **Timer Colors**: Green (0-15min) → Yellow (15-25min) → Red (25min+)
-- **Item Tracking**: Click item to mark done (✓)
-- **Order Done**: Click Done button when all items complete
-- **Sound Alert**: Beep on new order
-- **Order History**: View completed orders
-- **Settings**: IP config, station categories, sound, reset memory
-- **Mock Mode**: Demo with sample orders (no POS needed)
-
-## Pages
-
-| Route | Page | Description |
-|-------|------|-------------|
-| `/` | KitchenDisplay | Main KDS board |
-| `/history` | OrderHistory | Completed orders |
-| `/settings` | Settings | Config & reset |
-
-## Quick Start
+## Run
 
 ```bash
-# From repo root
-pnpm install
-pnpm kitchen:dev    # Runs on port 3001
+pnpm kitchen:dev
+pnpm --filter @mat-ai/kitchen build
 ```
 
-## Mock Mode
+Default dev URL:
 
-Set `USE_MOCK = true` in `src/pages/KitchenDisplay.tsx` to run without POS server.
+```text
+http://localhost:3001
+```
 
-## WebSocket Protocol
+## Connection Model
 
-See `@mat-ai/ws` package for message types.
+The KDS connects to the POS Bridge, not directly to the POS browser tab.
 
-### Connection Flow
+Same machine:
 
-1. KDS connects to `ws://{posIp}:{posPort}`
-2. Sends `STATION_REGISTER` with name & categories
-3. Receives `ORDER_CREATED` when POS submits order
-4. Sends `ITEM_DONE` when item marked complete
-5. Sends `ORDER_DONE` when order complete
+```text
+ws://localhost:8080
+```
 
-## Tech Stack
+Separate Android tablet or kitchen terminal:
 
-- React 18 + Vite + TypeScript
-- Tailwind CSS
-- Zustand (state)
-- WebSocket (real-time)
-- localStorage (history & settings)
+```text
+ws://<pos-host-lan-ip>:8080
+```
+
+Example:
+
+```text
+ws://192.168.100.122:8080
+```
+
+## Expected Flow
+
+```text
+POS or QR-approved order -> POS Bridge -> KDS
+```
+
+Orders appear in KDS after:
+
+- POS manual dine-in, takeaway, or delivery order is saved.
+- QR dine-in, takeaway, or delivery order is approved in POS.
+- Reservation is assigned to a table from the POS Reservation page.
+
+Reservations are intentionally not sent to KDS until table assignment.
+
+## Settings
+
+Use the KDS Settings screen to configure:
+
+- Bridge host
+- Bridge port
+- Kitchen station identity
+
+If KDS runs on another device, use the LAN IP of the machine running `pnpm bridge:dev`.
+
+## Troubleshooting
+
+- A WebSocket `error` warning normally means the bridge is unreachable or still starting.
+- If KDS is on Android/iPad, do not use `localhost` unless the bridge is running on that same device.
+- Check the bridge health endpoint from the KDS device network:
+
+```text
+http://<pos-host-lan-ip>:8080/health
+```

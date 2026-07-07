@@ -12,6 +12,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import type { Receipt as ReceiptType, PaymentMethod } from '@mat-ai/types';
+import { printReceipt } from '../lib/print';
 
 // Lightweight view for display (no need ReceiptView, just pick what we need)
 interface ReceiptDisplay {
@@ -90,9 +91,11 @@ export const ReceiptHistoryPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const [receipts, setReceipts] = useState<ReceiptDisplay[]>([]);
+  const [rawReceipts, setRawReceipts] = useState<ReceiptType[]>([]);
 
   useEffect(() => {
     const rawReceipts = getReceipts();
+    setRawReceipts(rawReceipts);
     setReceipts(rawReceipts.map(toDisplay));
   }, []);
 
@@ -104,7 +107,8 @@ export const ReceiptHistoryPage: React.FC = () => {
   );
 
   const handlePrint = (receipt: ReceiptDisplay) => {
-    alert(`Printing receipt ${receipt.receiptNo}...`);
+    const rawReceipt = rawReceipts.find((item) => item.id === receipt.id);
+    if (rawReceipt) printReceipt(rawReceipt);
   };
 
   const handleReprintOrder = (receipt: ReceiptDisplay) => {

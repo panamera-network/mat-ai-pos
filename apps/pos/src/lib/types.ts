@@ -123,12 +123,12 @@ export function buildOrderPayload(
   selectedTableId: string,
   orderType: string,
 ): any {
-  const hasTable = orderType === 'dine-in' || orderType === 'reservation';
+  const hasTable = orderType === 'dine-in';
 
   return {
     orderNumber: order.orderNumber || `ORD-${Date.now()}`,
     type: toBackendOrderType(orderType),
-    source: 'POS',
+    source: order.source || 'POS',
     totalAmount: order.totalAmount,
     taxAmount: order.taxAmount,
     customerName: order.customerInfo?.name,

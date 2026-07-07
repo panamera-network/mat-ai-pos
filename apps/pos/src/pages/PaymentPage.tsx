@@ -10,8 +10,21 @@ import { normalizeBackendOrder, generateReceipt } from '../lib/types';
 import { db } from '@mat-ai/db';
 import { syncQueue } from '@mat-ai/sync';
 import { useAuthStore } from '@mat-ai/backoffice';
+import { printReceipt } from '../lib/print';
 
-const API_URL = import.meta.env.VITE_WS_URL || 'http://localhost:4000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+const updateLocalTableStatus = (tableId: string, status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'CLEANING') => {
+  try {
+    const tables = JSON.parse(localStorage.getItem('mat-pos-tables') || '[]');
+    const updated = Array.isArray(tables)
+      ? tables.map((table) => table.id === tableId ? { ...table, status } : table)
+      : [];
+    localStorage.setItem('mat-pos-tables', JSON.stringify(updated));
+  } catch {
+    // local table cache is best-effort only
+  }
+};
 
 interface PaymentMethodOption {
   id: string;
@@ -25,7 +38,7 @@ const paymentMethods: PaymentMethodOption[] = [
   { id: 'cash', name: 'Cash', icon: <Banknote className="w-6 h-6" />, color: 'bg-green-500', backendValue: 'CASH' },
   { id: 'qr', name: 'QR Pay', icon: <QrCode className="w-6 h-6" />, color: 'bg-blue-500', backendValue: 'QR_PAY' },
   { id: 'card', name: 'Card', icon: <CreditCard className="w-6 h-6" />, color: 'bg-purple-500', backendValue: 'CARD' },
-  { id: 'delivery', name: 'Delivery', icon: <BikeIcon className="w-6 h-6" />, color: 'bg-orange-500', backendValue: 'DELIVERY' },
+  { id: 'delivery', name: 'Delivery', icon: <BikeIcon className="w-6 h-6" />, color: 'bg-orange-500', backendValue: 'CASH' },
 ];
 
 export const PaymentPage: React.FC = () => {
@@ -159,6 +172,7 @@ export const PaymentPage: React.FC = () => {
         }).catch(err => console.error('Failed to update table status:', err));
 
         // Update local table
+        updateLocalTableStatus(order.tableId, 'AVAILABLE');
         await db.diningTables.update(order.tableId, { status: 'AVAILABLE' });
       }
 
@@ -173,6 +187,7 @@ export const PaymentPage: React.FC = () => {
 
       // 4. Save receipt to Dexie
       await db.receipts.put(receipt);
+      printReceipt(receipt);
 
       // 5. Queue receipt for sync
       await syncQueue.enqueue('receipts', 'CREATE', receipt, receipt.id);
@@ -205,6 +220,7 @@ export const PaymentPage: React.FC = () => {
       );
 
       await db.receipts.put(receipt);
+      printReceipt(receipt);
       await syncQueue.enqueue('receipts', 'CREATE', receipt, receipt.id);
 
       await db.orders.update(effectiveOrderId, {
@@ -218,6 +234,11 @@ export const PaymentPage: React.FC = () => {
         paidAmount: total,
         paymentMethod: selectedMethodData.backendValue,
       }, effectiveOrderId);
+
+      if (order.tableId) {
+        updateLocalTableStatus(order.tableId, 'AVAILABLE');
+        await db.diningTables.update(order.tableId, { status: 'AVAILABLE' });
+      }
 
       alert('Payment saved locally. Will sync when online.');
     }

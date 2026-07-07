@@ -25,6 +25,9 @@ import type { KdsSettings } from '../types/kitchen';
 
 export const Settings: React.FC = () => {
   const navigate = useNavigate();
+  const hostName = typeof window !== 'undefined' ? window.location.hostname : '';
+  const bridgeIp =
+    hostName && hostName !== 'localhost' && hostName !== '127.0.0.1' ? hostName : '192.168.100.122';
   const [settings, setSettings] = useState<KdsSettings>(getSettings);
   const [saved, setSaved] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -36,6 +39,14 @@ export const Settings: React.FC = () => {
 
   const handleSave = () => {
     saveSettings(settings);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const useBridgeAddress = () => {
+    const updated = { ...settings, posIp: bridgeIp, posPort: 8080 };
+    setSettings(updated);
+    saveSettings(updated);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -88,18 +99,31 @@ export const Settings: React.FC = () => {
             </CardHeader>
 
             <div className="space-y-4 px-6 pb-6">
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={useBridgeAddress}
+                leftIcon={<Wifi className="w-4 h-4" />}
+              >
+                Use {bridgeIp}:8080
+              </Button>
               <Input
-                label="POS IP Address"
+                label="Bridge / POS IP Address"
+                type="text"
+                inputMode="decimal"
                 value={settings.posIp}
                 onChange={(e) => handleChange('posIp', e.target.value)}
-                placeholder="192.168.1.100"
+                placeholder={bridgeIp}
+                helper="Use the bridge PC LAN IP, not localhost, when KDS runs on another device."
                 fullWidth
               />
               <Input
-                label="POS Port"
+                label="Bridge Port"
                 type="number"
+                inputMode="numeric"
                 value={settings.posPort}
                 onChange={(e) => handleChange('posPort', parseInt(e.target.value) || 8080)}
+                placeholder="8080"
                 fullWidth
               />
               <Input
