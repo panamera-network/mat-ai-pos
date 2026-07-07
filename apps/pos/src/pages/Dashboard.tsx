@@ -15,7 +15,7 @@ import {
 } from '@mat-ai/backoffice';
 import { useSocket } from '../hooks/useSocket';
 import { wsServer } from '../lib/ws';
-import type { Order, DiningTable, OrderType } from '@mat-ai/types';
+import type { ItemStatus, Order, DiningTable, OrderType } from '@mat-ai/types';
 import { normalizeBackendOrder, toFrontendOrderType } from '../lib/types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
@@ -112,6 +112,75 @@ export function Dashboard() {
   }, [socket]);
 
   useEffect(() => { if (!wsServer.isRunning) wsServer.start(); }, []);
+
+  useEffect(() => {
+    const updateOrderState = (order: Order) => {
+      setActiveOrders(prev => {
+        const exists = prev.some(o => o.id === order.id);
+        if (!isActiveOrder(order)) return prev.filter(o => o.id !== order.id);
+        return exists ? prev.map(o => o.id === order.id ? order : o) : [order, ...prev];
+      });
+      setWsOrders(prev => prev.map(o => o.id === order.id ? order : o).filter(isActiveOrder));
+    };
+
+    const findKnownOrder = (orderId: string) => {
+      const map = new Map<string, Order>();
+      [...activeOrders, ...wsOrders].forEach(order => map.set(order.id, order));
+      return map.get(orderId);
+    };
+
+    const persistItemStatus = async (orderId: string, itemIndex: number, status: ItemStatus) => {
+      let order = findKnownOrder(orderId);
+
+      if (!order) {
+        const res = await fetch(`${API_URL}/orders/${orderId}`);
+        if (!res.ok) throw new Error(`Order fetch failed: ${res.status}`);
+        order = normalizeBackendOrder(await res.json());
+      }
+
+      const item = order.items[itemIndex];
+      if (!item?.id) throw new Error(`Item index ${itemIndex} not found for order ${orderId}`);
+
+      const res = await fetch(`${API_URL}/orders/items/${item.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error(`Item status update failed: ${res.status}`);
+      const data = await res.json();
+      if (data.order) updateOrderState(normalizeBackendOrder(data.order));
+    };
+
+    const persistOrderStatus = async (orderId: string, status: Order['status']) => {
+      const res = await fetch(`${API_URL}/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error(`Order status update failed: ${res.status}`);
+      updateOrderState(normalizeBackendOrder(await res.json()));
+    };
+
+    return wsServer.onKitchenEvent((event) => {
+      void (async () => {
+        try {
+          if (event.type === 'ITEM_DONE') {
+            await persistItemStatus(event.payload.orderId, event.payload.itemIndex, 'READY');
+            return;
+          }
+          if (event.type === 'ITEM_UNDONE') {
+            await persistItemStatus(event.payload.orderId, event.payload.itemIndex, 'PENDING');
+            return;
+          }
+          if (event.type === 'ORDER_DONE') {
+            await persistOrderStatus(event.payload.orderId, 'READY');
+          }
+        } catch (error) {
+          console.warn('[POS-WS] Failed to sync KDS event to API:', error);
+        }
+      })();
+    });
+  }, [activeOrders, wsOrders]);
 
   const allOrdersMap = new Map<string, Order>();
   [...activeOrders, ...wsOrders].forEach(o => allOrdersMap.set(o.id, o));

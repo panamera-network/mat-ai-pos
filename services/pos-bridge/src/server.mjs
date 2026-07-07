@@ -108,7 +108,7 @@ wss.on('connection', (ws) => {
         stations.delete(tempId);
         stations.set(stationId, station);
         ws.stationId = stationId;
-        console.log(`[POS-BRIDGE] KDS connected: ${station.name} (${stationId})`);
+        console.log(`[POS-BRIDGE] Station connected: ${station.name} (${stationId})`);
         return;
       }
 
@@ -126,7 +126,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     const stationId = ws.stationId || tempId;
     const station = stations.get(stationId);
-    if (station) console.log(`[POS-BRIDGE] KDS disconnected: ${station.name} (${stationId})`);
+    if (station) console.log(`[POS-BRIDGE] Station disconnected: ${station.name} (${stationId})`);
     stations.delete(stationId);
     stations.delete(tempId);
   });

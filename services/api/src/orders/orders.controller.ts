@@ -3,7 +3,7 @@ import { Controller, Get, Post, Patch, Body, Param, Query } from '@nestjs/common
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { OrderStatus } from '@prisma/client';
+import { ItemStatus, OrderStatus } from '@prisma/client';
 
 @Controller('orders')
 export class OrdersController {
@@ -26,6 +26,16 @@ export class OrdersController {
   @Get('kitchen-queue')
   getKitchenQueue() {
     return this.ordersService.getKitchenQueue();
+  }
+
+  @Patch('items/:itemId/status')
+  async updateItemStatus(
+    @Param('itemId') itemId: string,
+    @Body('status') status: ItemStatus,
+  ) {
+    const item = await this.ordersService.updateItemStatus(itemId, status);
+    const order = await this.ordersService.findOne(item.orderId);
+    return { item, order };
   }
 
   @Get(':id')

@@ -1,6 +1,16 @@
 import type { Order, KitchenStatus, ItemStatus } from '@mat-ai/types';
 
 let running = false;
+let bridgeSocket: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let intentionallyStopped = false;
+
+type KitchenBridgeEvent =
+  | { type: 'ITEM_DONE'; payload: { orderId: string; itemIndex: number; stationId?: string } }
+  | { type: 'ITEM_UNDONE'; payload: { orderId: string; itemIndex: number; stationId?: string } }
+  | { type: 'ORDER_DONE'; payload: { orderId: string; stationId?: string; completedAt?: string } };
+
+const kitchenEventListeners = new Set<(event: KitchenBridgeEvent) => void>();
 
 function getBridgeSettings(): { host: string; port: number } {
   try {
@@ -43,6 +53,70 @@ function itemStatusToKitchenStatus(status: ItemStatus): KitchenStatus {
   }
 }
 
+function getBridgeWsUrl(): string {
+  const { host, port } = getBridgeSettings();
+  return `ws://${host}:${port}`;
+}
+
+function notifyKitchenEvent(event: KitchenBridgeEvent): void {
+  kitchenEventListeners.forEach((listener) => listener(event));
+}
+
+function scheduleReconnect(): void {
+  if (intentionallyStopped || reconnectTimer) return;
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectToBridge();
+  }, 3000);
+}
+
+function connectToBridge(): void {
+  if (!running) return;
+  if (bridgeSocket?.readyState === WebSocket.OPEN || bridgeSocket?.readyState === WebSocket.CONNECTING) return;
+
+  const url = getBridgeWsUrl();
+  try {
+    bridgeSocket = new WebSocket(url);
+
+    bridgeSocket.onopen = () => {
+      console.info('[POS-WS] Connected to KDS bridge:', url);
+      bridgeSocket?.send(JSON.stringify({
+        type: 'STATION_REGISTER',
+        payload: {
+          stationName: 'POS',
+          categories: ['pos'],
+          deviceType: 'desktop',
+        },
+        timestamp: new Date().toISOString(),
+      }));
+    };
+
+    bridgeSocket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message?.type === 'ITEM_DONE' || message?.type === 'ITEM_UNDONE' || message?.type === 'ORDER_DONE') {
+          notifyKitchenEvent(message as KitchenBridgeEvent);
+        }
+      } catch (error) {
+        console.warn('[POS-WS] Failed to parse bridge message:', error);
+      }
+    };
+
+    bridgeSocket.onclose = () => {
+      bridgeSocket = null;
+      scheduleReconnect();
+    };
+
+    bridgeSocket.onerror = (error) => {
+      console.warn('[POS-WS] Bridge listener error. Retrying...', error);
+    };
+  } catch (error) {
+    console.warn('[POS-WS] Failed to connect to bridge listener:', error);
+    scheduleReconnect();
+  }
+}
+
 export const wsServer = {
   get isRunning() {
     return running;
@@ -52,12 +126,21 @@ export const wsServer = {
     if (running) return;
 
     running = true;
+    intentionallyStopped = false;
     const { host, port } = getBridgeSettings();
     console.info(`[POS-WS] POS bridge client ready at http://${host}:${port}.`);
+    connectToBridge();
   },
 
   stop(): void {
+    intentionallyStopped = true;
     running = false;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    bridgeSocket?.close();
+    bridgeSocket = null;
     console.info('[POS-WS] POS bridge client stopped.');
   },
 
@@ -77,5 +160,10 @@ export const wsServer = {
 
     const kitchenStatus = itemStatusToKitchenStatus(itemStatus);
     console.info('[POS-WS] Local order update bridge not implemented yet:', orderId, kitchenStatus);
+  },
+
+  onKitchenEvent(listener: (event: KitchenBridgeEvent) => void): () => void {
+    kitchenEventListeners.add(listener);
+    return () => kitchenEventListeners.delete(listener);
   },
 };
