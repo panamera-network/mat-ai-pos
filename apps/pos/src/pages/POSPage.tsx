@@ -9,7 +9,7 @@ import {
 import type { Order, OrderItem, MenuItem, Category, DiningTable, CustomerInfo, MenuItemOptions,  } from '@mat-ai/types';
 import { toBackendOrderType, buildOrderPayload, normalizeBackendOrder } from '../lib/types';
 import { wsServer } from '../lib/ws';
-import { printBill, printOrderSlip } from '../lib/print';
+import { printBill } from '../lib/print';
 
 const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000';
 
@@ -344,7 +344,7 @@ export const POSPage: React.FC = () => {
     }
   };
 
-  const handleResendToKds = () => {
+  const handleReprintOrderToKds = () => {
     if (!existingOrder) return;
     wsServer.broadcastOrder(buildOrder());
     setShowOrderActions(false);
@@ -685,8 +685,7 @@ export const POSPage: React.FC = () => {
                       <button onClick={() => { setShowOrderActions(false); }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Edit order</button>
                       <button onClick={openChangeOrderType} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Change order type</button>
                       <button onClick={openChangeTable} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Change table</button>
-                      <button onClick={handleResendToKds} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Re-send to KDS</button>
-                      <button onClick={() => { printOrderSlip(buildOrder()); setShowOrderActions(false); }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Reprint order</button>
+                      <button onClick={handleReprintOrderToKds} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Reprint order to KDS</button>
                       <button onClick={() => { printBill(buildOrder()); setShowOrderActions(false); }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50">Reprint bill</button>
                       <button onClick={() => void handleVoidTicket()} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">Void ticket</button>
                     </div>
