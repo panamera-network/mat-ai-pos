@@ -92,7 +92,7 @@ Important behavior:
 
 ## Local KDS Bridge
 
-The POS browser cannot safely run a WebSocket server by itself, so the bridge is a small Node service.
+The POS browser cannot safely run a WebSocket server or raw TCP printer connection by itself, so the bridge is a small Node service.
 
 ```bash
 pnpm bridge:dev
@@ -102,9 +102,19 @@ Bridge endpoints:
 
 - `GET /health`
 - `POST /orders/broadcast`
+- `POST /print`
 - `ws://<pos-device-ip>:8080`
 
 For real devices, set KDS to the POS/host machine LAN IP, for example `ws://192.168.100.122:8080`.
+
+## Printing
+
+POS supports two print modes from POS Settings:
+
+- Browser print: default mode, opens the browser print dialog.
+- ESC/POS network printer: POS sends print jobs to the POS Bridge, and the bridge prints to the configured printer IP/port, usually port `9100`.
+
+The print helpers are shared by payment receipt printing, receipt history reprint, unpaid bill print, and kitchen order reprint.
 
 ## Useful Checks
 

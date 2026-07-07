@@ -18,6 +18,12 @@ interface BridgeSettings {
   bridgePort: number;
 }
 
+interface PrinterSettings {
+  printerMode: 'browser' | 'escpos-network';
+  printerHost: string;
+  printerPort: number;
+}
+
 export function SettingsPage() {
   const { staff, logout } = useAuthStore();
   const roleName = staff?.role?.name || 'Unknown';
@@ -66,7 +72,28 @@ export function SettingsPage() {
     };
   });
 
-  const savePosSettings = (partial: Partial<FallbackSettings & BridgeSettings>) => {
+  const [printerSettings, setPrinterSettings] = useState<PrinterSettings>(() => {
+    const saved = localStorage.getItem('mat-pos-settings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          printerMode: parsed.printerMode || 'browser',
+          printerHost: parsed.printerHost || '',
+          printerPort: Number(parsed.printerPort || 9100),
+        };
+      } catch {
+        // fall through to default
+      }
+    }
+    return {
+      printerMode: 'browser',
+      printerHost: '',
+      printerPort: 9100,
+    };
+  });
+
+  const savePosSettings = (partial: Partial<FallbackSettings & BridgeSettings & PrinterSettings>) => {
     let current = {};
     try {
       current = JSON.parse(localStorage.getItem('mat-pos-settings') || '{}');
@@ -85,6 +112,12 @@ export function SettingsPage() {
   const handleBridgeChange = (field: keyof BridgeSettings, value: string | number) => {
     const updated = { ...bridgeSettings, [field]: value };
     setBridgeSettings(updated);
+    savePosSettings(updated);
+  };
+
+  const handlePrinterChange = (field: keyof PrinterSettings, value: string | number) => {
+    const updated = { ...printerSettings, [field]: value };
+    setPrinterSettings(updated);
     savePosSettings(updated);
   };
 
@@ -125,6 +158,11 @@ export function SettingsPage() {
     { value: 'none', label: 'Disable Fallback' },
   ];
 
+  const printerModeOptions = [
+    { value: 'browser', label: 'Browser Print' },
+    { value: 'escpos-network', label: 'ESC/POS Network Printer' },
+  ];
+
   return (
     <div className="space-y-4 md:space-y-6">
       <h1 className="text-xl md:text-2xl font-bold text-gray-900">Settings</h1>
@@ -162,6 +200,44 @@ export function SettingsPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Printer Settings */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-4 md:px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+            <Printer className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-gray-900">Printer</h2>
+            <p className="text-xs text-gray-500">Browser print by default, or route ESC/POS printing through POS Bridge.</p>
+          </div>
+        </div>
+        <div className="p-4 md:p-6 grid md:grid-cols-3 gap-4">
+          <Select
+            label="Printer Mode"
+            value={printerSettings.printerMode}
+            onChange={(e) => handlePrinterChange('printerMode', e.target.value)}
+            options={printerModeOptions}
+            fullWidth
+          />
+          <Input
+            label="Printer Host"
+            value={printerSettings.printerHost}
+            onChange={(e) => handlePrinterChange('printerHost', e.target.value)}
+            placeholder="192.168.1.50"
+            disabled={printerSettings.printerMode === 'browser'}
+            fullWidth
+          />
+          <Input
+            label="Printer Port"
+            type="number"
+            value={printerSettings.printerPort}
+            onChange={(e) => handlePrinterChange('printerPort', Number(e.target.value) || 9100)}
+            disabled={printerSettings.printerMode === 'browser'}
+            fullWidth
+          />
+        </div>
       </div>
 
       {/* KDS Bridge Settings */}

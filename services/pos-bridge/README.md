@@ -28,6 +28,7 @@ ws://localhost:8080
 ```text
 GET  /health
 POST /orders/broadcast
+POST /print
 ```
 
 KDS clients connect over WebSocket:
@@ -57,3 +58,23 @@ Make sure firewall rules allow inbound traffic on port `8080`.
 ## Events
 
 The bridge broadcasts order payloads from POS to all connected KDS clients. It is intentionally lightweight and does not own order persistence; the API remains the source of truth.
+
+## Printing
+
+The bridge can forward print jobs to an ESC/POS network printer.
+
+POS sends:
+
+```text
+POST /print
+```
+
+With printer settings:
+
+```text
+mode: escpos-network
+host: <printer-lan-ip>
+port: 9100
+```
+
+If the printer is unavailable, POS falls back to browser printing.

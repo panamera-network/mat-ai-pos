@@ -61,13 +61,24 @@ http://<bridge-host>:8080/orders/broadcast
 
 ## Printing
 
-Current printing uses browser print windows for:
+Printing is controlled from POS Settings.
+
+Available modes:
+
+- Browser print: default mode, opens a browser print window.
+- ESC/POS network printer: sends jobs through the POS Bridge to a network receipt printer.
+
+Supported print actions:
 
 - Kitchen order slip
 - Unpaid bill
 - Paid receipt
 
-Hardware ESC/POS printer integration can be added later behind the same print helpers.
+For ESC/POS network printing, run the POS Bridge and set:
+
+- Printer mode: `ESC/POS Network Printer`
+- Printer host: printer LAN IP
+- Printer port: usually `9100`
 
 ## Environment
 
