@@ -8,9 +8,14 @@ import {
 import type { Order, PaymentMethod } from '@mat-ai/types';
 import { normalizeBackendOrder, generateReceipt } from '../lib/types';
 import { db } from '@mat-ai/db';
-import { syncQueue } from '@mat-ai/sync';
 import { useAuthStore } from '@mat-ai/backoffice';
 import { printReceipt } from '../lib/print';
+import {
+  enqueueOrderPaidSync,
+  enqueueReceiptSync,
+  enqueueTableStatusSync,
+  tryCreateReceiptOnline,
+} from '../lib/posSync';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -165,11 +170,18 @@ export const PaymentPage: React.FC = () => {
 
       // 2. Update table status to available
       if (order.tableId) {
-        await fetch(`${API_URL}/tables/${order.tableId}`, {
+        const tableRes = await fetch(`${API_URL}/tables/${order.tableId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'AVAILABLE' }),
-        }).catch(err => console.error('Failed to update table status:', err));
+        }).catch((err) => {
+          console.warn('[Sync] Table release queued:', err);
+          return null;
+        });
+
+        if (!tableRes?.ok) {
+          await enqueueTableStatusSync(order.tableId, 'AVAILABLE');
+        }
 
         // Update local table
         updateLocalTableStatus(order.tableId, 'AVAILABLE');
@@ -189,8 +201,11 @@ export const PaymentPage: React.FC = () => {
       await db.receipts.put(receipt);
       printReceipt(receipt);
 
-      // 5. Queue receipt for sync
-      await syncQueue.enqueue('receipts', 'CREATE', receipt, receipt.id);
+      // 5. Save receipt to API or queue it if receipt service is offline
+      const receiptSynced = await tryCreateReceiptOnline(receipt);
+      if (!receiptSynced) {
+        await enqueueReceiptSync(receipt);
+      }
 
       // 6. Update order in Dexie
       await db.orders.update(effectiveOrderId, {
@@ -199,16 +214,8 @@ export const PaymentPage: React.FC = () => {
         paymentMethod: selectedMethodData.backendValue,
       });
 
-      // 7. Queue order update for sync
-      await syncQueue.enqueue('orders', 'UPDATE', {
-        id: effectiveOrderId,
-        status: 'PAID',
-        paidAmount: total,
-        paymentMethod: selectedMethodData.backendValue,
-      }, effectiveOrderId);
-
     } catch (err) {
-      console.error('❌ Payment failed:', err);
+      console.warn('[Payment] API unavailable. Payment saved locally and queued:', err);
 
       // Offline fallback
       const receipt = generateReceipt(
@@ -221,23 +228,24 @@ export const PaymentPage: React.FC = () => {
 
       await db.receipts.put(receipt);
       printReceipt(receipt);
-      await syncQueue.enqueue('receipts', 'CREATE', receipt, receipt.id);
+      await enqueueReceiptSync(receipt);
 
       await db.orders.update(effectiveOrderId, {
         status: 'PAID',
         paidAmount: total,
         paymentMethod: selectedMethodData.backendValue,
       });
-      await syncQueue.enqueue('orders', 'UPDATE', {
+      await enqueueOrderPaidSync(effectiveOrderId, {
         id: effectiveOrderId,
         status: 'PAID',
         paidAmount: total,
         paymentMethod: selectedMethodData.backendValue,
-      }, effectiveOrderId);
+      });
 
       if (order.tableId) {
         updateLocalTableStatus(order.tableId, 'AVAILABLE');
         await db.diningTables.update(order.tableId, { status: 'AVAILABLE' });
+        await enqueueTableStatusSync(order.tableId, 'AVAILABLE');
       }
 
       alert('Payment saved locally. Will sync when online.');

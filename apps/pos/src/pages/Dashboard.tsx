@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Calendar, Bell, LogOut,
   Clock, Users, Plus, QrCode, ShoppingBag, Car, Smartphone,
-  Check, X, Edit3, Lock,
+  Check, X, Edit3, Lock, RefreshCw, WifiOff,
 } from 'lucide-react';
 import {
   useAuthStore,
@@ -17,6 +17,7 @@ import { useSocket } from '../hooks/useSocket';
 import { wsServer } from '../lib/ws';
 import type { ItemStatus, Order, DiningTable, OrderType } from '@mat-ai/types';
 import { normalizeBackendOrder, toFrontendOrderType } from '../lib/types';
+import { usePosSyncStatus } from '../hooks/usePosSyncStatus';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -40,6 +41,7 @@ export function Dashboard() {
   const { staff, logout } = useAuthStore();
   const { get: apiGet } = useApi();
   const { socket, connected } = useSocket('pos');
+  const { stats: syncStats, isFlushing, flush: flushSyncQueue } = usePosSyncStatus();
 
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [tables, setTables] = useState<DiningTable[]>([]);
@@ -222,6 +224,17 @@ export function Dashboard() {
     if (qrOrdersList.length === 0) { alert('No QR orders pending'); return; }
     document.getElementById('qr-orders-section')?.scrollIntoView({ behavior: 'smooth' });
   };
+  const pendingSyncCount = syncStats.pending + syncStats.failed + syncStats.syncing;
+  const handleManualSync = async () => {
+    const result = await flushSyncQueue();
+    if (result.failed > 0) {
+      alert(`Sync attempted. ${result.failed} item(s) still failed.`);
+    } else if (result.pushed > 0) {
+      alert(`Synced ${result.pushed} pending item(s).`);
+    } else {
+      alert('Nothing pending to sync.');
+    }
+  };
 
   const handleConfirmQrOrder = async (order: Order) => {
     setProcessingQrId(order.id);
@@ -304,6 +317,17 @@ export function Dashboard() {
             <div className="flex items-center gap-2">
               <p className="text-xs text-gray-500">Dashboard</p>
               <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+              {pendingSyncCount > 0 && (
+                <button
+                  onClick={handleManualSync}
+                  disabled={isFlushing}
+                  className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 disabled:opacity-60"
+                  title="Sync pending offline changes"
+                >
+                  {isFlushing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <WifiOff className="w-3 h-3" />}
+                  {pendingSyncCount} sync
+                </button>
+              )}
             </div>
           </div>
         </div>
