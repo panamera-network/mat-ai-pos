@@ -24,7 +24,7 @@ import type { KdsSettings } from '../types/kitchen';
 export const Settings: React.FC = () => {
   const navigate = useNavigate();
   const hostName = typeof window !== 'undefined' ? window.location.hostname : '';
-  const bridgeIp = hostName && hostName !== '127.0.0.1' ? hostName : 'localhost';
+  const kdsIp = hostName && hostName !== '127.0.0.1' ? hostName : 'localhost';
   const [settings, setSettings] = useState<KdsSettings>(getSettings);
   const [saved, setSaved] = useState(false);
 
@@ -35,14 +35,6 @@ export const Settings: React.FC = () => {
 
   const handleSave = () => {
     saveSettings(settings);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-
-  const useCurrentAddress = () => {
-    const updated = { ...settings, posIp: bridgeIp, posPort: 8080 };
-    setSettings(updated);
-    saveSettings(updated);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -83,51 +75,15 @@ export const Settings: React.FC = () => {
                 <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
                   <Wifi className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <CardTitle>KDS Address</CardTitle>
+                <CardTitle>KDS INFO</CardTitle>
               </div>
             </CardHeader>
 
             <div className="space-y-4 px-6 pb-6">
               <Input
                 label="IP Address"
-                value={bridgeIp}
+                value={kdsIp}
                 readOnly
-                fullWidth
-              />
-              <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                Port auto: 8080
-              </div>
-            </div>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                  <Wifi className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <CardTitle>POS Connection</CardTitle>
-              </div>
-            </CardHeader>
-
-            <div className="space-y-4 px-6 pb-6">
-              <Button variant="secondary" fullWidth onClick={useCurrentAddress} leftIcon={<Wifi className="w-4 h-4" />}>
-                Use Current IP
-              </Button>
-              <Input
-                label="Bridge / POS IP Address"
-                type="text"
-                inputMode="decimal"
-                value={settings.posIp}
-                onChange={(e) => handleChange('posIp', e.target.value)}
-                placeholder={bridgeIp}
-                fullWidth
-              />
-              <Input
-                label="Station Name"
-                value={settings.stationName}
-                onChange={(e) => handleChange('stationName', e.target.value)}
-                placeholder="Main Kitchen"
                 fullWidth
               />
             </div>
@@ -176,19 +132,16 @@ export const Settings: React.FC = () => {
           {/* Reset Memory */}
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-1">
                 <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
                   <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
                 </div>
-                <CardTitle>Memory Management</CardTitle>
+                <CardTitle>Memory</CardTitle>
               </div>
-            </CardHeader>
-
-            <div className="space-y-3 px-6 pb-6">
-              <Button variant="warning" fullWidth onClick={handleResetMemory} leftIcon={<Trash2 className="w-4 h-4" />}>
-                Clear Memory
+              <Button variant="warning" size="sm" onClick={handleResetMemory} leftIcon={<Trash2 className="w-4 h-4" />}>
+                Clear
               </Button>
-            </div>
+            </CardHeader>
           </Card>
         </div>
       </main>
