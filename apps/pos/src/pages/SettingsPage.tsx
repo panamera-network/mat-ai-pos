@@ -16,6 +16,8 @@ interface FallbackSettings {
 interface BridgeSettings {
   bridgeHost: string;
   bridgePort: number;
+  kdsName: string;
+  kdsIp: string;
 }
 
 interface PrinterSettings {
@@ -61,6 +63,8 @@ export function SettingsPage() {
         return {
           bridgeHost: parsed.bridgeHost || parsed.wsHost || 'localhost',
           bridgePort: Number(parsed.bridgePort || parsed.wsPort || 8080),
+          kdsName: parsed.kdsName || 'Main Kitchen',
+          kdsIp: parsed.kdsIp || parsed.bridgeHost || parsed.wsHost || 'localhost',
         };
       } catch {
         // fall through to default
@@ -69,6 +73,8 @@ export function SettingsPage() {
     return {
       bridgeHost: 'localhost',
       bridgePort: 8080,
+      kdsName: 'Main Kitchen',
+      kdsIp: 'localhost',
     };
   });
 
@@ -111,6 +117,10 @@ export function SettingsPage() {
 
   const handleBridgeChange = (field: keyof BridgeSettings, value: string | number) => {
     const updated = { ...bridgeSettings, [field]: value };
+    if (field === 'kdsIp') {
+      updated.bridgeHost = String(value || 'localhost');
+      updated.bridgePort = 8080;
+    }
     setBridgeSettings(updated);
     savePosSettings(updated);
   };
@@ -240,30 +250,30 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* KDS Bridge Settings */}
+      {/* KDS Terminal Settings */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-4 md:px-6 py-4 border-b border-gray-100 flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
             <Bell className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h2 className="font-semibold text-gray-900">KDS Bridge</h2>
-            <p className="text-xs text-gray-500">POS sends approved/manual orders to this local bridge.</p>
+            <h2 className="font-semibold text-gray-900">KDS Terminal</h2>
+            <p className="text-xs text-gray-500">Kitchen screen registered from POS.</p>
           </div>
         </div>
         <div className="p-4 md:p-6 grid md:grid-cols-2 gap-4">
           <Input
-            label="Bridge Host"
-            value={bridgeSettings.bridgeHost}
-            onChange={(e) => handleBridgeChange('bridgeHost', e.target.value)}
-            placeholder="localhost or 192.168.1.100"
+            label="Name"
+            value={bridgeSettings.kdsName}
+            onChange={(e) => handleBridgeChange('kdsName', e.target.value)}
+            placeholder="Main Kitchen"
             fullWidth
           />
           <Input
-            label="Bridge Port"
-            type="number"
-            value={bridgeSettings.bridgePort}
-            onChange={(e) => handleBridgeChange('bridgePort', Number(e.target.value) || 8080)}
+            label="IP Address"
+            value={bridgeSettings.kdsIp}
+            onChange={(e) => handleBridgeChange('kdsIp', e.target.value)}
+            placeholder="192.168.100.107"
             fullWidth
           />
         </div>
