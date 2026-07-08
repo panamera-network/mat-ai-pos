@@ -18,6 +18,7 @@ import { CostingPage } from './pages/costing/CostingPage';
 import { RecipeBuilderPage } from './pages/costing/RecipeBuilderPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { PromotionsPage } from './pages/PromotionsPage';
+import { HelpPage } from './pages/HelpPage';
 import { LandingPageCMS } from './pages/LandingPageCMS'
 import ChartOfAccountsPage from './pages/accounting/ChartOfAccountsPage';
 import JournalEntriesPage from './pages/accounting/JournalEntriesPage';
@@ -87,6 +88,7 @@ const App: React.FC = () => {
 
         {/* Settings */}
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/help" element={<HelpPage />} />
 
         {/* Outlets — Admin only */}
         <Route
