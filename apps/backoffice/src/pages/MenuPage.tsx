@@ -177,7 +177,11 @@ export const MenuPage: React.FC = () => {
     if (editingCategory) {
       await patch(`/categories/${editingCategory.id}`, payload);
     } else {
-      await post('/categories', payload);
+      await post('/categories', {
+        name: payload.name,
+        icon: payload.icon,
+        sortOrder: payload.sortOrder,
+      });
     }
     setShowCategoryModal(false);
     setEditingCategory(null);
