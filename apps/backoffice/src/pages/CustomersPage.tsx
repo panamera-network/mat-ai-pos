@@ -2,22 +2,32 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Phone, Star, ShoppingBag, Crown, Calendar } from 'lucide-react';
 import { Customer } from '@mat-ai/types';
+import { useApi } from '../hooks/useApi';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 const OUTLET_ID = import.meta.env.VITE_OUTLET_ID || 'default-outlet';
 
 export const CustomersPage: React.FC = () => {
+  const { get } = useApi();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchCustomers();
-  }, []);
+    void fetchCustomers();
+  }, [get]);
 
   const fetchCustomers = async () => {
-    const res = await fetch(`${API_URL}/customers?outletId=${OUTLET_ID}`);
-    if (res.ok) setCustomers(await res.json());
+    setLoading(true);
+    setError('');
+    const res = await get<Customer[]>(`/customers?outletId=${OUTLET_ID}`);
+    if (res.ok && res.data) {
+      setCustomers(res.data);
+    } else {
+      setError(res.status === 401 ? 'Session expired. Please sign in again.' : 'Failed to load customers.');
+    }
+    setLoading(false);
   };
 
   const filtered = customers.filter(
@@ -76,6 +86,11 @@ export const CustomersPage: React.FC = () => {
 
       {/* Customer List */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        {error && (
+          <div className="px-4 py-3 bg-red-50 text-red-700 text-sm border-b border-red-100">
+            {error}
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -90,6 +105,16 @@ export const CustomersPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
+              {loading && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">Loading customers...</td>
+                </tr>
+              )}
+              {!loading && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">No customers found</td>
+                </tr>
+              )}
               {filtered.map((customer) => (
                 <tr
                   key={customer.id}
