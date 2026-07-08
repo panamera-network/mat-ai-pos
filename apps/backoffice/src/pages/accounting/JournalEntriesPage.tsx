@@ -19,7 +19,6 @@ export default function JournalEntriesPage() {
   });
 
   const loadEntries = useCallback(async () => {
-    if (loading) return;
     setLoading(true);
     const res = await getJournalEntries({
       from: filter.from || undefined,

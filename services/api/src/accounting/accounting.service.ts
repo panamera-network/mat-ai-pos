@@ -12,6 +12,10 @@ import { LedgerQueryDto } from './dto/ledger-query.dto';
 export class AccountingService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private amount(value: string | number | null | undefined): number {
+    return Number(value || 0);
+  }
+
   // ============================================
   // ACCOUNT CRUD
   // ============================================
@@ -146,8 +150,8 @@ export class AccountingService {
 
   async createJournalEntry(dto: CreateJournalEntryDto) {
     // Validate: total debits must equal total credits
-    const totalDebits = dto.lines.reduce((sum, l) => sum + (parseFloat(l.debit || '0')), 0);
-    const totalCredits = dto.lines.reduce((sum, l) => sum + (parseFloat(l.credit || '0')), 0);
+    const totalDebits = dto.lines.reduce((sum, l) => sum + this.amount(l.debit), 0);
+    const totalCredits = dto.lines.reduce((sum, l) => sum + this.amount(l.credit), 0);
 
     if (Math.abs(totalDebits - totalCredits) > 0.001) {
       throw new BadRequestException('Total debits must equal total credits');

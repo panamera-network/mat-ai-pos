@@ -1,4 +1,4 @@
-import { IsString, IsDate, IsOptional, IsBoolean, IsArray, ValidateNested, IsDecimal } from 'class-validator';
+import { IsString, IsDate, IsOptional, IsBoolean, IsArray, ValidateNested, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class JournalLineDto {
@@ -9,13 +9,15 @@ export class JournalLineDto {
   @IsOptional()
   description?: string;
 
-  @IsDecimal()
+  @IsNumber()
+  @Type(() => Number)
   @IsOptional()
-  debit?: string;
+  debit?: number;
 
-  @IsDecimal()
+  @IsNumber()
+  @Type(() => Number)
   @IsOptional()
-  credit?: string;
+  credit?: number;
 }
 
 export class CreateJournalEntryDto {

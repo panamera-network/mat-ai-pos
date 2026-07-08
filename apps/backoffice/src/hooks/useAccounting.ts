@@ -12,6 +12,12 @@ import type {
   LedgerQuery,
 } from '@mat-ai/types';
 
+function cleanPayload<T extends Record<string, unknown>>(payload: T): T {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== '')
+  ) as T;
+}
+
 export function useAccounting() {
   const { get, post, patch, del } = useApi();
 
@@ -32,13 +38,13 @@ export function useAccounting() {
 
   const createAccount = useCallback(
     (payload: CreateAccountPayload) =>
-      post<Account>('/accounting/accounts', payload),
+      post<Account>('/accounting/accounts', cleanPayload(payload as unknown as Record<string, unknown>)),
     [post]
   );
 
   const updateAccount = useCallback(
     (id: string, payload: UpdateAccountPayload) =>
-      patch<Account>(`/accounting/accounts/${id}`, payload),
+      patch<Account>(`/accounting/accounts/${id}`, cleanPayload(payload as unknown as Record<string, unknown>)),
     [patch]
   );
 
@@ -75,7 +81,7 @@ export function useAccounting() {
 
   const createJournalEntry = useCallback(
     (payload: CreateJournalEntryPayload) =>
-      post<JournalEntry>('/accounting/journal-entries', payload),
+      post<JournalEntry>('/accounting/journal-entries', cleanPayload(payload as unknown as Record<string, unknown>)),
     [post]
   );
 
