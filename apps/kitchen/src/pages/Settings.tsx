@@ -15,7 +15,6 @@ import {
   Card,
   CardHeader,
   CardTitle,
-  Input,
   Switch,
 } from '@mat-ai/ui';
 import { getSettings, saveSettings, resetMemory } from '../utils/storage';
@@ -79,13 +78,9 @@ export const Settings: React.FC = () => {
               </div>
             </CardHeader>
 
-            <div className="space-y-4 px-6 pb-6">
-              <Input
-                label="IP Address"
-                value={kdsIp}
-                readOnly
-                fullWidth
-              />
+            <div className="grid grid-cols-2 gap-3 px-6 pb-6">
+              <InfoField label="Name" value={settings.stationName || 'Main Kitchen'} />
+              <InfoField label="IP Address" value={kdsIp} />
             </div>
           </Card>
 
@@ -138,13 +133,24 @@ export const Settings: React.FC = () => {
                 </div>
                 <CardTitle>Memory</CardTitle>
               </div>
+            </CardHeader>
+            <div className="flex justify-end px-6 pb-6">
               <Button variant="warning" size="sm" onClick={handleResetMemory} leftIcon={<Trash2 className="w-4 h-4" />}>
                 Clear
               </Button>
-            </CardHeader>
+            </div>
           </Card>
         </div>
       </main>
     </div>
   );
 };
+
+function InfoField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3">
+      <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="mt-1 truncate text-base font-semibold text-gray-900 dark:text-gray-100">{value}</p>
+    </div>
+  );
+}
