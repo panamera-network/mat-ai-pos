@@ -13,6 +13,7 @@ interface KitchenState {
 
   // Actions
   addTicket: (order: Order) => void;
+  restoreTicket: (ticket: KitchenTicket) => void;
   toggleItemDone: (orderId: string, itemId: string) => void;
   updateItemDoneFromWS: (orderId: string, itemIndex: number) => void;
   updateItemUndoneFromWS: (orderId: string, itemIndex: number) => void;
@@ -52,6 +53,24 @@ export const useKitchenStore = create<KitchenState>((set, get) => ({
       }
       const ticket = transformOrder(order);
       return { tickets: [...state.tickets, ticket] };
+    });
+  },
+
+  restoreTicket: (ticket: KitchenTicket) => {
+    set((state) => {
+      if (state.tickets.some((t) => t.orderId === ticket.orderId)) {
+        return state;
+      }
+      return {
+        tickets: [
+          ...state.tickets,
+          {
+            ...ticket,
+            items: ticket.items.map((item) => ({ ...item, done: false, doneAt: undefined })),
+            allDone: false,
+          },
+        ],
+      };
     });
   },
 

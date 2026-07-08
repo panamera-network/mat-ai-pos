@@ -86,6 +86,7 @@ export const KitchenDisplay: React.FC = () => {
       completedAt: new Date().toISOString(),
       elapsedMinutes: getTimerState(ticket.orderedAt).minutes,
       stationName: 'Main Kitchen',
+      ticketSnapshot: ticket,
     });
     playDone();
   }, [playDone]);

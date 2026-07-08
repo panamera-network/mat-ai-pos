@@ -1,15 +1,17 @@
 // apps/kitchen/src/pages/OrderHistory.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, Clock, Search, Calendar } from 'lucide-react';
+import { ArrowLeft, Trash2, Clock, Search, Calendar, RotateCcw } from 'lucide-react';
 import { Button, Card, Input, EmptyState } from '@mat-ai/ui';
-import { getHistory, clearHistory } from '../utils/storage';
-import type { HistoryOrder } from '../types/kitchen';
+import { getHistory, clearHistory, removeFromHistory } from '../utils/storage';
+import { useKitchenStore } from '../stores/kitchenStore';
+import type { HistoryOrder, KitchenTicket } from '../types/kitchen';
 
 export const OrderHistory: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [history, setHistory] = useState<HistoryOrder[]>(getHistory);
+  const restoreTicket = useKitchenStore((state) => state.restoreTicket);
 
   const filteredHistory = history.filter((order) => {
     const query = searchQuery.toLowerCase();
@@ -26,6 +28,40 @@ export const OrderHistory: React.FC = () => {
       clearHistory();
       setHistory([]);
     }
+  };
+
+  const toTicket = (order: HistoryOrder): KitchenTicket => {
+    if (order.ticketSnapshot) return order.ticketSnapshot;
+
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      tableNumber: order.tableNumber,
+      orderType: order.orderType,
+      orderedAt: order.completedAt,
+      elapsedMinutes: order.elapsedMinutes,
+      allDone: false,
+      items: order.items.map((item, index) => ({
+        id: `${order.id}-${index}`,
+        orderId: order.id,
+        menuItemId: '',
+        name: item.name,
+        quantity: item.qty,
+        unitPrice: 0,
+        totalPrice: 0,
+        status: 'PENDING',
+        createdAt: order.completedAt,
+        updatedAt: order.completedAt,
+        done: false,
+      })),
+    };
+  };
+
+  const handleRestore = (order: HistoryOrder) => {
+    restoreTicket(toTicket(order));
+    removeFromHistory(order.id);
+    setHistory(getHistory());
+    navigate('/');
   };
 
   const formatDate = (iso: string) => {
@@ -81,7 +117,7 @@ export const OrderHistory: React.FC = () => {
           <div className="max-w-3xl mx-auto space-y-3">
             {filteredHistory.map((order) => (
               <Card key={order.id} padding="md">
-                <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-gray-900 dark:text-gray-100">
@@ -98,6 +134,14 @@ export const OrderHistory: React.FC = () => {
                       {order.elapsedMinutes}m elapsed
                     </div>
                   </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleRestore(order)}
+                    leftIcon={<RotateCcw className="w-4 h-4" />}
+                  >
+                    Restore
+                  </Button>
                 </div>
 
                 <div className="space-y-1">

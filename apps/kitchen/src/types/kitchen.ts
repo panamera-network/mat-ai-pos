@@ -34,6 +34,7 @@ export interface HistoryOrder {
   completedAt: string;
   elapsedMinutes: number;
   stationName: string;
+  ticketSnapshot?: KitchenTicket;
 }
 
 /** KDS app settings (localStorage) */

@@ -45,6 +45,11 @@ export const clearHistory = (): void => {
   localStorage.removeItem(KEYS.HISTORY);
 };
 
+export const removeFromHistory = (orderId: string): void => {
+  const history = getHistory().filter((order) => order.id !== orderId);
+  localStorage.setItem(KEYS.HISTORY, JSON.stringify(history));
+};
+
 // ============ SETTINGS ============
 
 export const getSettings = (): KdsSettings => {

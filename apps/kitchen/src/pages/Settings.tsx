@@ -7,7 +7,6 @@ import {
   Volume2,
   VolumeX,
   Trash2,
-  AlertTriangle,
   Wifi,
   Check,
 } from 'lucide-react';
@@ -18,9 +17,8 @@ import {
   CardTitle,
   Input,
   Switch,
-  ConfirmDialog,
 } from '@mat-ai/ui';
-import { getSettings, saveSettings, resetMemory, resetAll } from '../utils/storage';
+import { getSettings, saveSettings, resetMemory } from '../utils/storage';
 import type { KdsSettings } from '../types/kitchen';
 
 export const Settings: React.FC = () => {
@@ -29,7 +27,6 @@ export const Settings: React.FC = () => {
   const bridgeIp = hostName && hostName !== '127.0.0.1' ? hostName : 'localhost';
   const [settings, setSettings] = useState<KdsSettings>(getSettings);
   const [saved, setSaved] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const handleChange = (field: keyof KdsSettings, value: string | number | boolean) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
@@ -42,7 +39,7 @@ export const Settings: React.FC = () => {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const useBridgeAddress = () => {
+  const useCurrentAddress = () => {
     const updated = { ...settings, posIp: bridgeIp, posPort: 8080 };
     setSettings(updated);
     saveSettings(updated);
@@ -55,13 +52,6 @@ export const Settings: React.FC = () => {
       resetMemory();
       alert('Memory dikosongkan!');
     }
-  };
-
-  const handleResetAll = () => {
-    resetAll();
-    setSettings(getSettings());
-    setShowResetConfirm(false);
-    alert('Semua data direset!');
   };
 
   return (
@@ -93,18 +83,36 @@ export const Settings: React.FC = () => {
                 <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
                   <Wifi className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
+                <CardTitle>KDS Address</CardTitle>
+              </div>
+            </CardHeader>
+
+            <div className="space-y-4 px-6 pb-6">
+              <Input
+                label="IP Address"
+                value={bridgeIp}
+                readOnly
+                fullWidth
+              />
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                Port auto: 8080
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                  <Wifi className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
                 <CardTitle>POS Connection</CardTitle>
               </div>
             </CardHeader>
 
             <div className="space-y-4 px-6 pb-6">
-              <Button
-                variant="secondary"
-                fullWidth
-                onClick={useBridgeAddress}
-                leftIcon={<Wifi className="w-4 h-4" />}
-              >
-                Use {bridgeIp}:8080
+              <Button variant="secondary" fullWidth onClick={useCurrentAddress} leftIcon={<Wifi className="w-4 h-4" />}>
+                Use Current IP
               </Button>
               <Input
                 label="Bridge / POS IP Address"
@@ -113,16 +121,6 @@ export const Settings: React.FC = () => {
                 value={settings.posIp}
                 onChange={(e) => handleChange('posIp', e.target.value)}
                 placeholder={bridgeIp}
-                helper="Use the bridge PC LAN IP, not localhost, when KDS runs on another device."
-                fullWidth
-              />
-              <Input
-                label="Bridge Port"
-                type="number"
-                inputMode="numeric"
-                value={settings.posPort}
-                onChange={(e) => handleChange('posPort', parseInt(e.target.value) || 8080)}
-                placeholder="8080"
                 fullWidth
               />
               <Input
@@ -187,39 +185,13 @@ export const Settings: React.FC = () => {
             </CardHeader>
 
             <div className="space-y-3 px-6 pb-6">
-              <Button
-                variant="warning"
-                fullWidth
-                onClick={handleResetMemory}
-                leftIcon={<Trash2 className="w-4 h-4" />}
-              >
-                Clear Order History
-              </Button>
-
-              <Button
-                variant="danger"
-                fullWidth
-                onClick={() => setShowResetConfirm(true)}
-                leftIcon={<AlertTriangle className="w-4 h-4" />}
-              >
-                Factory Reset (All Data)
+              <Button variant="warning" fullWidth onClick={handleResetMemory} leftIcon={<Trash2 className="w-4 h-4" />}>
+                Clear Memory
               </Button>
             </div>
           </Card>
         </div>
       </main>
-
-      {/* Reset All Confirm Dialog */}
-      <ConfirmDialog
-        isOpen={showResetConfirm}
-        onClose={() => setShowResetConfirm(false)}
-        title="Factory Reset"
-        description="Ini akan menghapus semua data termasuk settings, history. Anda perlu setup semula."
-        onConfirm={handleResetAll}
-        confirmText="Reset Everything"
-        confirmVariant="danger"
-        icon={<AlertTriangle className="w-6 h-6 text-red-600" />}
-      />
     </div>
   );
 };
