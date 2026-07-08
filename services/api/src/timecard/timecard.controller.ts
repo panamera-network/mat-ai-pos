@@ -1,5 +1,5 @@
 // src/timecard/timecard.controller.ts
-import { Controller, Post, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { TimecardService } from './timecard.service';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 
@@ -33,6 +33,14 @@ export class TimecardController {
   @Post(':id/verify')
   verify(@Param('id') id: string, @Body('verifiedBy') verifiedBy: string) {
     return this.timecardService.verify(id, verifiedBy);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() data: { clockIn?: string; clockOut?: string | null; breakMinutes?: number },
+  ) {
+    return this.timecardService.update(id, data);
   }
 
   @Get('weekly/:staffId')

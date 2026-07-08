@@ -70,7 +70,7 @@ export class TimecardService {
 
   return this.prisma.timecard.findMany({
     where,
-    include: { staff: { select: { name: true } } },
+    include: { staff: { select: { name: true, department: true } } },
     orderBy: { clockIn: 'desc' },
   });
 }
@@ -79,6 +79,34 @@ export class TimecardService {
     return this.prisma.timecard.update({
       where: { id },
       data: { verifiedBy, verifiedAt: new Date() },
+    });
+  }
+
+  async update(id: string, data: { clockIn?: string; clockOut?: string | null; breakMinutes?: number }) {
+    const timecard = await this.prisma.timecard.findUnique({ where: { id } });
+    if (!timecard) throw new NotFoundException('Timecard not found.');
+
+    const clockIn = data.clockIn ? new Date(data.clockIn) : timecard.clockIn;
+    const clockOut = data.clockOut === null ? null : data.clockOut ? new Date(data.clockOut) : timecard.clockOut;
+    const breakMinutes = Number(data.breakMinutes ?? timecard.breakMinutes ?? 0);
+
+    let totalMinutes: number | null = null;
+    let totalHours: number | null = null;
+    if (clockOut) {
+      totalMinutes = Math.max(0, Math.floor((clockOut.getTime() - clockIn.getTime()) / 60000) - breakMinutes);
+      totalHours = parseFloat((totalMinutes / 60).toFixed(2));
+    }
+
+    return this.prisma.timecard.update({
+      where: { id },
+      data: {
+        clockIn,
+        clockOut,
+        breakMinutes,
+        totalMinutes,
+        totalHours,
+      },
+      include: { staff: { select: { name: true, department: true } } },
     });
   }
 

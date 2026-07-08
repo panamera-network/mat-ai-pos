@@ -35,6 +35,39 @@ interface StaffFormData {
   isActive: boolean;
 }
 
+interface RoleFormData {
+  name: string;
+  permissions: Record<string, boolean>;
+  isActive: boolean;
+}
+
+interface DepartmentFormData {
+  name: string;
+  isActive: boolean;
+}
+
+const PERMISSIONS = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'sales', label: 'Sales Report' },
+  { key: 'staff', label: 'Staff' },
+  { key: 'payroll', label: 'Payroll' },
+  { key: 'menu', label: 'Item/Menu' },
+  { key: 'inventory', label: 'Inventory' },
+  { key: 'costing', label: 'Costing' },
+  { key: 'recipes', label: 'Recipes' },
+  { key: 'outlets', label: 'Outlets' },
+  { key: 'customers', label: 'Customers' },
+  { key: 'promotions', label: 'Promotions' },
+  { key: 'landing_page', label: 'Landing Page' },
+  { key: 'settings', label: 'Settings' },
+  { key: 'accounting', label: 'Accounting' },
+  { key: 'chart_of_accounts', label: 'Chart of Accounts' },
+  { key: 'journal_entries', label: 'Journal Entries' },
+  { key: 'general_ledger', label: 'General Ledger' },
+  { key: 'trial_balance', label: 'Trial Balance' },
+  { key: 'financial_reports', label: 'Financial Reports' },
+];
+
 const EMPLOYMENT_TYPES = [
   { value: 'HOURLY_PART_TIME', label: 'Hourly Part Time' },
   { value: 'MONTHLY_SALARIED', label: 'Monthly Salaried' },
@@ -78,6 +111,19 @@ export const StaffPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [attendanceStaffFilter, setAttendanceStaffFilter] = useState('');
+  const [editingTimecard, setEditingTimecard] = useState<any | null>(null);
+  const [timecardForm, setTimecardForm] = useState({ clockIn: '', clockOut: '', breakMinutes: '0' });
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [editingRole, setEditingRole] = useState<StaffRole | null>(null);
+  const [roleForm, setRoleForm] = useState<RoleFormData>({
+    name: '',
+    permissions: Object.fromEntries(PERMISSIONS.map((p) => [p.key, false])),
+    isActive: true,
+  });
+  const [showDepartmentModal, setShowDepartmentModal] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [departmentForm, setDepartmentForm] = useState<DepartmentFormData>({ name: '', isActive: true });
   const [formData, setFormData] = useState<StaffFormData>({
     name: '', email: '', password: '', pin: '', phone: '',
     roleId: '', isSuperAdmin: false, departmentId: '',
@@ -180,6 +226,108 @@ export const StaffPage: React.FC = () => {
     setShowModal(true);
   };
 
+  const toDateTimeLocal = (value?: string | Date | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const offset = date.getTimezoneOffset();
+    return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+  };
+
+  const openEditTimecard = (timecard: any) => {
+    setEditingTimecard(timecard);
+    setTimecardForm({
+      clockIn: toDateTimeLocal(timecard.clockIn),
+      clockOut: toDateTimeLocal(timecard.clockOut),
+      breakMinutes: String(timecard.breakMinutes ?? 0),
+    });
+  };
+
+  const handleSaveTimecard = async () => {
+    if (!editingTimecard) return;
+    await patch(`/timecard/${editingTimecard.id}`, {
+      clockIn: timecardForm.clockIn ? new Date(timecardForm.clockIn).toISOString() : undefined,
+      clockOut: timecardForm.clockOut ? new Date(timecardForm.clockOut).toISOString() : null,
+      breakMinutes: parseInt(timecardForm.breakMinutes) || 0,
+    });
+    setEditingTimecard(null);
+    fetchData(true);
+  };
+
+  const resetRoleForm = () => {
+    setRoleForm({
+      name: '',
+      permissions: Object.fromEntries(PERMISSIONS.map((p) => [p.key, false])),
+      isActive: true,
+    });
+  };
+
+  const openRoleModal = (role?: StaffRole) => {
+    setEditingRole(role || null);
+    setRoleForm(role ? {
+      name: role.name,
+      permissions: { ...Object.fromEntries(PERMISSIONS.map((p) => [p.key, false])), ...(role.permissions || {}) },
+      isActive: role.isActive,
+    } : {
+      name: '',
+      permissions: Object.fromEntries(PERMISSIONS.map((p) => [p.key, false])),
+      isActive: true,
+    });
+    setShowRoleModal(true);
+  };
+
+  const handleSaveRole = async () => {
+    const payload = {
+      name: roleForm.name.trim().toUpperCase().replace(/\s+/g, '_'),
+      permissions: roleForm.permissions,
+      isActive: roleForm.isActive,
+    };
+    if (!payload.name) return;
+    if (editingRole) {
+      await patch(`/roles/${editingRole.id}`, payload);
+    } else {
+      await post('/roles', payload);
+    }
+    setShowRoleModal(false);
+    setEditingRole(null);
+    resetRoleForm();
+    fetchRoles();
+  };
+
+  const handleDeleteRole = async (role: StaffRole) => {
+    if (!confirm(`Delete role ${role.name}?`)) return;
+    await del(`/roles/${role.id}`);
+    fetchRoles();
+  };
+
+  const openDepartmentModal = (department?: Department) => {
+    setEditingDepartment(department || null);
+    setDepartmentForm({
+      name: department?.name || '',
+      isActive: (department as any)?.isActive ?? true,
+    });
+    setShowDepartmentModal(true);
+  };
+
+  const handleSaveDepartment = async () => {
+    const payload = { name: departmentForm.name.trim(), isActive: departmentForm.isActive };
+    if (!payload.name) return;
+    if (editingDepartment) {
+      await patch(`/departments/${editingDepartment.id}`, payload);
+    } else {
+      await post('/departments', { name: payload.name });
+    }
+    setShowDepartmentModal(false);
+    setEditingDepartment(null);
+    fetchData(true);
+  };
+
+  const handleDeleteDepartment = async (department: Department) => {
+    if (!confirm(`Delete department ${department.name}?`)) return;
+    await del(`/departments/${department.id}`);
+    fetchData(true);
+  };
+
   // ============================================================
   // DYNAMIC ROLE BADGE
   // ============================================================
@@ -217,6 +365,11 @@ export const StaffPage: React.FC = () => {
       s.phone?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.department?.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+  });
+
+  const filteredTimecards = timecards.filter((tc) => {
+    if (!attendanceStaffFilter) return true;
+    return tc.staffId === attendanceStaffFilter;
   });
 
   const timeAgo = () => {
@@ -258,6 +411,24 @@ export const StaffPage: React.FC = () => {
             >
               <Plus className="w-4 h-4" />
               Add Staff
+            </button>
+          )}
+          {activeTab === 'roles' && (
+            <button
+              onClick={() => openRoleModal()}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              Add Role
+            </button>
+          )}
+          {activeTab === 'departments' && (
+            <button
+              onClick={() => openDepartmentModal()}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              Add Department
             </button>
           )}
         </div>
@@ -374,7 +545,20 @@ export const StaffPage: React.FC = () => {
 
       {/* Attendance Tab */}
       {activeTab === 'attendance' && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <select
+              value={attendanceStaffFilter}
+              onChange={(e) => setAttendanceStaffFilter(e.target.value)}
+              className="px-3 py-2 bg-white border rounded-lg text-sm min-w-64"
+            >
+              <option value="">All staff</option>
+              {staffList.map((staff) => (
+                <option key={staff.id} value={staff.id}>{staff.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -384,10 +568,11 @@ export const StaffPage: React.FC = () => {
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Clock Out</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Hours</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {timecards.map((tc) => (
+              {filteredTimecards.map((tc) => (
                 <tr key={tc.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{tc.staff?.name || 'Unknown'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{tc.staff?.department?.name || '-'}</td>
@@ -399,11 +584,16 @@ export const StaffPage: React.FC = () => {
                       {tc.clockOut ? 'Completed' : 'On Duty'}
                     </span>
                   </td>
+                  <td className="px-6 py-4 text-right">
+                    <button onClick={() => openEditTimecard(tc)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-blue-600">
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
-              {timecards.length === 0 && !loading && (
+              {filteredTimecards.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
                     <Clock className="w-8 h-8 mx-auto mb-2" />
                     <p>No attendance records</p>
                   </td>
@@ -411,6 +601,7 @@ export const StaffPage: React.FC = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -424,6 +615,7 @@ export const StaffPage: React.FC = () => {
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Staff Count</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Permissions</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -455,12 +647,30 @@ export const StaffPage: React.FC = () => {
                         {role.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openRoleModal(role)}
+                          disabled={role.isSystem}
+                          className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRole(role)}
+                          disabled={role.isSystem || count > 0}
+                          className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
               {roles.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
                     <Shield className="w-8 h-8 mx-auto mb-2" />
                     <p>No roles found. Run seed to create default roles.</p>
                   </td>
@@ -491,6 +701,18 @@ export const StaffPage: React.FC = () => {
                 }`}>
                   {dept.isActive ? 'Active' : 'Inactive'}
                 </span>
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button onClick={() => openDepartmentModal(dept)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-blue-600">
+                  <Edit3 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDeleteDepartment(dept)}
+                  disabled={staffList.some(s => s.departmentId === dept.id)}
+                  className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}
@@ -619,6 +841,148 @@ export const StaffPage: React.FC = () => {
             <div className="flex justify-end gap-2 px-6 py-4 border-t">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
               <button onClick={handleSaveStaff} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Attendance Modal */}
+      {editingTimecard && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="font-semibold text-gray-900">Edit Attendance</h3>
+              <button onClick={() => setEditingTimecard(null)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm font-medium text-gray-900">{editingTimecard.staff?.name || 'Unknown'}</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Clock In</label>
+                <input
+                  type="datetime-local"
+                  value={timecardForm.clockIn}
+                  onChange={e => setTimecardForm({ ...timecardForm, clockIn: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Clock Out</label>
+                <input
+                  type="datetime-local"
+                  value={timecardForm.clockOut}
+                  onChange={e => setTimecardForm({ ...timecardForm, clockOut: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Break Minutes</label>
+                <input
+                  type="number"
+                  value={timecardForm.breakMinutes}
+                  onChange={e => setTimecardForm({ ...timecardForm, breakMinutes: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t">
+              <button onClick={() => setEditingTimecard(null)} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleSaveTimecard} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Role Modal */}
+      {showRoleModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="font-semibold text-gray-900">{editingRole ? 'Edit Role' : 'Add Role'}</h3>
+              <button onClick={() => setShowRoleModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role Name</label>
+                  <input
+                    value={roleForm.name}
+                    onChange={e => setRoleForm({ ...roleForm, name: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    placeholder="Kitchen Supervisor"
+                  />
+                </div>
+                <label className="flex items-center gap-2 px-3 py-2 border rounded-lg text-sm">
+                  <input
+                    type="checkbox"
+                    checked={roleForm.isActive}
+                    onChange={e => setRoleForm({ ...roleForm, isActive: e.target.checked })}
+                  />
+                  Active
+                </label>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Permissions</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {PERMISSIONS.map((permission) => (
+                    <label key={permission.key} className="flex items-center gap-2 p-2 border rounded-lg text-sm hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(roleForm.permissions[permission.key])}
+                        onChange={e => setRoleForm({
+                          ...roleForm,
+                          permissions: { ...roleForm.permissions, [permission.key]: e.target.checked },
+                        })}
+                      />
+                      {permission.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t">
+              <button onClick={() => setShowRoleModal(false)} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleSaveRole} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Department Modal */}
+      {showDepartmentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="font-semibold text-gray-900">{editingDepartment ? 'Edit Department' : 'Add Department'}</h3>
+              <button onClick={() => setShowDepartmentModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department Name</label>
+                <input
+                  value={departmentForm.name}
+                  onChange={e => setDepartmentForm({ ...departmentForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  placeholder="Kitchen"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={departmentForm.isActive}
+                  onChange={e => setDepartmentForm({ ...departmentForm, isActive: e.target.checked })}
+                />
+                Active department
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t">
+              <button onClick={() => setShowDepartmentModal(false)} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleSaveDepartment} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
             </div>
           </div>
         </div>
