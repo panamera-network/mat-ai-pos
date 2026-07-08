@@ -66,30 +66,34 @@ export const InventoryPage: React.FC = () => {
       const res = await get('/inventory');
       if (res.ok) {
         const data = (res.data as any[]) || [];
-        setItems(data.map(item => ({
-          id: item.id,
-          name: item.name,
-          category: item.category || 'dry',
-          unit: item.unitOfMeasure || item.unit || 'g',
-          unitOfMeasure: item.unitOfMeasure || item.unit || 'g',
-          weight: item.weight ?? 0,
-          currentStock: item.currentStock ?? ((item.openStock ?? 0) + (item.stockIn ?? 0) - (item.stockOut ?? 0)),
-          minStock: item.minStock ?? 50,
-          costPerUnit: item.unitPrice ?? item.costPerUnit ?? 0,
-          unitPrice: item.unitPrice ?? item.costPerUnit ?? 0,
-          packPrice: item.packPrice ?? (item.unitPrice && item.weight ? item.unitPrice * item.weight : 0),
-          openStock: item.openStock ?? 0,
-          stockIn: item.stockIn ?? 0,
-          stockOut: item.stockOut ?? 0,
-          close: (item.openStock ?? 0) + (item.stockIn ?? 0) - (item.stockOut ?? 0),
-          supplier: item.supplier || '',
-          description: item.description || '',
-          isActive: item.isActive ?? true,
-          outletId: item.outletId,
-          ingredients: item.ingredients || item.menuItemIngredients || [],
-          createdAt: item.createdAt || new Date().toISOString(),
-          updatedAt: item.updatedAt || new Date().toISOString(),
-        })));
+        setItems(data.map(item => {
+          const category = String(item.category || 'dry').toLowerCase();
+
+          return {
+            id: item.id,
+            name: item.name,
+            category,
+            unit: item.unitOfMeasure || item.unit || 'g',
+            unitOfMeasure: item.unitOfMeasure || item.unit || 'g',
+            weight: item.weight ?? 0,
+            currentStock: item.currentStock ?? ((item.openStock ?? 0) + (item.stockIn ?? 0) - (item.stockOut ?? 0)),
+            minStock: item.minStock ?? 50,
+            costPerUnit: item.unitPrice ?? item.costPerUnit ?? 0,
+            unitPrice: item.unitPrice ?? item.costPerUnit ?? 0,
+            packPrice: item.packPrice ?? (item.unitPrice && item.weight ? item.unitPrice * item.weight : 0),
+            openStock: item.openStock ?? 0,
+            stockIn: item.stockIn ?? 0,
+            stockOut: item.stockOut ?? 0,
+            close: (item.openStock ?? 0) + (item.stockIn ?? 0) - (item.stockOut ?? 0),
+            supplier: item.supplier || '',
+            description: item.description || '',
+            isActive: item.isActive ?? true,
+            outletId: item.outletId,
+            ingredients: item.ingredients || item.menuItemIngredients || [],
+            createdAt: item.createdAt || new Date().toISOString(),
+            updatedAt: item.updatedAt || new Date().toISOString(),
+          };
+        }));
       }
     } catch (err) {
       console.error('Inventory fetch error:', err);
@@ -237,7 +241,7 @@ export const InventoryPage: React.FC = () => {
   // FILTERING & SORTING
   // ==========================================
   const filteredItems = items
-    .filter(item => activeTab === 'all' || item.category === activeTab)
+    .filter(item => activeTab === 'all' || item.category.toLowerCase() === activeTab)
     .filter(item =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.category.toLowerCase().includes(searchQuery.toLowerCase())
@@ -408,7 +412,7 @@ export const InventoryPage: React.FC = () => {
               const isLow = close > 0 && close < (item.minStock ?? 50);
               const isOut = close <= 0;
               const recipeCount = item.ingredients?.length ?? 0;
-              const catStyle = CATEGORY_LABELS[item.category] || { color: 'bg-gray-100 text-gray-700' };
+              const catStyle = CATEGORY_LABELS[item.category.toLowerCase()] || { color: 'bg-gray-100 text-gray-700' };
 
               return (
                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">

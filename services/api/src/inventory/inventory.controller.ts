@@ -1,5 +1,5 @@
 // src/inventory/inventory.controller.ts
-import { Controller, Get, Post, Body, Param, Query, Put, Inject, forwardRef, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Put, Inject, forwardRef, UseGuards } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { CostingService } from '../costing/costing.service';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
@@ -22,6 +22,21 @@ export class InventoryController {
     @Query('outletId') outletId?: string,
   ) {
     return this.inventoryService.getInventoryItems(category, outletId);
+  }
+
+  @Post()
+  createRoot(@Body() dto: CreateInventoryItemDto) {
+    return this.inventoryService.create(dto);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: Partial<CreateInventoryItemDto>) {
+    return this.inventoryService.update(id, dto);
+  }
+
+  @Delete(':id')
+  delete(@Param('id') id: string) {
+    return this.inventoryService.delete(id);
   }
 
   @Put(':id/unit-price')

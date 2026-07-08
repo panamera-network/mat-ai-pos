@@ -1,15 +1,16 @@
 // src/inventory/inventory.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { StockType } from '@prisma/client';
+import { Prisma, StockType } from '@prisma/client';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
 
 @Injectable()
 export class InventoryService {
-  async update(id: string, data: { unitPrice?: number; costPerUnit?: number }) {
+  async update(id: string, data: Partial<CreateInventoryItemDto>) {
+    const mapped = this.mapInventoryPayload(data, 'update') as Prisma.InventoryItemUncheckedUpdateInput;
     return this.prisma.inventoryItem.update({
       where: { id },
-      data,
+      data: mapped,
     });
   }
   constructor(private prisma: PrismaService) {}
@@ -17,18 +18,34 @@ export class InventoryService {
   // ─── RAW MATERIAL ───
 
   async create(dto: CreateInventoryItemDto) {
-  return this.prisma.inventoryItem.create({
-    data: dto,
-  });
-}
+    return this.prisma.inventoryItem.create({
+      data: this.mapInventoryPayload(dto, 'create') as Prisma.InventoryItemUncheckedCreateInput,
+    });
+  }
+
+  private mapInventoryPayload(dto: Partial<CreateInventoryItemDto>, mode: 'create' | 'update') {
+    const openStock = Number(dto.openStock ?? 0);
+    const stockIn = Number(dto.stockIn ?? 0);
+    const stockOut = Number(dto.stockOut ?? 0);
+    const hasAllStockParts = dto.openStock !== undefined && dto.stockIn !== undefined && dto.stockOut !== undefined;
+    const unitPrice = dto.unitPrice ?? dto.costPerUnit;
+
+    return {
+      ...dto,
+      category: dto.category?.toLowerCase(),
+      unit: dto.unitOfMeasure || dto.unit,
+      costPerUnit: unitPrice,
+      currentStock: dto.currentStock ?? (mode === 'create' || hasAllStockParts ? openStock + stockIn - stockOut : undefined),
+    };
+  }
 
   async getInventoryItems(category?: string, outletId?: string) {  // ← TAMBAH outletId
-    const where: any = {};
-    if (category) where.category = category;
+    const where: any = { isActive: true };
+    if (category) where.category = { equals: category, mode: 'insensitive' };
     if (outletId) where.outletId = outletId;  // ← TAMBAH
 
     return this.prisma.inventoryItem.findMany({
-      where: Object.keys(where).length > 0 ? where : undefined,
+      where,
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
   }
@@ -42,6 +59,13 @@ export class InventoryService {
       orderBy: [{ currentStock: 'asc' }],
     });
     return items.filter(item => item.currentStock <= item.minStock);
+  }
+
+  async delete(id: string) {
+    return this.prisma.inventoryItem.update({
+      where: { id },
+      data: { isActive: false },
+    });
   }
 
   async stockInInventory(inventoryItemId: string, qty: number, staffId: string, reason?: string) {
