@@ -8,12 +8,19 @@ const KEYS = {
   SETTINGS: 'mat-kds-settings',
 };
 
-const DEFAULT_SETTINGS: KdsSettings = {
-  posIp: '192.168.1.100',
-  posPort: 8080,
-  stationName: 'Main Kitchen',
-  soundEnabled: true,
-  soundVolume: 0.7,
+const LEGACY_DEFAULT_IPS = new Set(['192.168.1.100', '192.168.100.122']);
+
+const getDefaultSettings = (): KdsSettings => {
+  const hostName = typeof window !== 'undefined' ? window.location.hostname : '';
+  const posIp = hostName && hostName !== '127.0.0.1' ? hostName : 'localhost';
+
+  return {
+    posIp,
+    posPort: 8080,
+    stationName: 'Main Kitchen',
+    soundEnabled: true,
+    soundVolume: 0.7,
+  };
 };
 
 // ============ HISTORY (localStorage — KDS standalone) ============
@@ -41,16 +48,21 @@ export const clearHistory = (): void => {
 // ============ SETTINGS ============
 
 export const getSettings = (): KdsSettings => {
+  const defaults = getDefaultSettings();
   try {
     const raw = localStorage.getItem(KEYS.SETTINGS);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      const merged = { ...defaults, ...parsed };
+      if (LEGACY_DEFAULT_IPS.has(String(parsed.posIp)) && defaults.posIp !== 'localhost') {
+        merged.posIp = defaults.posIp;
+      }
+      return merged;
     }
   } catch {
     // fall through
   }
-  return { ...DEFAULT_SETTINGS };
+  return defaults;
 };
 
 export const saveSettings = (settings: KdsSettings): void => {
@@ -58,7 +70,7 @@ export const saveSettings = (settings: KdsSettings): void => {
 };
 
 export const resetSettings = (): void => {
-  localStorage.setItem(KEYS.SETTINGS, JSON.stringify(DEFAULT_SETTINGS));
+  localStorage.setItem(KEYS.SETTINGS, JSON.stringify(getDefaultSettings()));
 };
 
 // ============ RESET ============

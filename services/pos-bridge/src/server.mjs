@@ -3,7 +3,7 @@ import net from 'node:net';
 import os from 'node:os';
 import { WebSocketServer } from 'ws';
 
-const port = Number(process.env.POS_BRIDGE_PORT || process.env.PORT || 8080);
+const port = Number(process.env.POS_BRIDGE_PORT || 8080);
 const stations = new Map();
 let stationCounter = 0;
 

@@ -26,8 +26,7 @@ import type { KdsSettings } from '../types/kitchen';
 export const Settings: React.FC = () => {
   const navigate = useNavigate();
   const hostName = typeof window !== 'undefined' ? window.location.hostname : '';
-  const bridgeIp =
-    hostName && hostName !== 'localhost' && hostName !== '127.0.0.1' ? hostName : '192.168.100.122';
+  const bridgeIp = hostName && hostName !== '127.0.0.1' ? hostName : 'localhost';
   const [settings, setSettings] = useState<KdsSettings>(getSettings);
   const [saved, setSaved] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
