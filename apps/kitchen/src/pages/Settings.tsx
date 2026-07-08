@@ -135,7 +135,13 @@ export const Settings: React.FC = () => {
               </div>
             </CardHeader>
             <div className="flex justify-end px-6 pb-6">
-              <Button variant="warning" size="sm" onClick={handleResetMemory} leftIcon={<Trash2 className="w-4 h-4" />}>
+              <Button
+                variant="warning"
+                size="sm"
+                onClick={handleResetMemory}
+                leftIcon={<Trash2 className="w-4 h-4" />}
+                className="bg-amber-500 text-white hover:bg-amber-600 dark:bg-amber-500 dark:text-white dark:hover:bg-amber-600"
+              >
                 Clear
               </Button>
             </div>
