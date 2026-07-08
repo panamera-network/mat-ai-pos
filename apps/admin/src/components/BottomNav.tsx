@@ -9,11 +9,11 @@ export function BottomNav() {
   if (!isAuthenticated || location.pathname === '/login') return null;
 
   const tabs = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { path: '/sales', label: 'Sales', icon: TrendingUp },
     { path: '/staff', label: 'Staff', icon: Users },
     { path: '/inventory', label: 'Stock', icon: Package },
-    { path: '/settings', label: 'Settings', icon: Settings },
+    { path: '/settings', label: 'Profile', icon: Settings },
   ];
 
   return (

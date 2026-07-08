@@ -1,39 +1,55 @@
 // app/admin/src/hooks/useApi.ts
+import { useCallback, useMemo } from 'react';
 import { useAuthStore } from '../stores/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export function useApi() {
   const token = useAuthStore((state) => state.token);
+  const logout = useAuthStore((state) => state.logout);
 
-  const headers = () => ({
+  const headers = useCallback(() => ({
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  });
+  }), [token]);
 
-  const get = async (endpoint: string) => {
-    return fetch(`${API_URL}${endpoint}`, { headers: headers() });
-  };
+  const request = useCallback(async (endpoint: string, init?: RequestInit) => {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...init,
+      headers: {
+        ...headers(),
+        ...init?.headers,
+      },
+    });
 
-  const post = async (endpoint: string, body: any) => {
-    return fetch(`${API_URL}${endpoint}`, {
+    if (response.status === 401) {
+      logout();
+    }
+
+    return response;
+  }, [headers, logout]);
+
+  const get = useCallback(async (endpoint: string) => {
+    return request(endpoint);
+  }, [request]);
+
+  const post = useCallback(async (endpoint: string, body: any) => {
+    return request(endpoint, {
       method: 'POST',
-      headers: headers(),
       body: JSON.stringify(body),
     });
-  };
+  }, [request]);
 
-  const patch = async (endpoint: string, body: any) => {
-    return fetch(`${API_URL}${endpoint}`, {
+  const patch = useCallback(async (endpoint: string, body: any) => {
+    return request(endpoint, {
       method: 'PATCH',
-      headers: headers(),
       body: JSON.stringify(body),
     });
-  };
+  }, [request]);
 
-  const del = async (endpoint: string) => {
-    return fetch(`${API_URL}${endpoint}`, { method: 'DELETE', headers: headers() });
-  };
+  const del = useCallback(async (endpoint: string) => {
+    return request(endpoint, { method: 'DELETE' });
+  }, [request]);
 
-  return { get, post, patch, del };
+  return useMemo(() => ({ get, post, patch, del }), [del, get, patch, post]);
 }

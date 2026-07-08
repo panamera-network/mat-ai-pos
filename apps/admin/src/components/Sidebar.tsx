@@ -7,18 +7,18 @@ export function Sidebar() {
   const roleName = staff?.role?.name || 'Manager';
 
   const links = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { path: '/sales', label: 'Sales', icon: TrendingUp },
     { path: '/staff', label: 'Staff', icon: Users },
-    { path: '/inventory', label: 'Inventory', icon: Package },
-    { path: '/settings', label: 'Settings', icon: Settings },
+    { path: '/inventory', label: 'Stock Watch', icon: Package },
+    { path: '/settings', label: 'Profile', icon: Settings },
   ];
 
   return (
     <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-white border-r border-gray-200 h-screen fixed left-0 top-0 z-40">
       <div className="p-6 border-b border-gray-100">
         <h1 className="text-xl font-bold text-blue-600">MAT Admin</h1>
-        <p className="text-xs text-gray-500 mt-1">Manager Dashboard</p>
+        <p className="text-xs text-gray-500 mt-1">Owner Dashboard</p>
       </div>
 
       <nav className="flex-1 p-4 space-y-1">

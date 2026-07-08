@@ -1,183 +1,72 @@
-// apps/admin/src/pages/SettingsPage.tsx
-import { useState } from 'react';
+import { Bell, Database, LogOut, Shield, Store, User } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { LogOut, Store, Percent, Printer, User, Shield, Bell, CreditCard, AlertTriangle } from 'lucide-react';
-import { Input, Select } from '@mat-ai/ui';
-
-interface FallbackSettings {
-  fallbackChannel: 'whatsapp' | 'telegram' | 'sms' | 'none';
-  whatsappNumber: string;
-  telegramBotToken: string;
-  telegramChatId: string;
-}
 
 export function SettingsPage() {
   const { staff, logout } = useAuth();
-  const roleName = staff?.role?.name || 'Manager';
+  const roleName = typeof staff?.role === 'string' ? staff.role : staff?.role?.name || 'Admin';
 
-  // Fallback settings state
-  const [fallbackSettings, setFallbackSettings] = useState<FallbackSettings>(() => {
-    const saved = localStorage.getItem('mat-pos-settings');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return {
-          fallbackChannel: parsed.fallbackChannel || 'none',
-          whatsappNumber: parsed.whatsappNumber || '',
-          telegramBotToken: parsed.telegramBotToken || '',
-          telegramChatId: parsed.telegramChatId || '',
-        };
-      } catch {
-        // fall through to default
-      }
-    }
-    return {
-      fallbackChannel: 'none',
-      whatsappNumber: '',
-      telegramBotToken: '',
-      telegramChatId: '',
-    };
-  });
-
-  const handleFallbackChange = (field: keyof FallbackSettings, value: string) => {
-    const updated = { ...fallbackSettings, [field]: value };
-    setFallbackSettings(updated);
-    localStorage.setItem('mat-pos-settings', JSON.stringify(updated));
-  };
-
-  const settingsGroups = [
-    {
-      title: 'Business',
-      items: [
-        { icon: Store, label: 'Business Info', desc: 'Name, address, contact' },
-        { icon: Percent, label: 'Tax & Charges', desc: 'SST, service charge' },
-        { icon: CreditCard, label: 'Payment Methods', desc: 'Cash, card, e-wallet' },
-      ],
-    },
-    {
-      title: 'Hardware',
-      items: [
-        { icon: Printer, label: 'Printer Settings', desc: 'Receipt printer config' },
-        { icon: Bell, label: 'Notifications', desc: 'Alerts and sounds' },
-      ],
-    },
-    {
-      title: 'Security',
-      items: [
-        { icon: Shield, label: 'Staff PIN', desc: 'Manage access codes' },
-        { icon: User, label: 'Roles', desc: 'Admin, manager, cashier' },
-      ],
-    },
-  ];
-
-  const fallbackOptions = [
-    { value: 'whatsapp', label: 'WhatsApp (Default)' },
-    { value: 'telegram', label: 'Telegram' },
-    { value: 'sms', label: 'SMS' },
-    { value: 'none', label: 'Disable Fallback' },
+  const accessItems = [
+    { icon: Shield, label: 'Access Level', value: roleName },
+    { icon: Store, label: 'Workspace', value: 'MAT.ai POS' },
+    { icon: Database, label: 'Data Mode', value: 'Read-only dashboard' },
+    { icon: Bell, label: 'Live Updates', value: 'Orders and staff activity' },
   ];
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <h1 className="text-xl md:text-2xl font-bold text-gray-900">Settings</h1>
+    <div className="space-y-5 md:space-y-6">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Account</p>
+        <h1 className="text-2xl font-bold text-gray-950 md:text-3xl">Admin Profile</h1>
+      </div>
 
-      {/* User Profile Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 md:p-6 flex items-center gap-4 border-b border-gray-100">
-          <div className="w-14 h-14 md:w-16 md:h-16 bg-blue-100 rounded-2xl flex items-center justify-center">
-            <User className="w-7 h-7 md:w-8 md:h-8 text-blue-600" />
+      <section className="rounded-lg border border-gray-100 bg-white shadow-sm">
+        <div className="flex items-center gap-4 border-b border-gray-100 p-4 md:p-5">
+          <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-blue-50">
+            <User className="h-7 w-7 text-blue-600" />
           </div>
           <div>
-            <p className="text-lg font-semibold text-gray-900">{staff?.name || 'Admin'}</p>
-            <p className="text-sm text-gray-500">{roleName} - {staff?.employmentType?.replace('_', ' ') || ''}</p>
+            <p className="text-lg font-semibold text-gray-950">{staff?.name || 'Admin'}</p>
+            <p className="text-sm text-gray-500">{roleName}</p>
           </div>
         </div>
-      </div>
-
-      {/* Settings Groups */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {settingsGroups.map((group) => (
-          <div key={group.title} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-4 md:px-6 py-4 border-b border-gray-100">
-              <h2 className="font-semibold text-gray-900">{group.title}</h2>
+        <div className="grid gap-0 divide-y divide-gray-100 md:grid-cols-2 md:divide-x md:divide-y-0">
+          {accessItems.map((item) => (
+            <div key={item.label} className="flex items-center gap-3 p-4 md:p-5">
+              <item.icon className="h-5 w-5 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-500">{item.label}</p>
+                <p className="text-sm font-semibold text-gray-950">{item.value}</p>
+              </div>
             </div>
-            <div className="divide-y divide-gray-100">
-              {group.items.map((item) => (
-                <button key={item.label} className="w-full flex items-center gap-3 md:gap-4 p-4 md:px-6 hover:bg-gray-50 transition-colors text-left">
-                  <item.icon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{item.label}</p>
-                    <p className="text-xs text-gray-500 hidden sm:block">{item.desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Offline Fallback Settings */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-4 md:px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-amber-600" />
-          </div>
-          <h2 className="font-semibold text-gray-900">Offline Fallback</h2>
+          ))}
         </div>
-        <div className="p-4 md:p-6 space-y-4">
-          <Select
-            label="Fallback Channel"
-            value={fallbackSettings.fallbackChannel}
-            onChange={(e) => handleFallbackChange('fallbackChannel', e.target.value)}
-            options={fallbackOptions}
-            fullWidth
-          />
+      </section>
 
-          {fallbackSettings.fallbackChannel === 'whatsapp' && (
-            <Input
-              label="WhatsApp Number (with country code)"
-              value={fallbackSettings.whatsappNumber}
-              onChange={(e) => handleFallbackChange('whatsappNumber', e.target.value)}
-              placeholder="60123456789"
-              fullWidth
-            />
-          )}
-
-          {fallbackSettings.fallbackChannel === 'telegram' && (
-            <div className="space-y-3">
-              <Input
-                label="Bot Token"
-                value={fallbackSettings.telegramBotToken}
-                onChange={(e) => handleFallbackChange('telegramBotToken', e.target.value)}
-                placeholder="123456:ABC-DEF..."
-                fullWidth
-              />
-              <Input
-                label="Chat ID"
-                value={fallbackSettings.telegramChatId}
-                onChange={(e) => handleFallbackChange('telegramChatId', e.target.value)}
-                placeholder="-1001234567890"
-                fullWidth
-              />
-            </div>
-          )}
-
-          {fallbackSettings.fallbackChannel === 'sms' && (
-            <div className="p-3 bg-gray-50 rounded-xl text-sm text-gray-500">
-              SMS fallback coming soon. Please use WhatsApp or Telegram for now.
-            </div>
-          )}
+      <section className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm md:p-5">
+        <h2 className="font-semibold text-gray-950">Admin Scope</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <ScopeCard title="Sales" text="Revenue, paid orders, order mix" />
+          <ScopeCard title="Staff" text="Roster, attendance, payroll status" />
+          <ScopeCard title="Stock" text="Inventory levels and stock movement" />
         </div>
-      </div>
+      </section>
 
-      {/* Logout */}
       <button
         onClick={logout}
-        className="w-full md:w-auto md:px-8 flex items-center justify-center gap-2 py-4 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-50 px-5 py-3 font-medium text-red-600 hover:bg-red-100 md:w-auto"
       >
-        <LogOut className="w-5 h-5" />
+        <LogOut className="h-5 w-5" />
         Logout
       </button>
+    </div>
+  );
+}
+
+function ScopeCard({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+      <p className="text-sm font-semibold text-gray-950">{title}</p>
+      <p className="mt-1 text-sm text-gray-500">{text}</p>
     </div>
   );
 }

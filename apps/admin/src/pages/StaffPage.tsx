@@ -1,248 +1,198 @@
-// app/admin/src/pages/StaffPage.tsx
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Clock, RefreshCw, UserCheck, Users, Wallet } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
-import { useStaffCache } from '../stores/staffCache';
-import { RefreshCw } from 'lucide-react';
+import {
+  Payroll,
+  StaffMember,
+  Timecard,
+  compactLabel,
+  displayRole,
+  formatDateTime,
+  money,
+  readJson,
+  toNumber,
+} from '../lib/adminData';
 
-type StaffTab = 'staff' | 'attendance' | 'payroll';
+type StaffTab = 'roster' | 'attendance' | 'payroll';
 
 export function StaffPage() {
   const { get } = useApi();
-  const cache = useStaffCache();
+  const [activeTab, setActiveTab] = useState<StaffTab>('roster');
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [timecards, setTimecards] = useState<Timecard[]>([]);
+  const [payrolls, setPayrolls] = useState<Payroll[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const cached = cache.getData();
-  const [activeTab, setActiveTab] = useState<StaffTab>('staff');
-  const [staffList, setStaffList] = useState<any[]>(cached?.staffList || []);
-  const [timecards, setTimecards] = useState<any[]>(cached?.timecards || []);
-  const [payrolls, setPayrolls] = useState<any[]>(cached?.payrolls || []);
-  const [loading, setLoading] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(
-    cache.timestamp > 0 ? new Date(cache.timestamp) : null
-  );
-
-  const fetchData = useCallback(async (isManual = false) => {
-    if (!isManual) setLoading(true);
+  const fetchStaff = useCallback(async () => {
+    setLoading(true);
     try {
       const [staffRes, timeRes, payrollRes] = await Promise.all([
         get('/staff'),
         get('/timecard'),
         get('/payroll'),
       ]);
-
-      const newStaff = staffRes.ok ? await staffRes.json() : [];
-      const newTimecards = timeRes.ok ? await timeRes.json() : [];
-      const newPayrolls = payrollRes.ok ? await payrollRes.json() : [];
-
-      setStaffList(newStaff);
-      setTimecards(newTimecards);
-      setPayrolls(newPayrolls);
-      cache.setData(newStaff, newTimecards, newPayrolls);
-      setLastRefresh(new Date());
-    } catch (err) {
-      console.error('Staff fetch error:', err);
+      setStaff(await readJson<StaffMember[]>(staffRes, []));
+      setTimecards(await readJson<Timecard[]>(timeRes, []));
+      setPayrolls(await readJson<Payroll[]>(payrollRes, []));
     } finally {
       setLoading(false);
     }
-  }, [get, cache]);
+  }, [get]);
 
   useEffect(() => {
-    if (cache.isExpired()) {
-      fetchData();
-    }
-  }, [fetchData, cache]);
+    fetchStaff();
+  }, [fetchStaff]);
 
-  const timeAgo = () => {
-    if (!lastRefresh) return 'Never';
-    const diff = Math.floor((Date.now() - lastRefresh.getTime()) / 60000);
-    if (diff < 1) return 'Just now';
-    if (diff < 60) return `${diff} min ago`;
-    return lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  const metrics = useMemo(() => {
+    const activeStaff = staff.filter((member) => member.isActive).length;
+    const onDuty = timecards.filter((card) => card.clockIn && !card.clockOut).length;
+    const pendingPayroll = payrolls.filter((payroll) => payroll.status !== 'PAID').length;
+    const payrollValue = payrolls.reduce((sum, payroll) => sum + toNumber(payroll.nettPay), 0);
+    return { activeStaff, onDuty, pendingPayroll, payrollValue };
+  }, [payrolls, staff, timecards]);
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Staff Management</h1>
+    <div className="space-y-5 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Staff</p>
+          <h1 className="text-2xl font-bold text-gray-950 md:text-3xl">Team Snapshot</h1>
+        </div>
         <button
-          onClick={() => fetchData(true)}
+          onClick={fetchStaff}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg text-xs text-gray-600 hover:bg-gray-200 disabled:opacity-50 transition-colors w-fit"
+          className="inline-flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 disabled:opacity-50"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Loading...' : timeAgo()}
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
         </button>
       </div>
 
-      <div className="flex gap-2">
-        {(['staff', 'attendance', 'payroll'] as StaffTab[]).map((t) => (
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Metric icon={Users} label="Staff" value={staff.length.toString()} tone="text-blue-600" />
+        <Metric icon={UserCheck} label="Active" value={metrics.activeStaff.toString()} tone="text-emerald-600" />
+        <Metric icon={Clock} label="On Duty" value={metrics.onDuty.toString()} tone="text-amber-600" />
+        <Metric icon={Wallet} label="Payroll" value={money(metrics.payrollValue)} tone="text-violet-600" />
+      </div>
+
+      <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+        {(['roster', 'attendance', 'payroll'] as StaffTab[]).map((tab) => (
           <button
-            key={t}
-            onClick={() => setActiveTab(t)}
-            className={`flex-1 sm:flex-none sm:px-6 py-2 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === t ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`rounded-md px-4 py-2 text-sm font-medium capitalize ${
+              activeTab === tab ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {tab}
           </button>
         ))}
       </div>
 
-      {loading && staffList.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
-          <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
-          <p>Loading staff data...</p>
-        </div>
-      )}
-
-      {activeTab === 'staff' && (
-        <>
-          <div className="md:hidden space-y-2">
-            {staffList.map((staff) => (
-              <div key={staff.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-gray-900">{staff.name}</p>
-                    <p className="text-xs text-gray-500">{staff.role} • {staff.employmentType?.replace('_', ' ')}</p>
-                  </div>
-                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${staff.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                    {staff.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
+      {activeTab === 'roster' && (
+        <DataPanel empty={staff.length === 0 ? 'No staff data' : ''}>
+          {staff.map((member) => (
+            <Row key={member.id}>
+              <div>
+                <p className="text-sm font-semibold text-gray-950">{member.name ?? 'Staff'}</p>
+                <p className="text-xs text-gray-500">{compactLabel(member.employmentType)}</p>
               </div>
-            ))}
-          </div>
-
-          <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Name</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Role</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Type</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Rate</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {staffList.map((staff) => (
-                  <tr key={staff.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{staff.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{staff.role}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{staff.employmentType?.replace('_', ' ')}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {staff.hourlyRate ? `RM${staff.hourlyRate}/hr` : staff.monthlySalary ? `RM${staff.monthlySalary}/mo` : '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium ${staff.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {staff.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+              <p className="hidden text-sm text-gray-600 md:block">{displayRole(member)}</p>
+              <p className="hidden text-sm text-gray-500 md:block">
+                {member.hourlyRate ? `${money(member.hourlyRate)}/hr` : member.monthlySalary ? `${money(member.monthlySalary)}/mo` : '-'}
+              </p>
+              <Status active={Boolean(member.isActive)} label={member.isActive ? 'Active' : 'Inactive'} />
+            </Row>
+          ))}
+        </DataPanel>
       )}
 
       {activeTab === 'attendance' && (
-        <>
-          <div className="md:hidden space-y-2">
-            {timecards.map((tc) => (
-              <div key={tc.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-sm text-gray-900">{tc.staff?.name || 'Unknown'}</p>
-                    <p className="text-xs text-gray-500">{new Date(tc.clockIn).toLocaleString()}</p>
-                  </div>
-                  {tc.clockOut ? <span className="text-xs text-green-600 font-medium">Out</span> : <span className="text-xs text-blue-600 font-medium">On Duty</span>}
-                </div>
+        <DataPanel empty={timecards.length === 0 ? 'No attendance data' : ''}>
+          {timecards.map((card) => (
+            <Row key={card.id}>
+              <div>
+                <p className="text-sm font-semibold text-gray-950">{card.staff?.name ?? 'Unknown'}</p>
+                <p className="text-xs text-gray-500">{formatDateTime(card.clockIn)}</p>
               </div>
-            ))}
-          </div>
-
-          <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Staff</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Clock In</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Clock Out</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Hours</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {timecards.map((tc) => (
-                  <tr key={tc.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{tc.staff?.name || 'Unknown'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{new Date(tc.clockIn).toLocaleString()}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{tc.clockOut ? new Date(tc.clockOut).toLocaleString() : '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{tc.totalHours || '-'}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium ${tc.clockOut ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>
-                        {tc.clockOut ? 'Completed' : 'On Duty'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+              <p className="hidden text-sm text-gray-600 md:block">{card.clockOut ? formatDateTime(card.clockOut) : 'On duty'}</p>
+              <p className="hidden text-sm text-gray-500 md:block">{card.totalHours ?? '-'} hours</p>
+              <Status active={!card.clockOut} label={card.clockOut ? 'Done' : 'On Duty'} />
+            </Row>
+          ))}
+        </DataPanel>
       )}
 
       {activeTab === 'payroll' && (
-        <>
-          <div className="md:hidden space-y-2">
-            {payrolls.map((pr) => (
-              <div key={pr.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-sm text-gray-900">{pr.staff?.name || 'Unknown'}</p>
-                    <p className="text-xs text-gray-500">{new Date(pr.periodStart).toLocaleDateString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-gray-900">RM{Number(pr.nettPay).toFixed(2)}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded ${pr.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{pr.status}</span>
-                  </div>
-                </div>
+        <DataPanel empty={payrolls.length === 0 ? 'No payroll data' : ''}>
+          {payrolls.map((payroll) => (
+            <Row key={payroll.id}>
+              <div>
+                <p className="text-sm font-semibold text-gray-950">{payroll.staff?.name ?? 'Unknown'}</p>
+                <p className="text-xs text-gray-500">
+                  {formatDateTime(payroll.periodStart)} - {formatDateTime(payroll.periodEnd)}
+                </p>
               </div>
-            ))}
-          </div>
+              <p className="hidden text-sm text-gray-600 md:block">{money(payroll.basicPay)}</p>
+              <p className="hidden text-sm text-red-600 md:block">{money(payroll.totalDeductions)}</p>
+              <div className="text-right">
+                <p className="text-sm font-bold text-gray-950">{money(payroll.nettPay)}</p>
+                <Status active={payroll.status === 'PAID'} label={compactLabel(payroll.status)} />
+              </div>
+            </Row>
+          ))}
+        </DataPanel>
+      )}
 
-          <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Staff</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Period</th>
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Basic</th>
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Deductions</th>
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Net Pay</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {payrolls.map((pr) => (
-                  <tr key={pr.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{pr.staff?.name || 'Unknown'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{new Date(pr.periodStart).toLocaleDateString()} - {new Date(pr.periodEnd).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900 text-right">RM{Number(pr.basicPay).toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm text-red-600 text-right">RM{Number(pr.totalDeductions).toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">RM{Number(pr.nettPay).toFixed(2)}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium ${pr.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {pr.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+      {metrics.pendingPayroll > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {metrics.pendingPayroll} payroll record waiting for settlement.
+        </div>
       )}
     </div>
+  );
+}
+
+function Metric({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: string;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
+      <Icon className={`mb-3 h-5 w-5 ${tone}`} />
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="mt-1 text-xl font-bold text-gray-950">{value}</p>
+    </div>
+  );
+}
+
+function DataPanel({ children, empty }: { children: React.ReactNode; empty: string }) {
+  return (
+    <section className="rounded-lg border border-gray-100 bg-white shadow-sm">
+      {empty ? <div className="px-4 py-10 text-center text-sm text-gray-400">{empty}</div> : <div className="divide-y divide-gray-100">{children}</div>}
+    </section>
+  );
+}
+
+function Row({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-[1fr_auto] gap-3 px-4 py-3 md:grid-cols-[1fr_150px_130px_auto] md:px-5">{children}</div>;
+}
+
+function Status({ active, label }: { active: boolean; label: string }) {
+  return (
+    <span
+      className={`h-fit rounded-md px-2 py-1 text-xs font-medium ${
+        active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
+      }`}
+    >
+      {label}
+    </span>
   );
 }
