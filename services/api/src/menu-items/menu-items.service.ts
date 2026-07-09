@@ -18,7 +18,11 @@ export class MenuItemsService {
             icon: true,
           },
         },
-        // ❌ Exclude: ingredients, stockLogs, orderItems
+        ingredients: {
+          select: {
+            inventoryItemId: true,
+          },
+        },
       },
     });
   }

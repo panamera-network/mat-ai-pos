@@ -132,12 +132,12 @@ export const RecipeBuilderPage: React.FC = () => {
     }
   };
 
-  const handleUpdateIngredient = async (inventoryItemId: string, newQuantity: number) => {
+  const handleUpdateIngredient = async (inventoryItemId: string, newQuantity: number, ingredientUnit: string) => {
     if (!menuItemId) return;
     try {
       await patch(`/costing/menu-items/${menuItemId}/ingredients/${inventoryItemId}`, {
         quantity: newQuantity,
-        unit,
+        unit: ingredientUnit,
       });
       fetchData();
     } catch (err) {
@@ -275,7 +275,7 @@ export const RecipeBuilderPage: React.FC = () => {
                         <input
                           type="number"
                           value={ing.quantity}
-                          onChange={(e) => handleUpdateIngredient(ing.inventoryItemId, parseFloat(e.target.value) || 0)}
+                          onChange={(e) => handleUpdateIngredient(ing.inventoryItemId, parseFloat(e.target.value) || 0, ing.unit)}
                           className="w-20 px-2 py-1 border rounded text-right text-sm"
                         />
                         <span className="text-xs text-gray-500 ml-1">{ing.unit}</span>

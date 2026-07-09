@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Put,
   Delete,
   Body,
@@ -34,6 +35,7 @@ export class CostingController {
     return this.costingService.addIngredientToRecipe(menuItemId, dto);
   }
 
+  @Patch('menu-items/:menuItemId/ingredients/:inventoryItemId')
   @Put('menu-items/:menuItemId/ingredients/:inventoryItemId')
   async updateRecipeIngredient(
     @Param('menuItemId') menuItemId: string,

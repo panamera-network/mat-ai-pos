@@ -42,11 +42,13 @@ export class CostingService {
       },
       update: {
         quantityUsed: dto.quantity,
+        unit: dto.unit || inventoryItem.unitOfMeasure || inventoryItem.unit || 'g',
       },
       create: {
         menuItemId,
         inventoryItemId: dto.inventoryItemId,
         quantityUsed: dto.quantity,
+        unit: dto.unit || inventoryItem.unitOfMeasure || inventoryItem.unit || 'g',
       },
       include: {
         inventoryItem: true,
@@ -73,6 +75,7 @@ export class CostingService {
       },
       data: {
         quantityUsed: dto.quantity,
+        unit: dto.unit,
       },
       include: {
         inventoryItem: true,
@@ -120,7 +123,7 @@ export class CostingService {
         inventoryItemId: mi.inventoryItemId || '',
         inventoryItemName: mi.inventoryItem?.name || 'Unknown',  // ← null check
         quantity: mi.quantityUsed,
-        unit: mi.inventoryItem?.unitOfMeasure || 'g',  // ← null check
+        unit: mi.unit || mi.inventoryItem?.unitOfMeasure || 'g',  // ← null check
         unitPrice,
         totalCost: Math.round(totalCost * 100) / 100,
       };
@@ -313,7 +316,7 @@ export class CostingService {
         inventoryItemId: mi.inventoryItemId,
         inventoryItemName: mi.inventoryItem?.name || 'Unknown',
         quantity: mi.quantityUsed,
-        unit: mi.inventoryItem?.unitOfMeasure || 'g',
+        unit: mi.unit || mi.inventoryItem?.unitOfMeasure || 'g',
         unitPrice,
         totalCost: Math.round(unitPrice * mi.quantityUsed * 100) / 100,
       };
